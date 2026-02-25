@@ -1,49 +1,49 @@
 # Stan Chrome Extensions
 
-A collection of lightweight Chrome extensions built with Manifest V3.
+基於 Manifest V3 打造的輕量級 Chrome 擴充功能合集。
 
 ---
 
-## Extensions
+## 擴充功能列表
 
-### 1. Glasp Remnants Remover
+### 1. Glasp 殘留清除器（Glasp Remnants Remover）
 
-**Location:** `glasp-remnants-remover/`
+**資料夾：** `glasp-remnants-remover/`
 
-Automatically removes leftover UI elements injected by the Glasp extension from every page you visit. If you've uninstalled Glasp but still see its sidebar or highlight markers on websites, this extension silently cleans them up.
+自動移除 Glasp 擴充功能在每個網頁上留下的多餘 UI 元素。如果你已經解除安裝 Glasp，卻仍在各網站看到它的側邊欄或螢光標記，這個擴充功能會靜默地將其清除乾淨。
 
-**Features**
-- Runs on all URLs (`<all_urls>`)
-- Cleans up existing `.glasp-extension` elements when the page loads
-- Uses a `MutationObserver` to remove any elements that Glasp injects dynamically after load
+**功能特色**
+- 適用於所有網址（`<all_urls>`）
+- 在頁面載入時清除既有的 `.glasp-extension` 元素
+- 使用 `MutationObserver` 監聽 DOM 變化，即時移除動態注入的元素
 
-**How to install**
-1. Open Chrome and go to `chrome://extensions`
-2. Enable **Developer mode** (top-right toggle)
-3. Click **Load unpacked** and select the `glasp-remnants-remover` folder
-
----
-
-### 2. YouTube Exact Upload Date
-
-**Location:** `youtube-video-upload-time/`
-
-Replaces YouTube's vague relative timestamps (e.g. *"2 years ago"*) with the precise local upload date and time, accurate to the second.
-
-**Features**
-- **Watch page** – injects the exact date & time (e.g. `2023-04-15 09:32:07`) directly into the video info bar
-- **Homepage / Channel / Search listings** – fetches and displays the exact upload date next to each video thumbnail via an `IntersectionObserver` (only fetches when a video scrolls into view)
-- Caches fetched dates to avoid redundant network requests
-- Displays dates in your local timezone
-
-**How to install**
-1. Open Chrome and go to `chrome://extensions`
-2. Enable **Developer mode** (top-right toggle)
-3. Click **Load unpacked** and select the `youtube-video-upload-time` folder
+**安裝方式**
+1. 開啟 Chrome，前往 `chrome://extensions`
+2. 啟用右上角的**開發人員模式**
+3. 點擊**載入未封裝項目**，選擇 `glasp-remnants-remover` 資料夾
 
 ---
 
-## Repository Structure
+### 2. YouTube 精確上傳日期（YouTube Exact Upload Date）
+
+**資料夾：** `youtube-video-upload-time/`
+
+將 YouTube 模糊的相對時間戳記（例如：*「2 年前」*）替換為精確到秒的本地上傳日期與時間。
+
+**功能特色**
+- **影片播放頁面** — 將精確日期時間（例如 `2023-04-15 09:32:07`）直接注入影片資訊欄
+- **首頁／頻道頁／搜尋結果** — 透過 `IntersectionObserver` 在影片縮圖旁顯示精確上傳日期，僅在影片進入可視範圍時才發送請求
+- 快取已擷取的日期，避免重複發送網路請求
+- 依照使用者的本地時區顯示日期時間
+
+**安裝方式**
+1. 開啟 Chrome，前往 `chrome://extensions`
+2. 啟用右上角的**開發人員模式**
+3. 點擊**載入未封裝項目**，選擇 `youtube-video-upload-time` 資料夾
+
+---
+
+## 專案結構
 
 ```
 stan-chrome-extensions/
@@ -55,10 +55,10 @@ stan-chrome-extensions/
     └── content.js
 ```
 
-## Contributing
+## 貢獻方式
 
-Pull requests are welcome. Please keep each extension self-contained inside its own folder.
+歡迎發送 Pull Request。請將每個擴充功能獨立置於各自的資料夾中。
 
-## License
+## 授權條款
 
 MIT
