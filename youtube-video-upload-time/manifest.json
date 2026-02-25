@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube 絕對精確日期 (完美客製版)",
+  "version": "5.0",
+  "description": "精準顯示至秒數，純淨無干擾的資訊欄顯示方式，並全面支援頻道與首頁清單。",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
