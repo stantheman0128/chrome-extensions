@@ -237,15 +237,24 @@ async function fetchExactDateForVideo(container) {
     let metaLine = null;
 
     if (tag === 'ytd-video-renderer') {
-        // 訂閱頁列表格式（水平卡片：縮圖左、內容右）
-        // 優先找右側內容區域（#meta/#info）內的 #metadata-line，避免誤抓縮圖左側
-        metaLine =
-            container.querySelector('#meta #metadata-line')                 ||
-            container.querySelector('#info #metadata-line')                 ||
-            container.querySelector('ytd-video-meta-block #metadata-line') ||
-            container.querySelector('ytd-video-meta-block')                 ||
-            container.querySelector('#metadata-line')                       ||
-            container.querySelector('#metadata');
+        if (window.location.pathname === '/feed/history') {
+            // History 頁面：有 description 展開區塊，#metadata 會涵蓋到 description
+            // 精確鎖定 ytd-video-meta-block 內的 metadata-line，避免日期跑進說明文字後面
+            metaLine =
+                container.querySelector('ytd-video-meta-block #metadata-line') ||
+                container.querySelector('#metadata-line')                       ||
+                container.querySelector('ytd-video-meta-block');
+        } else {
+            // 訂閱頁列表格式（水平卡片：縮圖左、內容右）
+            // 優先找右側內容區域（#meta/#info）內的 #metadata-line，避免誤抓縮圖左側
+            metaLine =
+                container.querySelector('#meta #metadata-line')                 ||
+                container.querySelector('#info #metadata-line')                 ||
+                container.querySelector('ytd-video-meta-block #metadata-line') ||
+                container.querySelector('ytd-video-meta-block')                 ||
+                container.querySelector('#metadata-line')                       ||
+                container.querySelector('#metadata');
+        }
 
     } else if (tag === 'ytd-compact-video-renderer') {
         // 推薦欄緊湊格式（watch page 右側）
