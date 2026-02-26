@@ -17,10 +17,15 @@
 - 在頁面載入時清除既有的 `.glasp-extension` 元素
 - 使用 `MutationObserver` 監聽 DOM 變化，即時移除動態注入的元素
 
+**一鍵下載**
+
+[![下載 Glasp Remnants Remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
+
 **安裝方式**
-1. 開啟 Chrome，前往 `chrome://extensions`
-2. 啟用右上角的**開發人員模式**
-3. 點擊**載入未封裝項目**，選擇 `glasp-remnants-remover` 資料夾
+1. 點上方按鈕下載 `.zip` 並解壓縮
+2. 開啟 Chrome，前往 `chrome://extensions`
+3. 啟用右上角的**開發人員模式**
+4. 點擊**載入未封裝項目**，選擇解壓縮後的資料夾
 
 ---
 
@@ -36,10 +41,15 @@
 - 快取已擷取的日期，避免重複發送網路請求
 - 依照使用者的本地時區顯示日期時間
 
+**一鍵下載**
+
+[![下載 YouTube Exact Upload Date](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-red?style=for-the-badge&logo=youtube)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
+
 **安裝方式**
-1. 開啟 Chrome，前往 `chrome://extensions`
-2. 啟用右上角的**開發人員模式**
-3. 點擊**載入未封裝項目**，選擇 `youtube-video-upload-time` 資料夾
+1. 點上方按鈕下載 `.zip` 並解壓縮
+2. 開啟 Chrome，前往 `chrome://extensions`
+3. 啟用右上角的**開發人員模式**
+4. 點擊**載入未封裝項目**，選擇 `youtube-video-upload-time` 資料夾
 
 ---
 

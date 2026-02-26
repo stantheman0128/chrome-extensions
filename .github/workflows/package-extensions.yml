@@ -1,0 +1,42 @@
+name: Package Extensions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'youtube-video-upload-time/**'
+      - 'glasp-remnants-remover/**'
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package YouTube Exact Upload Date
+        run: zip -j youtube-video-upload-time.zip youtube-video-upload-time/manifest.json youtube-video-upload-time/content.js
+
+      - name: Package Glasp Remnants Remover
+        run: zip -j glasp-remnants-remover.zip glasp-remnants-remover/manifest.json glasp-remnants-remover/content.js
+
+      - name: Create or update "latest" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Build
+          body: |
+            每次推送到 main 自動更新。
+
+            ## 安裝方式
+            1. 點下方連結下載 `.zip` 檔並解壓縮
+            2. 開啟 Chrome → `chrome://extensions/`
+            3. 開啟右上角**開發人員模式**
+            4. 點選**載入未封裝項目** → 選擇解壓縮後的資料夾
+          files: |
+            youtube-video-upload-time.zip
+            glasp-remnants-remover.zip
+          make_latest: true
