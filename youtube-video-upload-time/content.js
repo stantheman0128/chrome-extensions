@@ -2,7 +2,6 @@
 const dateCache = new Map();
 const processingQueue = new Set();
 const processedMark = 'data-exact-date-processed';
-let lastWatchVideoId = null;
 
 // === 核心功能：時區與時間轉換器 ===
 function convertToLocalTime(isoDateStr, includeTime = false) {
@@ -27,40 +26,58 @@ function convertToLocalTime(isoDateStr, includeTime = false) {
     }
 }
 
-// 判斷 ISO 字串是否真的包含時間資訊
 function hasTimeComponent(isoStr) {
     return typeof isoStr === 'string' && isoStr.includes('T') && isoStr.length > 11;
 }
 
-// 從 meta tag 讀取最佳精度日期（用於 watch page，CSS 選擇器不受屬性順序影響）
-function getBestMetaDate() {
+// ==========================================
+// 取得 watch page 的日期（meta tag → JSON-LD 兩條路）
+// ==========================================
+function getBestWatchPageDate() {
+    // 方法一：meta tag（CSS 選擇器，與屬性順序無關）
     const published = document.querySelector('meta[itemprop="datePublished"]');
     const uploaded  = document.querySelector('meta[itemprop="uploadDate"]');
-
     const pubContent = published ? published.getAttribute('content') : null;
     const upContent  = uploaded  ? uploaded.getAttribute('content')  : null;
 
     if (pubContent && hasTimeComponent(pubContent)) return pubContent;
     if (upContent  && hasTimeComponent(upContent))  return upContent;
+    if (pubContent || upContent) return pubContent || upContent;
 
-    return pubContent || upContent || null;
+    // 方法二：JSON-LD（YouTube 也會將結構化資料寫進 <script type="application/ld+json">）
+    const ldScript = document.querySelector('script[type="application/ld+json"]');
+    if (ldScript) {
+        try {
+            const data = JSON.parse(ldScript.textContent);
+            const date = data.uploadDate || data.datePublished;
+            if (date) return date;
+        } catch(e) {}
+    }
+
+    return null;
 }
 
-// 從 fetch 回來的 HTML 文字中擷取日期（容錯：屬性順序 + JSON 回退）
+// ==========================================
+// 從 fetch 回來的 HTML 文字中擷取日期
+// 嘗試順序：meta tag（兩種屬性順序）→ JSON-LD uploadDate → publishDate
+// ==========================================
 function extractDateFromHtml(htmlText) {
-    // 嘗試 meta tag（兩種屬性順序）
-    const patterns = [
+    const metaPatterns = [
         /<meta\s+itemprop="datePublished"\s+content="([^"]+)"/,
         /<meta\s+content="([^"]+)"\s+itemprop="datePublished"/,
         /<meta\s+itemprop="uploadDate"\s+content="([^"]+)"/,
         /<meta\s+content="([^"]+)"\s+itemprop="uploadDate"/,
     ];
-    for (const re of patterns) {
+    for (const re of metaPatterns) {
         const m = htmlText.match(re);
-        if (m && m[1]) return m[1];
+        if (m) return m[1];
     }
 
-    // 回退：從頁面嵌入的 JSON (ytInitialPlayerResponse) 中擷取
+    // JSON-LD（含完整時間，格式如 "2023-04-15T09:32:07+00:00"）
+    const ldMatch = htmlText.match(/"uploadDate"\s*:\s*"([^"]+)"/);
+    if (ldMatch) return ldMatch[1];
+
+    // ytInitialPlayerResponse publishDate（日期只版）
     const jsonMatch = htmlText.match(/"publishDate"\s*:\s*"(\d{4}-\d{2}-\d{2}[^"]*)"/);
     if (jsonMatch) return jsonMatch[1];
 
@@ -73,35 +90,19 @@ function extractDateFromHtml(htmlText) {
 function injectWatchPageDate() {
     if (!window.location.pathname.startsWith('/watch')) return;
 
-    // 偵測 SPA 換片：清除舊 badge，避免顯示上一支影片的日期
-    const params = new URLSearchParams(window.location.search);
-    const currentVideoId = params.get('v');
-    if (currentVideoId !== lastWatchVideoId) {
-        const oldTag = document.getElementById('yt-exact-date-watch-desc');
-        if (oldTag) oldTag.remove();
-        lastWatchVideoId = currentVideoId;
-    }
-
-    const rawDate = getBestMetaDate();
+    const rawDate = getBestWatchPageDate();
     if (!rawDate) return;
 
     const includeTime = hasTimeComponent(rawDate);
     const exactDateTime = convertToLocalTime(rawDate, includeTime) || rawDate.split('T')[0];
 
-    // 選擇器優先順序：
-    //   1. ytd-watch-metadata #info  → 新版 YouTube UI（2024+），info row 直接在 watch-metadata 下
-    //   2. ytd-watch-metadata #description-inner #info → 舊版 UI
-    //   3. ytd-watch-metadata #info-container          → 另一種舊版結構
-    //   4. #above-the-fold #info                       → polymer 版本
-    //   5. ytd-video-primary-info-renderer #info       → 更舊版 UI
-    //   6. ytd-watch-metadata                          → 最終 fallback
+    // 選擇器優先順序（不再 fallback 到整個 ytd-watch-metadata 以免注入到描述區底部）
     const infoTarget =
-        document.querySelector('ytd-watch-metadata #info')                  ||
+        document.querySelector('ytd-watch-metadata #info')                    ||
         document.querySelector('ytd-watch-metadata #description-inner #info') ||
         document.querySelector('ytd-watch-metadata #info-container')          ||
         document.querySelector('#above-the-fold #info')                       ||
-        document.querySelector('ytd-video-primary-info-renderer #info')       ||
-        document.querySelector('ytd-watch-metadata');
+        document.querySelector('ytd-video-primary-info-renderer #info');
 
     if (!infoTarget) return;
 
@@ -110,20 +111,19 @@ function injectWatchPageDate() {
         descTag = document.createElement('span');
         descTag.id = 'yt-exact-date-watch-desc';
         descTag.style.cssText = 'color: #065fd4; font-weight: 600; margin-left: 10px; font-size: 1.4rem; background: #e8f0fe; padding: 2px 6px; border-radius: 4px; display: inline-block; vertical-align: middle;';
-
-        // id === 'info' → 附加在 info row 內部（和觀看次數並排）
-        // 其他 → appendChild 到容器尾端
-        if (infoTarget.id === 'info') {
-            infoTarget.appendChild(descTag);
-        } else {
-            infoTarget.appendChild(descTag);
-        }
+        infoTarget.appendChild(descTag);
     }
 
     if (descTag.textContent !== exactDateTime) {
         descTag.textContent = exactDateTime;
     }
 }
+
+// SPA 換頁時清除舊 badge，讓下一次 setInterval 重新注入
+document.addEventListener('yt-navigate-finish', () => {
+    const oldTag = document.getElementById('yt-exact-date-watch-desc');
+    if (oldTag) oldTag.remove();
+});
 
 // ==========================================
 // 2. 處理「首頁 / 頻道 / 搜尋清單」：懶加載 + 快取
@@ -137,14 +137,14 @@ const observer = new IntersectionObserver((entries) => {
 }, { rootMargin: '100px' });
 
 function processGridVideos() {
-    // 涵蓋舊版 polymer 架構 + 新版 yt-lockup-view-model（首頁 2024+ UI）
     const selectors = [
         'ytd-rich-item-renderer',
         'ytd-rich-grid-media',
         'ytd-grid-video-renderer',
         'ytd-video-renderer',
         'ytd-compact-video-renderer',
-        'yt-lockup-view-model',         // 新版首頁卡片
+        'yt-lockup-view-model',         // 首頁新版卡片（YouTube 2024+）
+        'yt-lockup-view-model-wiz',     // 可能的變體元素名稱
     ].map(s => s + ':not([' + processedMark + '])').join(', ');
 
     document.querySelectorAll(selectors).forEach(container => {
@@ -154,7 +154,7 @@ function processGridVideos() {
 }
 
 async function fetchExactDateForVideo(container) {
-    // 支援舊版 id 選擇器 + 新版任意含 watch?v= 的連結
+    // 支援舊版 id 選擇器與新版任意含 watch?v= 的連結
     const linkEl =
         container.querySelector('a#video-title-link, a#video-title, a#thumbnail') ||
         container.querySelector('a[href*="watch?v="]');
@@ -162,19 +162,16 @@ async function fetchExactDateForVideo(container) {
 
     let videoId;
     try {
-        const url = new URL(linkEl.href);
-        videoId = url.searchParams.get('v');
-    } catch(e) {
-        return;
-    }
+        videoId = new URL(linkEl.href).searchParams.get('v');
+    } catch(e) { return; }
     if (!videoId) return;
 
-    // 找 metadata-line / 新版 UI 的對應容器
+    // 找 metadata 注入目標（涵蓋舊版 polymer + 新版 yt-lockup-view-model）
     const metaLine =
-        container.querySelector('#metadata-line') ||
+        container.querySelector('#metadata-line')                      ||
         container.querySelector('ytd-video-meta-block #metadata-line') ||
-        container.querySelector('#metadata') ||
-        container.querySelector('yt-video-attributes-view-model') || // yt-lockup-view-model 內部
+        container.querySelector('#metadata')                           ||
+        container.querySelector('yt-video-attributes-view-model')      || // 新版 UI
         container.querySelector('ytd-video-meta-block');
     if (!metaLine) return;
 
