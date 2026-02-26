@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "YouTube 絕對精確日期 (完美客製版)",
-  "version": "5.0",
-  "description": "精準顯示至秒數，純淨無干擾的資訊欄顯示方式，並全面支援頻道與首頁清單。",
+  "version": "6.0",
+  "description": "精準顯示上傳日期至秒數。支援影片播放頁資訊欄、首頁、頻道頁及搜尋清單，相容 YouTube 2024+ 新版 UI。",
   "permissions": ["storage"],
   "content_scripts": [
     {
