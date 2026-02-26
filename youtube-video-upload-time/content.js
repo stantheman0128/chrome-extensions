@@ -232,29 +232,26 @@ async function fetchExactDateForVideo(container) {
     const videoId = getVideoId(linkEl.href);
     if (!videoId) return;
 
+    const isHistoryPage = window.location.pathname === '/feed/history';
+
     // 根據 container 類型分層查找 metadata 注入目標
     const tag = container.tagName.toLowerCase();
     let metaLine = null;
 
-    if (tag === 'ytd-video-renderer') {
-        if (window.location.pathname === '/feed/history') {
-            // History 頁面：有 description 展開區塊，#metadata 會涵蓋到 description
-            // 精確鎖定 ytd-video-meta-block 內的 metadata-line，避免日期跑進說明文字後面
-            metaLine =
-                container.querySelector('ytd-video-meta-block #metadata-line') ||
-                container.querySelector('#metadata-line')                       ||
-                container.querySelector('ytd-video-meta-block');
-        } else {
-            // 訂閱頁列表格式（水平卡片：縮圖左、內容右）
-            // 優先找右側內容區域（#meta/#info）內的 #metadata-line，避免誤抓縮圖左側
-            metaLine =
-                container.querySelector('#meta #metadata-line')                 ||
-                container.querySelector('#info #metadata-line')                 ||
-                container.querySelector('ytd-video-meta-block #metadata-line') ||
-                container.querySelector('ytd-video-meta-block')                 ||
-                container.querySelector('#metadata-line')                       ||
-                container.querySelector('#metadata');
-        }
+    if (tag === 'ytd-video-renderer' && isHistoryPage) {
+        // History 頁面：跳過 metaLine，使用獨立的 injectDateForHistory()
+        // （History 的 DOM 容器包含 description，appendChild 會被 flex 擠到說明文字旁邊）
+
+    } else if (tag === 'ytd-video-renderer') {
+        // 訂閱頁列表格式（水平卡片：縮圖左、內容右）
+        // 優先找右側內容區域（#meta/#info）內的 #metadata-line，避免誤抓縮圖左側
+        metaLine =
+            container.querySelector('#meta #metadata-line')                 ||
+            container.querySelector('#info #metadata-line')                 ||
+            container.querySelector('ytd-video-meta-block #metadata-line') ||
+            container.querySelector('ytd-video-meta-block')                 ||
+            container.querySelector('#metadata-line')                       ||
+            container.querySelector('#metadata');
 
     } else if (tag === 'ytd-compact-video-renderer') {
         // 推薦欄緊湊格式（watch page 右側）
@@ -298,11 +295,15 @@ async function fetchExactDateForVideo(container) {
             container.querySelector('#details');
     }
 
-    // Fallback：找不到任何 metaLine 時，用 container 本身當作注入點
-    if (!metaLine) metaLine = container;
+    // Fallback：找不到任何 metaLine 時，用 container 本身當作注入點（History 除外）
+    if (!metaLine && !isHistoryPage) metaLine = container;
 
     if (dateCache.has(videoId)) {
-        injectDateIntoDOM(metaLine, dateCache.get(videoId));
+        if (isHistoryPage) {
+            injectDateForHistory(container, dateCache.get(videoId));
+        } else {
+            injectDateIntoDOM(metaLine, dateCache.get(videoId));
+        }
         observer.unobserve(container);
         return;
     }
@@ -331,7 +332,11 @@ async function fetchExactDateForVideo(container) {
             const exactDate = convertToLocalTime(rawDate, false) || rawDate.split('T')[0];
             dateCache.set(videoId, exactDate);
             chrome.storage.local.set({ ['v_' + videoId]: exactDate });
-            injectDateIntoDOM(metaLine, exactDate);
+            if (isHistoryPage) {
+                injectDateForHistory(container, exactDate);
+            } else {
+                injectDateIntoDOM(metaLine, exactDate);
+            }
         }
     } catch (e) {
         // 逾時或網路失敗，靜默處理
@@ -353,6 +358,23 @@ function injectDateIntoDOM(metaLine, exactDate) {
         '<span style="color: #065fd4; font-weight: 600; font-size: 1.2rem; background: #e8f0fe; padding: 2px 5px; border-radius: 4px;">' + exactDate + '</span>';
 
     metaLine.appendChild(dateBadge);
+}
+
+// History 頁面專用：在 ytd-video-meta-block 後面（description 前面）插入獨立日期行
+// 不用 appendChild（會被 flex 擠進 description），改用 insertAdjacentElement 作為 sibling
+function injectDateForHistory(container, exactDate) {
+    if (container.querySelector('.yt-exact-date-grid')) return;
+
+    const anchor = container.querySelector('ytd-video-meta-block');
+    if (!anchor) return;
+
+    const dateBadge = document.createElement('div');
+    dateBadge.className = 'yt-exact-date-grid';
+    dateBadge.style.cssText = 'margin-top: 2px;';
+    dateBadge.innerHTML =
+        '<span style="color: #065fd4; font-weight: 600; font-size: 1.2rem; background: #e8f0fe; padding: 2px 5px; border-radius: 4px;">' + exactDate + '</span>';
+
+    anchor.insertAdjacentElement('afterend', dateBadge);
 }
 
 // ==========================================
