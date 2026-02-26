@@ -1,15 +1,12 @@
-name: Package Extensions
+name: Package Extensions and Update README
 
 on:
   push:
     branches: [main]
-    paths:
-      - 'youtube-video-upload-time/**'
-      - 'glasp-remnants-remover/**'
   workflow_dispatch:
 
 jobs:
-  package:
+  package-and-update:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -17,12 +14,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Package YouTube Exact Upload Date
-        run: zip -j youtube-video-upload-time.zip youtube-video-upload-time/manifest.json youtube-video-upload-time/content.js
+      # Auto-detect every subdirectory that has a manifest.json and zip it.
+      # Using "zip -r dir.zip dir/" so extraction preserves the folder structure
+      # (Chrome's "Load unpacked" needs a folder, not loose files).
+      - name: Detect and package all extensions
+        run: |
+          for dir in */; do
+            dir="${dir%/}"
+            [ -f "${dir}/manifest.json" ] || continue
+            zip -r "${dir}.zip" "${dir}/"
+            echo "Packaged: ${dir}.zip"
+          done
 
-      - name: Package Glasp Remnants Remover
-        run: zip -j glasp-remnants-remover.zip glasp-remnants-remover/manifest.json glasp-remnants-remover/content.js
+      # Regenerate README from manifest.json + DESCRIPTION.md in each extension folder.
+      # Adding a new extension? Just create its folder — this script finds it automatically.
+      - name: Generate README.md
+        run: python3 .github/scripts/generate_readme.py
 
+      # Commit the updated README back to main.
+      # "[skip ci]" prevents this commit from re-triggering the workflow.
+      - name: Commit README if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git diff --staged --quiet || (
+            git commit -m "docs: auto-update README [skip ci]" && git push
+          )
+
+      # Create or overwrite the "latest" GitHub Release with all packaged ZIPs.
       - name: Create or update "latest" release
         uses: softprops/action-gh-release@v2
         with:
@@ -32,11 +52,9 @@ jobs:
             每次推送到 main 自動更新。
 
             ## 安裝方式
-            1. 點下方連結下載 `.zip` 檔並解壓縮
+            1. 點下方連結下載 `.zip` 並解壓縮
             2. 開啟 Chrome → `chrome://extensions/`
             3. 開啟右上角**開發人員模式**
             4. 點選**載入未封裝項目** → 選擇解壓縮後的資料夾
-          files: |
-            youtube-video-upload-time.zip
-            glasp-remnants-remover.zip
+          files: "*.zip"
           make_latest: true
