@@ -20,10 +20,6 @@
 
 <a id="ext-glasp-remnants-remover"></a>
 
----
-
-## 擴充功能列表
-
 ### 1. Remove Glasp Remnants
 
 **資料夾：** `glasp-remnants-remover/`
