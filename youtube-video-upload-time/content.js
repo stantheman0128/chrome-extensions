@@ -257,7 +257,13 @@ async function fetchExactDateForVideo(container) {
     }
 
     if (processingQueue.has(videoId)) return;
-    if (activeRequests >= MAX_CONCURRENT) return; // 讓 observer 下次重試
+    if (activeRequests >= MAX_CONCURRENT) {
+        // 放回去讓下次掃描重新處理：移除 processedMark + unobserve
+        // IntersectionObserver 不會對已可見元素重複觸發，需要重新 observe 才能再次觸發
+        container.removeAttribute(processedMark);
+        observer.unobserve(container);
+        return;
+    }
     processingQueue.add(videoId);
     activeRequests++;
 
@@ -266,24 +272,12 @@ async function fetchExactDateForVideo(container) {
         const timer = setTimeout(() => controller.abort(), 8000);
 
         // 用 /watch?v=ID 取得 HTML（含 datePublished meta tag）
+        // YouTube 的 datePublished / publishDate 可能在 HTML 後半段（ytInitialPlayerResponse），
+        // 需要讀完整個 response，stream 截斷 80KB 會漏掉
         const response = await fetch('/watch?v=' + videoId, { signal: controller.signal });
         clearTimeout(timer);
-
-        // Stream 截斷最佳化：meta tag 在 <head> 內，通常前 20–30KB 就出現
-        // 找到日期後立刻停止，不用等剩下幾百 KB 下載完
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let htmlChunk = '';
-        let rawDate = null;
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            htmlChunk += decoder.decode(value, { stream: true });
-            rawDate = extractDateFromHtml(htmlChunk);
-            if (rawDate) { reader.cancel(); break; }
-            if (htmlChunk.length > 80000) break; // 80KB 安全上限
-        }
+        const htmlText = await response.text();
+        const rawDate = extractDateFromHtml(htmlText);
 
         if (rawDate) {
             const exactDate = convertToLocalTime(rawDate, false) || rawDate.split('T')[0];
