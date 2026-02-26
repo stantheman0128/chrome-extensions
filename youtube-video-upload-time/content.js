@@ -128,6 +128,42 @@ function injectWatchPageDate() {
 }
 
 // ==========================================
+// 1b. 處理「Shorts 全屏頁面」：直讀 meta tag，仿照 injectWatchPageDate
+// ==========================================
+function injectShortsPageDate() {
+    if (!window.location.pathname.startsWith('/shorts/')) return;
+
+    const rawDate = getBestWatchPageDate();
+    if (!rawDate) return;
+
+    const includeTime = hasTimeComponent(rawDate);
+    const exactDateTime = convertToLocalTime(rawDate, includeTime) || rawDate.split('T')[0];
+
+    const infoTarget =
+        document.querySelector('ytd-shorts #details')              ||
+        document.querySelector('ytd-reel-video-renderer #details') ||
+        document.querySelector('ytd-shorts-player')                ||
+        document.querySelector('ytd-shorts');
+
+    if (!infoTarget) return;
+
+    let descTag = document.getElementById('yt-exact-date-shorts-desc');
+    if (!descTag) {
+        descTag = document.createElement('span');
+        descTag.id = 'yt-exact-date-shorts-desc';
+        descTag.style.cssText =
+            'color: #065fd4; font-weight: 600; margin-left: 10px; font-size: 1.4rem; ' +
+            'background: #e8f0fe; padding: 2px 6px; border-radius: 4px; ' +
+            'display: inline-block; vertical-align: middle;';
+        infoTarget.appendChild(descTag);
+    }
+
+    if (descTag.textContent !== exactDateTime) {
+        descTag.textContent = exactDateTime;
+    }
+}
+
+// ==========================================
 // SPA 換頁事件：清除所有舊 badge 與 processedMark
 // 讓下一次 setInterval 重新掃描所有影片卡片
 // ==========================================
@@ -135,6 +171,10 @@ document.addEventListener('yt-navigate-finish', () => {
     // Watch page badge
     const oldTag = document.getElementById('yt-exact-date-watch-desc');
     if (oldTag) oldTag.remove();
+
+    // Shorts 全屏 badge
+    const oldShortsTag = document.getElementById('yt-exact-date-shorts-desc');
+    if (oldShortsTag) oldShortsTag.remove();
 
     // 清除所有影片卡片上的舊標記和舊 badge
     // YouTube SPA 換頁後會原地更新卡片內容，若不清除則不會重新注入
@@ -191,17 +231,63 @@ async function fetchExactDateForVideo(container) {
     const videoId = getVideoId(linkEl.href);
     if (!videoId) return;
 
-    // 找 metadata 注入目標，涵蓋各頁面的不同渲染結構
-    const metaLine =
-        container.querySelector('#metadata-line')                      ||
-        container.querySelector('ytd-video-meta-block #metadata-line') ||
-        container.querySelector('#metadata')                           ||
-        container.querySelector('yt-video-attributes-view-model')      || // 新版 UI
-        container.querySelector('ytd-video-meta-block')                ||
-        container.querySelector('#meta')                               ||
-        container.querySelector('#details');                              // Shorts / 其他備援
+    // 根據 container 類型分層查找 metadata 注入目標
+    const tag = container.tagName.toLowerCase();
+    let metaLine = null;
 
-    if (!metaLine) return;
+    if (tag === 'ytd-video-renderer') {
+        // 訂閱頁列表格式
+        metaLine =
+            container.querySelector('ytd-video-meta-block #metadata-line') ||
+            container.querySelector('ytd-video-meta-block')                 ||
+            container.querySelector('#metadata-line')                       ||
+            container.querySelector('#metadata');
+
+    } else if (tag === 'ytd-compact-video-renderer') {
+        // 推薦欄緊湊格式（watch page 右側）
+        metaLine =
+            container.querySelector('ytd-compact-video-meta-block #metadata-line') ||
+            container.querySelector('ytd-compact-video-meta-block')                 ||
+            container.querySelector('#metadata-line')                               ||
+            container.querySelector('#metadata');
+
+    } else if (tag === 'ytd-rich-item-renderer' || tag === 'ytd-rich-grid-media') {
+        // 首頁舊版 rich grid
+        metaLine =
+            container.querySelector('ytd-video-meta-block #metadata-line') ||
+            container.querySelector('#metadata-line')                       ||
+            container.querySelector('ytd-video-meta-block')                 ||
+            container.querySelector('#metadata');
+
+    } else if (tag === 'yt-lockup-view-model' || tag === 'yt-lockup-view-model-wiz') {
+        // 首頁 2024+ 新版 UI
+        metaLine =
+            container.querySelector('yt-video-attributes-view-model') ||
+            container.querySelector('#metadata-line')                  ||
+            container.querySelector('#metadata')                       ||
+            container.querySelector('#details');
+
+    } else if (tag === 'ytd-reel-item-renderer' || tag === 'ytd-reel-video-renderer') {
+        // Shorts shelf 卡片
+        metaLine =
+            container.querySelector('#details') ||
+            container.querySelector('#meta')    ||
+            container.querySelector('#metadata');
+
+    } else {
+        // 其他（ytd-grid-video-renderer、ytd-playlist-video-renderer 等）
+        metaLine =
+            container.querySelector('#metadata-line')                       ||
+            container.querySelector('ytd-video-meta-block #metadata-line') ||
+            container.querySelector('#metadata')                            ||
+            container.querySelector('yt-video-attributes-view-model')      ||
+            container.querySelector('ytd-video-meta-block')                 ||
+            container.querySelector('#meta')                                ||
+            container.querySelector('#details');
+    }
+
+    // Fallback：找不到任何 metaLine 時，用 container 本身當作注入點
+    if (!metaLine) metaLine = container;
 
     if (dateCache.has(videoId)) {
         injectDateIntoDOM(metaLine, dateCache.get(videoId));
@@ -252,5 +338,6 @@ function injectDateIntoDOM(metaLine, exactDate) {
 // 啟動巡邏
 setInterval(() => {
     injectWatchPageDate();
+    injectShortsPageDate();
     processGridVideos();
 }, 800);
