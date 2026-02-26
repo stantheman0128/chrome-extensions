@@ -218,18 +218,6 @@ function processGridVideos() {
 
     document.querySelectorAll(selectors).forEach(container => {
         container.setAttribute(processedMark, 'true');
-
-        // Cache hit：不等 IntersectionObserver，掃描到就直接注入
-        // 避免可見影片滾進畫面後才出現日期的閃爍感
-        const linkEl =
-            container.querySelector('a#video-title-link, a#video-title, a#thumbnail') ||
-            container.querySelector('a[href*="watch?v="], a[href*="/shorts/"]');
-        const videoId = linkEl && getVideoId(linkEl.href);
-        if (videoId && dateCache.has(videoId)) {
-            fetchExactDateForVideo(container); // cache 路線同步完成，直接注入
-            return;
-        }
-
         observer.observe(container);
     });
 }
