@@ -2,11 +2,14 @@
 
 基於 Manifest V3 打造的輕量級 Chrome 擴充功能合集。
 
+> **README 由 GitHub Actions 自動生成。**
+> 欲修改擴充功能的說明，請編輯對應資料夾內的 `DESCRIPTION.md`。
+
 ---
 
 ## 擴充功能列表
 
-### 1. Glasp 殘留清除器（Glasp Remnants Remover）
+### 1. Remove Glasp Remnants
 
 **資料夾：** `glasp-remnants-remover/`
 
@@ -19,17 +22,17 @@
 
 **一鍵下載**
 
-[![下載 Glasp Remnants Remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
+[![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
 2. 開啟 Chrome，前往 `chrome://extensions`
 3. 啟用右上角的**開發人員模式**
-4. 點擊**載入未封裝項目**，選擇解壓縮後的資料夾
+4. 點擊**載入未封裝項目**，選擇解壓縮後的 `glasp-remnants-remover` 資料夾
 
 ---
 
-### 2. YouTube 精確上傳日期（YouTube Exact Upload Date）
+### 2. YouTube 絕對精確日期 (完美客製版)
 
 **資料夾：** `youtube-video-upload-time/`
 
@@ -43,13 +46,13 @@
 
 **一鍵下載**
 
-[![下載 YouTube Exact Upload Date](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-red?style=for-the-badge&logo=youtube)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
+[![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
 2. 開啟 Chrome，前往 `chrome://extensions`
 3. 啟用右上角的**開發人員模式**
-4. 點擊**載入未封裝項目**，選擇 `youtube-video-upload-time` 資料夾
+4. 點擊**載入未封裝項目**，選擇解壓縮後的 `youtube-video-upload-time` 資料夾
 
 ---
 
@@ -58,16 +61,19 @@
 ```
 stan-chrome-extensions/
 ├── glasp-remnants-remover/
-│   ├── manifest.json
-│   └── content.js
+│   ├── DESCRIPTION.md
+│   ├── content.js
+│   └── manifest.json
 └── youtube-video-upload-time/
-    ├── manifest.json
-    └── content.js
+    ├── DESCRIPTION.md
+    ├── content.js
+    └── manifest.json
 ```
 
-## 貢獻方式
+## 新增擴充功能
 
-歡迎發送 Pull Request。請將每個擴充功能獨立置於各自的資料夾中。
+在 repo 根目錄建立新子目錄並放入 `manifest.json`，
+下次推送到 main 時 GitHub Actions 將自動打包、更新 Release 並重新生成此 README。
 
 ## 授權條款
 
