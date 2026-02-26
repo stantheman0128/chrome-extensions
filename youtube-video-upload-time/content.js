@@ -275,8 +275,14 @@ async function fetchExactDateForVideo(container) {
         // 注入到最後一個 metadata-row 才能和 "views • X ago" 同一行
         const contentMeta = container.querySelector('yt-content-metadata-view-model');
         if (contentMeta) {
-            const rows = contentMeta.querySelectorAll('.yt-content-metadata-view-model__metadata-row');
-            metaLine = rows[rows.length - 1] || contentMeta;
+            if (isHistoryPage) {
+                metaLine = contentMeta.querySelector(
+                    '.yt-content-metadata-view-model__metadata-row--metadata-row-padding'
+                ) || contentMeta;
+            } else {
+                const rows = contentMeta.querySelectorAll('.yt-content-metadata-view-model__metadata-row');
+                metaLine = rows[rows.length - 1] || contentMeta;
+            }
         }
         metaLine = metaLine ||
             container.querySelector('.yt-lockup-metadata-view-model__metadata') ||
