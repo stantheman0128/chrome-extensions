@@ -128,7 +128,7 @@ function injectWatchPageDate() {
 }
 
 // ==========================================
-// 1b. 處理「Shorts 全屏頁面」：直讀 meta tag，仿照 injectWatchPageDate
+// 1b. 處理「Shorts 全屏頁面」：直讀 meta tag，固定顯示在畫面頂部中央
 // ==========================================
 function injectShortsPageDate() {
     if (!window.location.pathname.startsWith('/shorts/')) return;
@@ -139,23 +139,19 @@ function injectShortsPageDate() {
     const includeTime = hasTimeComponent(rawDate);
     const exactDateTime = convertToLocalTime(rawDate, includeTime) || rawDate.split('T')[0];
 
-    const infoTarget =
-        document.querySelector('ytd-shorts #details')              ||
-        document.querySelector('ytd-reel-video-renderer #details') ||
-        document.querySelector('ytd-shorts-player')                ||
-        document.querySelector('ytd-shorts');
-
-    if (!infoTarget) return;
-
+    // 使用 position:fixed 貼在 YouTube 導覽列正下方中央
+    // 不依賴 Shorts 的任何 DOM 結構，避免覆蓋影片畫面
     let descTag = document.getElementById('yt-exact-date-shorts-desc');
     if (!descTag) {
-        descTag = document.createElement('span');
+        descTag = document.createElement('div');
         descTag.id = 'yt-exact-date-shorts-desc';
         descTag.style.cssText =
-            'color: #065fd4; font-weight: 600; margin-left: 10px; font-size: 1.4rem; ' +
-            'background: #e8f0fe; padding: 2px 6px; border-radius: 4px; ' +
-            'display: inline-block; vertical-align: middle;';
-        infoTarget.appendChild(descTag);
+            'position: fixed; top: 68px; left: 50%; transform: translateX(-50%); ' +
+            'color: #065fd4; font-weight: 700; font-size: 1.3rem; ' +
+            'background: rgba(232, 240, 254, 0.95); padding: 5px 14px; ' +
+            'border-radius: 20px; z-index: 10000; pointer-events: none; ' +
+            'white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.2);';
+        document.body.appendChild(descTag);
     }
 
     if (descTag.textContent !== exactDateTime) {
@@ -199,7 +195,6 @@ function processGridVideos() {
     const selectors = [
         // 首頁
         'ytd-rich-item-renderer',
-        'ytd-rich-grid-media',
         // 頻道、搜尋
         'ytd-grid-video-renderer',
         'ytd-video-renderer',
@@ -236,8 +231,11 @@ async function fetchExactDateForVideo(container) {
     let metaLine = null;
 
     if (tag === 'ytd-video-renderer') {
-        // 訂閱頁列表格式
+        // 訂閱頁列表格式（水平卡片：縮圖左、內容右）
+        // 優先找右側內容區域（#meta/#info）內的 #metadata-line，避免誤抓縮圖左側
         metaLine =
+            container.querySelector('#meta #metadata-line')                 ||
+            container.querySelector('#info #metadata-line')                 ||
             container.querySelector('ytd-video-meta-block #metadata-line') ||
             container.querySelector('ytd-video-meta-block')                 ||
             container.querySelector('#metadata-line')                       ||
