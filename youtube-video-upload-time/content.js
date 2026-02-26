@@ -132,8 +132,21 @@ function injectWatchPageDate() {
 // ==========================================
 // 1b. 處理「Shorts 全屏頁面」：直讀 meta tag，固定顯示在畫面頂部中央
 // ==========================================
+let lastShortsPath = '';
+
 function injectShortsPageDate() {
-    if (!window.location.pathname.startsWith('/shorts/')) return;
+    if (!window.location.pathname.startsWith('/shorts/')) {
+        lastShortsPath = '';
+        return;
+    }
+
+    // 偵測 Shorts 影片切換（URL 改變），清除舊 badge 讓下方重新建立
+    const currentPath = window.location.pathname;
+    if (currentPath !== lastShortsPath) {
+        lastShortsPath = currentPath;
+        const oldBadge = document.getElementById('yt-exact-date-shorts-desc');
+        if (oldBadge) oldBadge.remove();
+    }
 
     const rawDate = getBestWatchPageDate();
     if (!rawDate) return;
@@ -199,8 +212,9 @@ function processGridVideos() {
     if (window.location.pathname.startsWith('/shorts/')) return;
 
     const selectors = [
-        // 首頁
-        'ytd-rich-item-renderer',
+        // 首頁舊版（ytd-rich-grid-media 是 ytd-rich-item-renderer 的子元素，有 #metadata-line）
+        // 不用 ytd-rich-item-renderer（它和 ytd-rich-grid-media 同時存在會重複注入）
+        'ytd-rich-grid-media',
         // 頻道、搜尋
         'ytd-grid-video-renderer',
         'ytd-video-renderer',
@@ -211,7 +225,7 @@ function processGridVideos() {
         // Shorts shelf
         'ytd-reel-item-renderer',
         'ytd-reel-video-renderer',
-        // 新版 UI（首頁 2024+ yt-lockup-view-model）
+        // 新版 UI（首頁 / 訂閱頁 2024+ yt-lockup-view-model）
         'yt-lockup-view-model',
         'yt-lockup-view-model-wiz',
     ].map(s => s + ':not([' + processedMark + '])').join(', ');
@@ -264,12 +278,13 @@ async function fetchExactDateForVideo(container) {
             container.querySelector('#metadata');
 
     } else if (tag === 'yt-lockup-view-model' || tag === 'yt-lockup-view-model-wiz') {
-        // 首頁 2024+ 新版 UI
+        // 首頁 / 訂閱頁 2024+ 新版 UI
+        // DOM 結構：yt-content-metadata-view-model > div.metadata-row (views • date)
         metaLine =
-            container.querySelector('yt-video-attributes-view-model') ||
+            container.querySelector('yt-content-metadata-view-model') ||
+            container.querySelector('.yt-lockup-metadata-view-model__metadata') ||
             container.querySelector('#metadata-line')                  ||
-            container.querySelector('#metadata')                       ||
-            container.querySelector('#details');
+            container.querySelector('#metadata');
 
     } else if (tag === 'ytd-reel-item-renderer' || tag === 'ytd-reel-video-renderer') {
         // Shorts shelf 卡片
@@ -345,22 +360,32 @@ function injectDateIntoDOM(metaLine, exactDate) {
 // ==========================================
 // 啟動：MutationObserver 主動偵測 + setInterval 安全網
 // ==========================================
-let domScanTimer;
-function debouncedScan() {
-    clearTimeout(domScanTimer);
-    domScanTimer = setTimeout(() => {
+
+// Throttle（非 debounce）：第一次 mutation 後最多 300ms 內必定執行一次掃描
+// 避免影片播放時 DOM 不停更新導致 debounce 永遠無法觸發
+let scanScheduled = false;
+function scheduleScan() {
+    if (scanScheduled) return;
+    scanScheduled = true;
+    setTimeout(() => {
+        scanScheduled = false;
         injectWatchPageDate();
         injectShortsPageDate();
         processGridVideos();
-    }, 200);
+    }, 300);
 }
 
-// 主要：YouTube 新增 DOM 節點時立即觸發（比 setInterval 快 4 倍）
-const domMutationObserver = new MutationObserver(debouncedScan);
+// 主要：YouTube 新增 DOM 節點時立即觸發
+const domMutationObserver = new MutationObserver(scheduleScan);
 domMutationObserver.observe(document.body, { childList: true, subtree: true });
 
-// 安全網：3 秒掃一次（頻率降低為原來的 1/3.75）
-setInterval(debouncedScan, 3000);
+// Shorts 滑動切換影片時，YouTube 透過 history.pushState 更新 URL
+// popstate 和 yt-page-data-updated 確保能捕捉到 URL 變更
+window.addEventListener('popstate', scheduleScan);
+document.addEventListener('yt-page-data-updated', scheduleScan);
+
+// 安全網：3 秒掃一次
+setInterval(scheduleScan, 3000);
 
 // 初始執行
-debouncedScan();
+scheduleScan();
