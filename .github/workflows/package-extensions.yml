@@ -2,7 +2,7 @@ name: Package Extensions and Update README
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   workflow_dispatch:
 
 jobs:
