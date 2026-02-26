@@ -22,7 +22,7 @@ jobs:
           for dir in */; do
             dir="${dir%/}"
             [ -f "${dir}/manifest.json" ] || continue
-            zip -r "${dir}.zip" "${dir}/"
+            (cd "${dir}" && zip -r "../${dir}.zip" . --exclude "DESCRIPTION.md")
             echo "Packaged: ${dir}.zip"
           done
 
