@@ -14,7 +14,7 @@ chrome.storage.local.get(null, (items) => {
 const processingQueue = new Set();
 const processedMark = 'data-exact-date-processed';
 let activeRequests = 0;
-const MAX_CONCURRENT = 5;
+const MAX_CONCURRENT = 8;
 
 // === 核心功能：時區與時間轉換器 ===
 function convertToLocalTime(isoDateStr, includeTime = false) {
@@ -197,7 +197,7 @@ const observer = new IntersectionObserver((entries) => {
             fetchExactDateForVideo(entry.target);
         }
     });
-}, { rootMargin: '0px' });
+}, { rootMargin: '300px' });
 
 function processGridVideos() {
     const selectors = [
