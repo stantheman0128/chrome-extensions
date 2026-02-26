@@ -290,10 +290,11 @@ function processGridVideos() {
         // 新版 UI（首頁 / 訂閱頁 2024+ yt-lockup-view-model）
         'yt-lockup-view-model',
         'yt-lockup-view-model-wiz',
-        // Shorts shelf 卡片（舊版 reel + 新版 shorts-lockup）
+        // Shorts shelf 卡片（ytm- 前綴，桌面版實際 tag）
+        'ytm-shorts-lockup-view-model',
+        'ytm-shorts-lockup-view-model-wiz',
+        // 舊版 reel item（保留備用）
         'ytd-reel-item-renderer',
-        'yt-shorts-lockup-view-model',
-        'yt-shorts-lockup-view-model-wiz',
     ].map(s => s + ':not([' + processedMark + '])').join(', ');
 
     document.querySelectorAll(selectors).forEach(container => {
@@ -364,9 +365,9 @@ async function fetchExactDateForVideo(container) {
             container.querySelector('#metadata');
 
     } else if (
-        tag === 'ytd-reel-item-renderer' ||
-        tag === 'yt-shorts-lockup-view-model' ||
-        tag === 'yt-shorts-lockup-view-model-wiz'
+        tag === 'ytm-shorts-lockup-view-model' ||
+        tag === 'ytm-shorts-lockup-view-model-wiz' ||
+        tag === 'ytd-reel-item-renderer'
     ) {
         // Shorts shelf 卡片：注入到 views 旁邊的 subhead div
         metaLine =
