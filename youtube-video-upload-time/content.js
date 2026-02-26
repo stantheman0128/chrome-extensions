@@ -2,6 +2,7 @@
 const dateCache = new Map();
 const processingQueue = new Set();
 const processedMark = 'data-exact-date-processed';
+let lastWatchVideoId = null;
 
 // === 核心功能：時區與時間轉換器 ===
 function convertToLocalTime(isoDateStr, includeTime = false) {
@@ -26,14 +27,12 @@ function convertToLocalTime(isoDateStr, includeTime = false) {
     }
 }
 
-// 判斷 ISO 字串是否真的包含時間資訊（例如 "2023-04-15T09:32:07+00:00"）
-// 純日期字串（"2023-04-15"）不含時間，不應虛構時分秒
+// 判斷 ISO 字串是否真的包含時間資訊
 function hasTimeComponent(isoStr) {
     return typeof isoStr === 'string' && isoStr.includes('T') && isoStr.length > 11;
 }
 
-// 從多個 meta tag 中選出精度最高的日期字串
-// 優先 datePublished（較可能含完整時間），其次 uploadDate
+// 從 meta tag 讀取最佳精度日期（用於 watch page，CSS 選擇器不受屬性順序影響）
 function getBestMetaDate() {
     const published = document.querySelector('meta[itemprop="datePublished"]');
     const uploaded  = document.querySelector('meta[itemprop="uploadDate"]');
@@ -41,34 +40,67 @@ function getBestMetaDate() {
     const pubContent = published ? published.getAttribute('content') : null;
     const upContent  = uploaded  ? uploaded.getAttribute('content')  : null;
 
-    // 優先選有時間精度的那個
     if (pubContent && hasTimeComponent(pubContent)) return pubContent;
     if (upContent  && hasTimeComponent(upContent))  return upContent;
 
-    // 兩者都只有日期，取任意一個
     return pubContent || upContent || null;
 }
 
+// 從 fetch 回來的 HTML 文字中擷取日期（容錯：屬性順序 + JSON 回退）
+function extractDateFromHtml(htmlText) {
+    // 嘗試 meta tag（兩種屬性順序）
+    const patterns = [
+        /<meta\s+itemprop="datePublished"\s+content="([^"]+)"/,
+        /<meta\s+content="([^"]+)"\s+itemprop="datePublished"/,
+        /<meta\s+itemprop="uploadDate"\s+content="([^"]+)"/,
+        /<meta\s+content="([^"]+)"\s+itemprop="uploadDate"/,
+    ];
+    for (const re of patterns) {
+        const m = htmlText.match(re);
+        if (m && m[1]) return m[1];
+    }
+
+    // 回退：從頁面嵌入的 JSON (ytInitialPlayerResponse) 中擷取
+    const jsonMatch = htmlText.match(/"publishDate"\s*:\s*"(\d{4}-\d{2}-\d{2}[^"]*)"/);
+    if (jsonMatch) return jsonMatch[1];
+
+    return null;
+}
+
 // ==========================================
-// 1. 處理「影片播放頁面」：精確到秒（前提是 YouTube 有提供時間）
+// 1. 處理「影片播放頁面」：精確到秒
 // ==========================================
 function injectWatchPageDate() {
     if (!window.location.pathname.startsWith('/watch')) return;
 
+    // 偵測 SPA 換片：清除舊 badge，避免顯示上一支影片的日期
+    const params = new URLSearchParams(window.location.search);
+    const currentVideoId = params.get('v');
+    if (currentVideoId !== lastWatchVideoId) {
+        const oldTag = document.getElementById('yt-exact-date-watch-desc');
+        if (oldTag) oldTag.remove();
+        lastWatchVideoId = currentVideoId;
+    }
+
     const rawDate = getBestMetaDate();
     if (!rawDate) return;
 
-    // 只有當 meta tag 真的包含時間時才顯示時分秒，否則誠實顯示日期
     const includeTime = hasTimeComponent(rawDate);
     const exactDateTime = convertToLocalTime(rawDate, includeTime) || rawDate.split('T')[0];
 
-    // 擴充選擇器，涵蓋新舊版 YouTube UI
+    // 選擇器優先順序：
+    //   1. ytd-watch-metadata #info  → 新版 YouTube UI（2024+），info row 直接在 watch-metadata 下
+    //   2. ytd-watch-metadata #description-inner #info → 舊版 UI
+    //   3. ytd-watch-metadata #info-container          → 另一種舊版結構
+    //   4. #above-the-fold #info                       → polymer 版本
+    //   5. ytd-video-primary-info-renderer #info       → 更舊版 UI
+    //   6. ytd-watch-metadata                          → 最終 fallback
     const infoTarget =
+        document.querySelector('ytd-watch-metadata #info')                  ||
         document.querySelector('ytd-watch-metadata #description-inner #info') ||
-        document.querySelector('ytd-watch-metadata #info-container')           ||
-        document.querySelector('ytd-watch-metadata #description-inner')        ||
-        document.querySelector('#above-the-fold #info')                        ||
-        document.querySelector('ytd-video-primary-info-renderer #info')        ||
+        document.querySelector('ytd-watch-metadata #info-container')          ||
+        document.querySelector('#above-the-fold #info')                       ||
+        document.querySelector('ytd-video-primary-info-renderer #info')       ||
         document.querySelector('ytd-watch-metadata');
 
     if (!infoTarget) return;
@@ -79,8 +111,10 @@ function injectWatchPageDate() {
         descTag.id = 'yt-exact-date-watch-desc';
         descTag.style.cssText = 'color: #065fd4; font-weight: 600; margin-left: 10px; font-size: 1.4rem; background: #e8f0fe; padding: 2px 6px; border-radius: 4px; display: inline-block; vertical-align: middle;';
 
+        // id === 'info' → 附加在 info row 內部（和觀看次數並排）
+        // 其他 → appendChild 到容器尾端
         if (infoTarget.id === 'info') {
-            infoTarget.insertAdjacentElement('afterend', descTag);
+            infoTarget.appendChild(descTag);
         } else {
             infoTarget.appendChild(descTag);
         }
@@ -103,13 +137,14 @@ const observer = new IntersectionObserver((entries) => {
 }, { rootMargin: '100px' });
 
 function processGridVideos() {
-    // 涵蓋首頁、頻道頁、搜尋結果、側邊欄
+    // 涵蓋舊版 polymer 架構 + 新版 yt-lockup-view-model（首頁 2024+ UI）
     const selectors = [
         'ytd-rich-item-renderer',
         'ytd-rich-grid-media',
         'ytd-grid-video-renderer',
         'ytd-video-renderer',
-        'ytd-compact-video-renderer'
+        'ytd-compact-video-renderer',
+        'yt-lockup-view-model',         // 新版首頁卡片
     ].map(s => s + ':not([' + processedMark + '])').join(', ');
 
     document.querySelectorAll(selectors).forEach(container => {
@@ -119,18 +154,28 @@ function processGridVideos() {
 }
 
 async function fetchExactDateForVideo(container) {
-    const linkEl = container.querySelector('a#video-title-link, a#video-title, a#thumbnail');
+    // 支援舊版 id 選擇器 + 新版任意含 watch?v= 的連結
+    const linkEl =
+        container.querySelector('a#video-title-link, a#video-title, a#thumbnail') ||
+        container.querySelector('a[href*="watch?v="]');
     if (!linkEl || !linkEl.href) return;
 
-    const url = new URL(linkEl.href);
-    const videoId = url.searchParams.get('v');
+    let videoId;
+    try {
+        const url = new URL(linkEl.href);
+        videoId = url.searchParams.get('v');
+    } catch(e) {
+        return;
+    }
     if (!videoId) return;
 
-    // 找 metadata-line，加備用選擇器應對不同版型
+    // 找 metadata-line / 新版 UI 的對應容器
     const metaLine =
         container.querySelector('#metadata-line') ||
         container.querySelector('ytd-video-meta-block #metadata-line') ||
-        container.querySelector('#metadata');
+        container.querySelector('#metadata') ||
+        container.querySelector('yt-video-attributes-view-model') || // yt-lockup-view-model 內部
+        container.querySelector('ytd-video-meta-block');
     if (!metaLine) return;
 
     if (dateCache.has(videoId)) {
@@ -143,7 +188,6 @@ async function fetchExactDateForVideo(container) {
     processingQueue.add(videoId);
 
     try {
-        // 加 5 秒 timeout，避免請求無限等待
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 5000);
 
@@ -151,21 +195,9 @@ async function fetchExactDateForVideo(container) {
         clearTimeout(timer);
 
         const htmlText = await response.text();
-
-        // 優先抓 datePublished（較可能含時間），其次 uploadDate
-        const matchPublished = htmlText.match(/<meta\s+itemprop="datePublished"\s+content="([^"]+)">/);
-        const matchUploaded  = htmlText.match(/<meta\s+itemprop="uploadDate"\s+content="([^"]+)">/);
-
-        const pubContent = matchPublished ? matchPublished[1] : null;
-        const upContent  = matchUploaded  ? matchUploaded[1]  : null;
-
-        // 選精度最高的
-        const rawDate = (pubContent && hasTimeComponent(pubContent)) ? pubContent :
-                        (upContent  && hasTimeComponent(upContent))  ? upContent  :
-                        pubContent || upContent;
+        const rawDate = extractDateFromHtml(htmlText);
 
         if (rawDate) {
-            // 清單頁只顯示日期（不管有無時間，保持清單整潔）
             const exactDate = convertToLocalTime(rawDate, false) || rawDate.split('T')[0];
             dateCache.set(videoId, exactDate);
             injectDateIntoDOM(metaLine, exactDate);
@@ -184,8 +216,9 @@ function injectDateIntoDOM(metaLine, exactDate) {
     const dateBadge = document.createElement('span');
     dateBadge.className = 'yt-exact-date-grid';
     dateBadge.style.cssText = 'display: inline-block; vertical-align: middle; margin-left: 4px;';
-    dateBadge.innerHTML = '<span style="color: var(--yt-spec-text-secondary, #606060); margin-right: 6px;">•</span>' +
-                          '<span style="color: #065fd4; font-weight: 600; font-size: 1.2rem; background: #e8f0fe; padding: 2px 5px; border-radius: 4px;">' + exactDate + '</span>';
+    dateBadge.innerHTML =
+        '<span style="color: var(--yt-spec-text-secondary, #606060); margin-right: 6px;">•</span>' +
+        '<span style="color: #065fd4; font-weight: 600; font-size: 1.2rem; background: #e8f0fe; padding: 2px 5px; border-radius: 4px;">' + exactDate + '</span>';
 
     metaLine.appendChild(dateBadge);
 }
