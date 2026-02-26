@@ -59,10 +59,10 @@
 - 相容 YouTube 2024+ 新版首頁 UI（`yt-lockup-view-model`）
 - 換片時自動清除舊日期，不會顯示上一支影片的資訊
 
-**v6.0 更新**
-- 修復：影片播放頁資訊欄日期消失（新版 YouTube UI 選擇器調整）
-- 修復：首頁清單日期消失（新增 `yt-lockup-view-model` 支援）
-- 修復：日期擷取容錯機制，改為支援 meta 屬性任意順序並新增 JSON 回退
+**v7.0 更新**
+- 修復：影片播放頁資訊欄日期消失（新增 JSON-LD schema 資料來源作為 meta tag 的備援）
+- 修復：SPA 換片後顯示錯誤日期（改用 `yt-navigate-finish` 事件即時清除舊 badge）
+- 修復：首頁清單日期消失（`yt-lockup-view-model` 支援、擷取順序改為優先 JSON-LD `uploadDate`）
 
 **一鍵下載**
 
