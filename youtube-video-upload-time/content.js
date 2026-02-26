@@ -1,5 +1,16 @@
 
 const dateCache = new Map();
+
+// 啟動時從 chrome.storage.local 載入持久化 cache（跨分頁、跨刷新永久有效）
+chrome.storage.local.get(null, (items) => {
+    if (chrome.runtime.lastError) return;
+    for (const [key, value] of Object.entries(items)) {
+        if (key.startsWith('v_')) {
+            dateCache.set(key.slice(2), value);
+        }
+    }
+});
+
 const processingQueue = new Set();
 const processedMark = 'data-exact-date-processed';
 let activeRequests = 0;
@@ -43,6 +54,37 @@ function getVideoId(href) {
         if (shorts) return shorts[1];
     } catch(e) {}
     return null;
+}
+
+// ==========================================
+// Stream 讀取：找到日期就立即停止，不再下載剩餘 HTML
+// ==========================================
+async function streamFindDate(response) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    // 保留尾部 200 字元作為跨 chunk 邊界的緩衝
+    // 搜尋過且未找到的部分可以安全丟棄，避免記憶體無限成長
+    const OVERLAP = 200;
+
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const rawDate = extractDateFromHtml(buffer);
+            if (rawDate) return rawDate;
+
+            if (buffer.length > OVERLAP) {
+                buffer = buffer.slice(-OVERLAP);
+            }
+        }
+        buffer += decoder.decode();
+        return extractDateFromHtml(buffer);
+    } finally {
+        reader.cancel().catch(() => {});
+    }
 }
 
 // ==========================================
@@ -271,17 +313,15 @@ async function fetchExactDateForVideo(container) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 8000);
 
-        // 用 /watch?v=ID 取得 HTML（含 datePublished meta tag）
-        // YouTube 的 datePublished / publishDate 可能在 HTML 後半段（ytInitialPlayerResponse），
-        // 需要讀完整個 response，stream 截斷 80KB 會漏掉
+        // 用 /watch?v=ID 取得 HTML，stream 讀取找到日期就立即停止
         const response = await fetch('/watch?v=' + videoId, { signal: controller.signal });
         clearTimeout(timer);
-        const htmlText = await response.text();
-        const rawDate = extractDateFromHtml(htmlText);
+        const rawDate = await streamFindDate(response);
 
         if (rawDate) {
             const exactDate = convertToLocalTime(rawDate, false) || rawDate.split('T')[0];
             dateCache.set(videoId, exactDate);
+            chrome.storage.local.set({ ['v_' + videoId]: exactDate });
             injectDateIntoDOM(metaLine, exactDate);
         }
     } catch (e) {
