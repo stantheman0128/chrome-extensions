@@ -57,12 +57,14 @@
 - 快取已擷取的日期，避免重複發送網路請求
 - 依照使用者的本地時區顯示日期時間
 - 相容 YouTube 2024+ 新版首頁 UI（`yt-lockup-view-model`）
-- 換片時自動清除舊日期，不會顯示上一支影片的資訊
+- SPA 換頁後即時更新，不殘留舊影片的日期
+- 支援 Shorts、播放清單（Watch Later、Liked Videos）、推薦欄、訂閱頁、觀看紀錄等所有有影片的頁面
 
-**v7.0 更新**
-- 修復：影片播放頁資訊欄日期消失（新增 JSON-LD schema 資料來源作為 meta tag 的備援）
-- 修復：SPA 換片後顯示錯誤日期（改用 `yt-navigate-finish` 事件即時清除舊 badge）
-- 修復：首頁清單日期消失（`yt-lockup-view-model` 支援、擷取順序改為優先 JSON-LD `uploadDate`）
+**v8.0 更新**
+- 新增支援：推薦欄（watch page 右側）、Watch Later、Liked Videos、自訂播放清單
+- 新增支援：Shorts shelf（`ytd-reel-item-renderer`）及 Shorts URL 格式解析
+- 修復：SPA 換頁後推薦欄不更新（`yt-navigate-finish` 觸發全面清除並重新掃描）
+- 新增注入備援目標（`#meta`、`#details`），提高對未知頁面類型的相容性
 
 **一鍵下載**
 
