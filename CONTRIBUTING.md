@@ -130,3 +130,31 @@ stan-chrome-extensions/
 2. 開啟 Chrome → `chrome://extensions`
 3. 啟用右上角**開發人員模式**
 4. 點擊**載入未封裝項目**，選擇解壓縮後的資料夾
+
+---
+
+## youtube-video-upload-time — 未來規劃
+
+### 功能想法
+
+| 項目 | 說明 |
+|------|------|
+| **使用者設定介面** | popup 讓使用者選擇日期格式（`YYYY-MM-DD` / `MM/DD/YYYY`）、是否顯示時間、badge 顏色 |
+| **Shorts 觀看頁面** | `/shorts/ID` 的觀看頁本身目前無精確日期，DOM 結構與 `/watch` 不同，需另行處理 |
+| **YouTube Studio 支援** | Studio 管理頁面有影片列表，可考慮注入上傳日期方便管理 |
+| **通知頁（Notifications）** | Notification 鈴鐺展開後有影片卡片，目前未覆蓋 |
+
+### 已知可優化項目
+
+| 項目 | 現況 | 改善方向 |
+|------|------|----------|
+| **Cache 清理機制** | `chrome.storage.local` 只增不減，長期使用會累積大量舊 entry | 加入 TTL（例如 6 個月未命中自動清除）或 LRU 淘汰策略 |
+| **MAX_CONCURRENT 動態調整** | 目前固定 5，stream 後每個 request 輕很多 | 可依網路速度或 CPU 使用率動態調整上限 |
+| **YouTube DOM 相容性** | YouTube 不定期改版 DOM 結構，selector 可能失效 | 加入更多 fallback 並在失效時 console.warn 方便除錯 |
+| **Watch History 篩選頁** | 目前只處理 `/feed/history`，history 搜尋結果（`/results?...`）未特化 | 偵測 history 搜尋結果並套用相同 selector 策略 |
+
+### 架構備忘
+
+- **`streamFindDate()`** 的 `OVERLAP = 200` 字元是為了處理日期字串被切在兩個 chunk 邊界的情況，最長的 pattern 約 50 字元，200 有充裕的緩衝
+- **`v_` key prefix** 是為了未來在 `chrome.storage.local` 存放其他設定時避免衝突，例如 `settings_dateFormat`
+- `ytd-video-renderer` 在 History / 訂閱 / 搜尋結果三種場景的 DOM 結構略有差異，目前以 `pathname === '/feed/history'` 分支處理，若日後有其他差異場景可依此模式擴充
