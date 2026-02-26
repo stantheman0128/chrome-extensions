@@ -2,6 +2,8 @@
 const dateCache = new Map();
 const processingQueue = new Set();
 const processedMark = 'data-exact-date-processed';
+let activeRequests = 0;
+const MAX_CONCURRENT = 3;
 
 // === 核心功能：時區與時間轉換器 ===
 function convertToLocalTime(isoDateStr, includeTime = false) {
@@ -128,7 +130,7 @@ function injectWatchPageDate() {
 }
 
 // ==========================================
-// 1b. 處理「Shorts 全屏頁面」：直讀 meta tag，仿照 injectWatchPageDate
+// 1b. 處理「Shorts 全屏頁面」：直讀 meta tag，固定顯示在畫面頂部中央
 // ==========================================
 function injectShortsPageDate() {
     if (!window.location.pathname.startsWith('/shorts/')) return;
@@ -139,23 +141,19 @@ function injectShortsPageDate() {
     const includeTime = hasTimeComponent(rawDate);
     const exactDateTime = convertToLocalTime(rawDate, includeTime) || rawDate.split('T')[0];
 
-    const infoTarget =
-        document.querySelector('ytd-shorts #details')              ||
-        document.querySelector('ytd-reel-video-renderer #details') ||
-        document.querySelector('ytd-shorts-player')                ||
-        document.querySelector('ytd-shorts');
-
-    if (!infoTarget) return;
-
+    // 使用 position:fixed 貼在 YouTube 導覽列正下方中央
+    // 不依賴 Shorts 的任何 DOM 結構，避免覆蓋影片畫面
     let descTag = document.getElementById('yt-exact-date-shorts-desc');
     if (!descTag) {
-        descTag = document.createElement('span');
+        descTag = document.createElement('div');
         descTag.id = 'yt-exact-date-shorts-desc';
         descTag.style.cssText =
-            'color: #065fd4; font-weight: 600; margin-left: 10px; font-size: 1.4rem; ' +
-            'background: #e8f0fe; padding: 2px 6px; border-radius: 4px; ' +
-            'display: inline-block; vertical-align: middle;';
-        infoTarget.appendChild(descTag);
+            'position: fixed; top: 68px; left: 50%; transform: translateX(-50%); ' +
+            'color: #065fd4; font-weight: 700; font-size: 1.3rem; ' +
+            'background: rgba(232, 240, 254, 0.95); padding: 5px 14px; ' +
+            'border-radius: 20px; z-index: 10000; pointer-events: none; ' +
+            'white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.2);';
+        document.body.appendChild(descTag);
     }
 
     if (descTag.textContent !== exactDateTime) {
@@ -193,13 +191,16 @@ const observer = new IntersectionObserver((entries) => {
             fetchExactDateForVideo(entry.target);
         }
     });
-}, { rootMargin: '100px' });
+}, { rootMargin: '0px' });
 
 function processGridVideos() {
+    // Shorts 全屏頁已由 injectShortsPageDate() 透過 meta tag 處理，
+    // 不需要 card fetch（避免預載影片觸發大量 fetch 造成卡頓）
+    if (window.location.pathname.startsWith('/shorts/')) return;
+
     const selectors = [
         // 首頁
         'ytd-rich-item-renderer',
-        'ytd-rich-grid-media',
         // 頻道、搜尋
         'ytd-grid-video-renderer',
         'ytd-video-renderer',
@@ -236,8 +237,11 @@ async function fetchExactDateForVideo(container) {
     let metaLine = null;
 
     if (tag === 'ytd-video-renderer') {
-        // 訂閱頁列表格式
+        // 訂閱頁列表格式（水平卡片：縮圖左、內容右）
+        // 優先找右側內容區域（#meta/#info）內的 #metadata-line，避免誤抓縮圖左側
         metaLine =
+            container.querySelector('#meta #metadata-line')                 ||
+            container.querySelector('#info #metadata-line')                 ||
             container.querySelector('ytd-video-meta-block #metadata-line') ||
             container.querySelector('ytd-video-meta-block')                 ||
             container.querySelector('#metadata-line')                       ||
@@ -296,7 +300,9 @@ async function fetchExactDateForVideo(container) {
     }
 
     if (processingQueue.has(videoId)) return;
+    if (activeRequests >= MAX_CONCURRENT) return; // 讓 observer 下次重試
     processingQueue.add(videoId);
+    activeRequests++;
 
     try {
         const controller = new AbortController();
@@ -317,6 +323,7 @@ async function fetchExactDateForVideo(container) {
     } catch (e) {
         // 逾時或網路失敗，靜默處理
     } finally {
+        activeRequests--;
         processingQueue.delete(videoId);
         observer.unobserve(container);
     }
@@ -335,9 +342,25 @@ function injectDateIntoDOM(metaLine, exactDate) {
     metaLine.appendChild(dateBadge);
 }
 
-// 啟動巡邏
-setInterval(() => {
-    injectWatchPageDate();
-    injectShortsPageDate();
-    processGridVideos();
-}, 800);
+// ==========================================
+// 啟動：MutationObserver 主動偵測 + setInterval 安全網
+// ==========================================
+let domScanTimer;
+function debouncedScan() {
+    clearTimeout(domScanTimer);
+    domScanTimer = setTimeout(() => {
+        injectWatchPageDate();
+        injectShortsPageDate();
+        processGridVideos();
+    }, 200);
+}
+
+// 主要：YouTube 新增 DOM 節點時立即觸發（比 setInterval 快 4 倍）
+const domMutationObserver = new MutationObserver(debouncedScan);
+domMutationObserver.observe(document.body, { childList: true, subtree: true });
+
+// 安全網：3 秒掃一次（頻率降低為原來的 1/3.75）
+setInterval(debouncedScan, 3000);
+
+// 初始執行
+debouncedScan();
