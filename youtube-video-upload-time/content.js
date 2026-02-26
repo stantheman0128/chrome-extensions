@@ -138,7 +138,7 @@ function extractDateFromHtml(htmlText) {
 }
 
 // ==========================================
-// 1. 處理「影片播放頁面」：精確到秒
+// 1. 處理「一般影片播放頁面」：精確到秒
 // ==========================================
 function injectWatchPageDate() {
     if (!window.location.pathname.startsWith('/watch')) return;
@@ -172,6 +172,78 @@ function injectWatchPageDate() {
 }
 
 // ==========================================
+// 2. 處理「Shorts 播放頁面」：注入在標題下方
+// ==========================================
+function injectShortsWatchDate() {
+    const shortsMatch = window.location.pathname.match(/^\/shorts\/([^/?#]+)/);
+    if (!shortsMatch) return;
+    const videoId = shortsMatch[1];
+
+    const titleEl = document.querySelector('.ytShortsVideoTitleViewModelShortsVideoTitle');
+    if (!titleEl) return;
+
+    // 已注入則跳過
+    if (document.getElementById('yt-exact-date-shorts-watch')) return;
+
+    // 先試 meta tags（大多數情況下就有）
+    const rawDate = getBestWatchPageDate();
+    if (rawDate) {
+        const exactDate = convertToLocalTime(rawDate, hasTimeComponent(rawDate)) || rawDate.split('T')[0];
+        _doInjectShortsWatchBadge(titleEl, exactDate);
+        if (!dateCache.has(videoId)) {
+            dateCache.set(videoId, exactDate);
+            chrome.storage.local.set({ ['v_' + videoId]: exactDate });
+        }
+        return;
+    }
+
+    // 試 cache
+    if (dateCache.has(videoId)) {
+        _doInjectShortsWatchBadge(titleEl, dateCache.get(videoId));
+        return;
+    }
+
+    // 非同步 fetch /watch?v=ID
+    _fetchAndInjectShortsWatchDate(videoId, titleEl);
+}
+
+async function _fetchAndInjectShortsWatchDate(videoId, titleEl) {
+    if (processingQueue.has(videoId) || activeRequests >= MAX_CONCURRENT) return;
+    processingQueue.add(videoId);
+    activeRequests++;
+    try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+        const response = await fetch('/watch?v=' + videoId, { signal: controller.signal });
+        clearTimeout(timer);
+        const rawDate = await streamFindDate(response);
+        if (rawDate) {
+            const exactDate = convertToLocalTime(rawDate, false) || rawDate.split('T')[0];
+            dateCache.set(videoId, exactDate);
+            chrome.storage.local.set({ ['v_' + videoId]: exactDate });
+            // 確認使用者還在同一個 Short
+            if (window.location.pathname.includes(videoId)) {
+                const el = document.querySelector('.ytShortsVideoTitleViewModelShortsVideoTitle');
+                if (el) _doInjectShortsWatchBadge(el, exactDate);
+            }
+        }
+    } catch(e) {}
+    finally {
+        activeRequests--;
+        processingQueue.delete(videoId);
+    }
+}
+
+function _doInjectShortsWatchBadge(titleEl, exactDate) {
+    if (document.getElementById('yt-exact-date-shorts-watch')) return;
+    const badge = document.createElement('div');
+    badge.id = 'yt-exact-date-shorts-watch';
+    badge.style.cssText = 'color: #065fd4; font-weight: 600; font-size: 1.2rem; background: #e8f0fe; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px;';
+    badge.textContent = exactDate;
+    titleEl.insertAdjacentElement('afterend', badge);
+}
+
+// ==========================================
 // SPA 換頁事件：清除所有舊 badge 與 processedMark
 // 讓下一次 setInterval 重新掃描所有影片卡片
 // ==========================================
@@ -179,6 +251,10 @@ document.addEventListener('yt-navigate-finish', () => {
     // Watch page badge
     const oldTag = document.getElementById('yt-exact-date-watch-desc');
     if (oldTag) oldTag.remove();
+
+    // Shorts watch page badge
+    const oldShortsTag = document.getElementById('yt-exact-date-shorts-watch');
+    if (oldShortsTag) oldShortsTag.remove();
 
     // 清除所有影片卡片上的舊標記和舊 badge
     // YouTube SPA 換頁後會原地更新卡片內容，若不清除則不會重新注入
@@ -189,7 +265,7 @@ document.addEventListener('yt-navigate-finish', () => {
 });
 
 // ==========================================
-// 2. 處理所有影片卡片列表（首頁、推薦欄、訂閱、歷史、播放清單、Shorts ...）
+// 3. 處理所有影片卡片列表（首頁、推薦欄、訂閱、歷史、播放清單、Shorts ...）
 // ==========================================
 const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -214,6 +290,10 @@ function processGridVideos() {
         // 新版 UI（首頁 / 訂閱頁 2024+ yt-lockup-view-model）
         'yt-lockup-view-model',
         'yt-lockup-view-model-wiz',
+        // Shorts shelf 卡片（舊版 reel + 新版 shorts-lockup）
+        'ytd-reel-item-renderer',
+        'yt-shorts-lockup-view-model',
+        'yt-shorts-lockup-view-model-wiz',
     ].map(s => s + ':not([' + processedMark + '])').join(', ');
 
     document.querySelectorAll(selectors).forEach(container => {
@@ -287,6 +367,18 @@ async function fetchExactDateForVideo(container) {
         metaLine = metaLine ||
             container.querySelector('.yt-lockup-metadata-view-model__metadata') ||
             container.querySelector('#metadata-line')                            ||
+            container.querySelector('#metadata');
+
+    } else if (
+        tag === 'ytd-reel-item-renderer' ||
+        tag === 'yt-shorts-lockup-view-model' ||
+        tag === 'yt-shorts-lockup-view-model-wiz'
+    ) {
+        // Shorts shelf 卡片：注入到 views 旁邊的 subhead div
+        metaLine =
+            container.querySelector('.shortsLockupViewModelHostOutsideMetadataSubhead') ||
+            container.querySelector('.shortsLockupViewModelHostMetadataSubhead')        ||
+            container.querySelector('#metadata-line')                                   ||
             container.querySelector('#metadata');
 
     } else {
@@ -396,6 +488,7 @@ function scheduleScan() {
     setTimeout(() => {
         scanScheduled = false;
         injectWatchPageDate();
+        injectShortsWatchDate();
         processGridVideos();
     }, 300);
 }
