@@ -7,6 +7,21 @@
 
 ---
 
+## 快速下載
+
+| # | 擴充功能 | 下載 |
+|---|---------|------|
+| 1 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | [![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
+| 2 | [YouTube 絕對精確日期 (完美客製版)](#ext-youtube-video-upload-time) | [![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
+
+---
+
+## 擴充功能列表
+
+<a id="ext-glasp-remnants-remover"></a>
+
+---
+
 ## 擴充功能列表
 
 ### 1. Remove Glasp Remnants
@@ -31,6 +46,8 @@
 4. 點擊**載入未封裝項目**，選擇解壓縮後的 `glasp-remnants-remover` 資料夾
 
 ---
+
+<a id="ext-youtube-video-upload-time"></a>
 
 ### 2. YouTube 絕對精確日期 (完美客製版)
 

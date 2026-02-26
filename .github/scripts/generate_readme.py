@@ -77,6 +77,25 @@ def generate_readme(extensions):
         "",
         "---",
         "",
+        "## 快速下載",
+        "",
+        "| # | 擴充功能 | 下載 |",
+        "|---|---------|------|",
+    ]
+
+    for i, ext in enumerate(extensions):
+        manifest = ext["manifest"]
+        dir_name = ext["dir"]
+        ext_name = manifest.get("name", dir_name)
+        color = BADGE_COLORS[i % len(BADGE_COLORS)]
+        badge = make_badge(dir_name, color)
+        anchor = f"ext-{dir_name}"
+        lines.append(f"| {i + 1} | [{ext_name}](#{anchor}) | {badge} |")
+
+    lines += [
+        "",
+        "---",
+        "",
         "## 擴充功能列表",
         "",
     ]
@@ -86,7 +105,10 @@ def generate_readme(extensions):
         dir_name = ext["dir"]
         ext_name = manifest.get("name", dir_name)
         color = BADGE_COLORS[i % len(BADGE_COLORS)]
+        anchor = f"ext-{dir_name}"
 
+        lines.append(f'<a id="{anchor}"></a>')
+        lines.append("")
         lines.append(f"### {i + 1}. {ext_name}")
         lines.append("")
         lines.append(f"**資料夾：** `{dir_name}/`")
