@@ -3,7 +3,7 @@ const dateCache = new Map();
 const processingQueue = new Set();
 const processedMark = 'data-exact-date-processed';
 let activeRequests = 0;
-const MAX_CONCURRENT = 3;
+const MAX_CONCURRENT = 5;
 
 // === 核心功能：時區與時間轉換器 ===
 function convertToLocalTime(isoDateStr, includeTime = false) {
@@ -130,51 +130,6 @@ function injectWatchPageDate() {
 }
 
 // ==========================================
-// 1b. 處理「Shorts 全屏頁面」：直讀 meta tag，固定顯示在畫面頂部中央
-// ==========================================
-let lastShortsPath = '';
-
-function injectShortsPageDate() {
-    if (!window.location.pathname.startsWith('/shorts/')) {
-        lastShortsPath = '';
-        return;
-    }
-
-    // 偵測 Shorts 影片切換（URL 改變），清除舊 badge 讓下方重新建立
-    const currentPath = window.location.pathname;
-    if (currentPath !== lastShortsPath) {
-        lastShortsPath = currentPath;
-        const oldBadge = document.getElementById('yt-exact-date-shorts-desc');
-        if (oldBadge) oldBadge.remove();
-    }
-
-    const rawDate = getBestWatchPageDate();
-    if (!rawDate) return;
-
-    const includeTime = hasTimeComponent(rawDate);
-    const exactDateTime = convertToLocalTime(rawDate, includeTime) || rawDate.split('T')[0];
-
-    // 使用 position:fixed 貼在 YouTube 導覽列正下方中央
-    // 不依賴 Shorts 的任何 DOM 結構，避免覆蓋影片畫面
-    let descTag = document.getElementById('yt-exact-date-shorts-desc');
-    if (!descTag) {
-        descTag = document.createElement('div');
-        descTag.id = 'yt-exact-date-shorts-desc';
-        descTag.style.cssText =
-            'position: fixed; top: 68px; left: 50%; transform: translateX(-50%); ' +
-            'color: #065fd4; font-weight: 700; font-size: 1.3rem; ' +
-            'background: rgba(232, 240, 254, 0.95); padding: 5px 14px; ' +
-            'border-radius: 20px; z-index: 10000; pointer-events: none; ' +
-            'white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.2);';
-        document.body.appendChild(descTag);
-    }
-
-    if (descTag.textContent !== exactDateTime) {
-        descTag.textContent = exactDateTime;
-    }
-}
-
-// ==========================================
 // SPA 換頁事件：清除所有舊 badge 與 processedMark
 // 讓下一次 setInterval 重新掃描所有影片卡片
 // ==========================================
@@ -182,10 +137,6 @@ document.addEventListener('yt-navigate-finish', () => {
     // Watch page badge
     const oldTag = document.getElementById('yt-exact-date-watch-desc');
     if (oldTag) oldTag.remove();
-
-    // Shorts 全屏 badge
-    const oldShortsTag = document.getElementById('yt-exact-date-shorts-desc');
-    if (oldShortsTag) oldShortsTag.remove();
 
     // 清除所有影片卡片上的舊標記和舊 badge
     // YouTube SPA 換頁後會原地更新卡片內容，若不清除則不會重新注入
@@ -207,10 +158,6 @@ const observer = new IntersectionObserver((entries) => {
 }, { rootMargin: '0px' });
 
 function processGridVideos() {
-    // Shorts 全屏頁已由 injectShortsPageDate() 透過 meta tag 處理，
-    // 不需要 card fetch（避免預載影片觸發大量 fetch 造成卡頓）
-    if (window.location.pathname.startsWith('/shorts/')) return;
-
     const selectors = [
         // 首頁舊版（ytd-rich-grid-media 是 ytd-rich-item-renderer 的子元素，有 #metadata-line）
         // 不用 ytd-rich-item-renderer（它和 ytd-rich-grid-media 同時存在會重複注入）
@@ -222,9 +169,6 @@ function processGridVideos() {
         'ytd-compact-video-renderer',
         // 播放清單（Watch Later、Liked Videos、自訂播放清單）
         'ytd-playlist-video-renderer',
-        // Shorts shelf
-        'ytd-reel-item-renderer',
-        'ytd-reel-video-renderer',
         // 新版 UI（首頁 / 訂閱頁 2024+ yt-lockup-view-model）
         'yt-lockup-view-model',
         'yt-lockup-view-model-wiz',
@@ -279,18 +223,16 @@ async function fetchExactDateForVideo(container) {
 
     } else if (tag === 'yt-lockup-view-model' || tag === 'yt-lockup-view-model-wiz') {
         // 首頁 / 訂閱頁 2024+ 新版 UI
-        // DOM 結構：yt-content-metadata-view-model > div.metadata-row (views • date)
-        metaLine =
-            container.querySelector('yt-content-metadata-view-model') ||
+        // DOM 結構：yt-content-metadata-view-model > div.metadata-row[0]=頻道 > div.metadata-row[1]=views•date
+        // 注入到最後一個 metadata-row 才能和 "views • X ago" 同一行
+        const contentMeta = container.querySelector('yt-content-metadata-view-model');
+        if (contentMeta) {
+            const rows = contentMeta.querySelectorAll('.yt-content-metadata-view-model__metadata-row');
+            metaLine = rows[rows.length - 1] || contentMeta;
+        }
+        metaLine = metaLine ||
             container.querySelector('.yt-lockup-metadata-view-model__metadata') ||
-            container.querySelector('#metadata-line')                  ||
-            container.querySelector('#metadata');
-
-    } else if (tag === 'ytd-reel-item-renderer' || tag === 'ytd-reel-video-renderer') {
-        // Shorts shelf 卡片
-        metaLine =
-            container.querySelector('#details') ||
-            container.querySelector('#meta')    ||
+            container.querySelector('#metadata-line')                            ||
             container.querySelector('#metadata');
 
     } else {
@@ -321,14 +263,27 @@ async function fetchExactDateForVideo(container) {
 
     try {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 5000);
+        const timer = setTimeout(() => controller.abort(), 8000);
 
-        // 不論是 /watch?v=ID 或 /shorts/ID，都用 /watch?v=ID 取得 HTML（含 ld+json）
+        // 用 /watch?v=ID 取得 HTML（含 datePublished meta tag）
         const response = await fetch('/watch?v=' + videoId, { signal: controller.signal });
         clearTimeout(timer);
 
-        const htmlText = await response.text();
-        const rawDate = extractDateFromHtml(htmlText);
+        // Stream 截斷最佳化：meta tag 在 <head> 內，通常前 20–30KB 就出現
+        // 找到日期後立刻停止，不用等剩下幾百 KB 下載完
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let htmlChunk = '';
+        let rawDate = null;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            htmlChunk += decoder.decode(value, { stream: true });
+            rawDate = extractDateFromHtml(htmlChunk);
+            if (rawDate) { reader.cancel(); break; }
+            if (htmlChunk.length > 80000) break; // 80KB 安全上限
+        }
 
         if (rawDate) {
             const exactDate = convertToLocalTime(rawDate, false) || rawDate.split('T')[0];
@@ -370,7 +325,6 @@ function scheduleScan() {
     setTimeout(() => {
         scanScheduled = false;
         injectWatchPageDate();
-        injectShortsPageDate();
         processGridVideos();
     }, 300);
 }
@@ -378,11 +332,6 @@ function scheduleScan() {
 // 主要：YouTube 新增 DOM 節點時立即觸發
 const domMutationObserver = new MutationObserver(scheduleScan);
 domMutationObserver.observe(document.body, { childList: true, subtree: true });
-
-// Shorts 滑動切換影片時，YouTube 透過 history.pushState 更新 URL
-// popstate 和 yt-page-data-updated 確保能捕捉到 URL 變更
-window.addEventListener('popstate', scheduleScan);
-document.addEventListener('yt-page-data-updated', scheduleScan);
 
 // 安全網：3 秒掃一次
 setInterval(scheduleScan, 3000);
