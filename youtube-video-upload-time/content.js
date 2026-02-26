@@ -295,11 +295,11 @@ async function fetchExactDateForVideo(container) {
             container.querySelector('#details');
     }
 
-    // Fallback：找不到任何 metaLine 時，用 container 本身當作注入點（History 除外）
-    if (!metaLine && !isHistoryPage) metaLine = container;
+    // Fallback：找不到任何 metaLine 時，用 container 本身當作注入點（ytd-video-renderer on History 除外）
+    if (!metaLine && !(isHistoryPage && tag === 'ytd-video-renderer')) metaLine = container;
 
     if (dateCache.has(videoId)) {
-        if (isHistoryPage) {
+        if (isHistoryPage && tag === 'ytd-video-renderer') {
             injectDateForHistory(container, dateCache.get(videoId));
         } else {
             injectDateIntoDOM(metaLine, dateCache.get(videoId));
@@ -332,7 +332,7 @@ async function fetchExactDateForVideo(container) {
             const exactDate = convertToLocalTime(rawDate, false) || rawDate.split('T')[0];
             dateCache.set(videoId, exactDate);
             chrome.storage.local.set({ ['v_' + videoId]: exactDate });
-            if (isHistoryPage) {
+            if (isHistoryPage && tag === 'ytd-video-renderer') {
                 injectDateForHistory(container, exactDate);
             } else {
                 injectDateIntoDOM(metaLine, exactDate);
