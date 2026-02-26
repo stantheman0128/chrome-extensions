@@ -3,11 +3,17 @@
 **功能特色**
 - **影片播放頁面** — 將精確日期時間（例如 `2023-04-15 09:32:07`）直接注入影片資訊欄，與觀看次數並排顯示
 - **首頁／頻道頁／搜尋結果** — 透過 `IntersectionObserver` 在影片縮圖旁顯示精確上傳日期，僅在影片進入可視範圍時才發送請求
-- 快取已擷取的日期，避免重複發送網路請求
+- **Stream 讀取** — 找到日期立即停止下載，不等整份頁面傳輸完畢，大幅降低網路流量與記憶體使用
+- **持久化 cache（`chrome.storage.local`）** — 日期跨分頁、跨刷新永久保留，重複看到同一影片瞬間顯示、完全不發請求
 - 依照使用者的本地時區顯示日期時間
 - 相容 YouTube 2024+ 新版首頁 UI（`yt-lockup-view-model`）
 - SPA 換頁後即時更新，不殘留舊影片的日期
 - 支援 Shorts、播放清單（Watch Later、Liked Videos）、推薦欄、訂閱頁、觀看紀錄等所有有影片的頁面
+
+**v9.0 更新**
+- Stream 讀取 HTML（`ReadableStream` 逐 chunk 掃描），找到日期立即 `cancel()`，每次 fetch 流量從 ~500KB 降至數十 KB
+- `chrome.storage.local` 持久化 cache：日期不再只存在記憶體，關閉分頁後仍保留，重複瀏覽接近零消耗
+- 修正 Watch History 頁面日期跑進 description 的版面問題（精確鎖定 `ytd-video-meta-block #metadata-line`）
 
 **v8.0 更新**
 - 新增支援：推薦欄（watch page 右側）、Watch Later、Liked Videos、自訂播放清單
