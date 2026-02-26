@@ -30,11 +30,23 @@ function hasTimeComponent(isoStr) {
     return typeof isoStr === 'string' && isoStr.includes('T') && isoStr.length > 11;
 }
 
+// 從各種 YouTube URL 格式取得 video ID
+// 支援 /watch?v=ID 和 /shorts/ID
+function getVideoId(href) {
+    try {
+        const url = new URL(href);
+        const v = url.searchParams.get('v');
+        if (v) return v;
+        const shorts = url.pathname.match(/^\/shorts\/([^/?#]+)/);
+        if (shorts) return shorts[1];
+    } catch(e) {}
+    return null;
+}
+
 // ==========================================
 // 取得 watch page 的日期（meta tag → JSON-LD 兩條路）
 // ==========================================
 function getBestWatchPageDate() {
-    // 方法一：meta tag（CSS 選擇器，與屬性順序無關）
     const published = document.querySelector('meta[itemprop="datePublished"]');
     const uploaded  = document.querySelector('meta[itemprop="uploadDate"]');
     const pubContent = published ? published.getAttribute('content') : null;
@@ -44,7 +56,7 @@ function getBestWatchPageDate() {
     if (upContent  && hasTimeComponent(upContent))  return upContent;
     if (pubContent || upContent) return pubContent || upContent;
 
-    // 方法二：JSON-LD（YouTube 也會將結構化資料寫進 <script type="application/ld+json">）
+    // 備援：JSON-LD schema（YouTube 的 <script type="application/ld+json">）
     const ldScript = document.querySelector('script[type="application/ld+json"]');
     if (ldScript) {
         try {
@@ -57,10 +69,7 @@ function getBestWatchPageDate() {
     return null;
 }
 
-// ==========================================
 // 從 fetch 回來的 HTML 文字中擷取日期
-// 嘗試順序：meta tag（兩種屬性順序）→ JSON-LD uploadDate → publishDate
-// ==========================================
 function extractDateFromHtml(htmlText) {
     const metaPatterns = [
         /<meta\s+itemprop="datePublished"\s+content="([^"]+)"/,
@@ -73,11 +82,11 @@ function extractDateFromHtml(htmlText) {
         if (m) return m[1];
     }
 
-    // JSON-LD（含完整時間，格式如 "2023-04-15T09:32:07+00:00"）
+    // JSON-LD uploadDate（含完整時間，如 "2023-04-15T09:32:07+00:00"）
     const ldMatch = htmlText.match(/"uploadDate"\s*:\s*"([^"]+)"/);
     if (ldMatch) return ldMatch[1];
 
-    // ytInitialPlayerResponse publishDate（日期只版）
+    // ytInitialPlayerResponse publishDate（日期格式）
     const jsonMatch = htmlText.match(/"publishDate"\s*:\s*"(\d{4}-\d{2}-\d{2}[^"]*)"/);
     if (jsonMatch) return jsonMatch[1];
 
@@ -96,7 +105,6 @@ function injectWatchPageDate() {
     const includeTime = hasTimeComponent(rawDate);
     const exactDateTime = convertToLocalTime(rawDate, includeTime) || rawDate.split('T')[0];
 
-    // 選擇器優先順序（不再 fallback 到整個 ytd-watch-metadata 以免注入到描述區底部）
     const infoTarget =
         document.querySelector('ytd-watch-metadata #info')                    ||
         document.querySelector('ytd-watch-metadata #description-inner #info') ||
@@ -119,14 +127,25 @@ function injectWatchPageDate() {
     }
 }
 
-// SPA 換頁時清除舊 badge，讓下一次 setInterval 重新注入
+// ==========================================
+// SPA 換頁事件：清除所有舊 badge 與 processedMark
+// 讓下一次 setInterval 重新掃描所有影片卡片
+// ==========================================
 document.addEventListener('yt-navigate-finish', () => {
+    // Watch page badge
     const oldTag = document.getElementById('yt-exact-date-watch-desc');
     if (oldTag) oldTag.remove();
+
+    // 清除所有影片卡片上的舊標記和舊 badge
+    // YouTube SPA 換頁後會原地更新卡片內容，若不清除則不會重新注入
+    document.querySelectorAll('[' + processedMark + ']').forEach(el => {
+        el.removeAttribute(processedMark);
+        el.querySelectorAll('.yt-exact-date-grid').forEach(b => b.remove());
+    });
 });
 
 // ==========================================
-// 2. 處理「首頁 / 頻道 / 搜尋清單」：懶加載 + 快取
+// 2. 處理所有影片卡片列表（首頁、推薦欄、訂閱、歷史、播放清單、Shorts ...）
 // ==========================================
 const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -138,13 +157,22 @@ const observer = new IntersectionObserver((entries) => {
 
 function processGridVideos() {
     const selectors = [
+        // 首頁
         'ytd-rich-item-renderer',
         'ytd-rich-grid-media',
+        // 頻道、搜尋
         'ytd-grid-video-renderer',
         'ytd-video-renderer',
+        // 推薦欄（watch page 右側）
         'ytd-compact-video-renderer',
-        'yt-lockup-view-model',         // 首頁新版卡片（YouTube 2024+）
-        'yt-lockup-view-model-wiz',     // 可能的變體元素名稱
+        // 播放清單（Watch Later、Liked Videos、自訂播放清單）
+        'ytd-playlist-video-renderer',
+        // Shorts shelf
+        'ytd-reel-item-renderer',
+        'ytd-reel-video-renderer',
+        // 新版 UI（首頁 2024+ yt-lockup-view-model）
+        'yt-lockup-view-model',
+        'yt-lockup-view-model-wiz',
     ].map(s => s + ':not([' + processedMark + '])').join(', ');
 
     document.querySelectorAll(selectors).forEach(container => {
@@ -154,25 +182,25 @@ function processGridVideos() {
 }
 
 async function fetchExactDateForVideo(container) {
-    // 支援舊版 id 選擇器與新版任意含 watch?v= 的連結
+    // 支援 /watch?v=ID 和 /shorts/ID 連結
     const linkEl =
         container.querySelector('a#video-title-link, a#video-title, a#thumbnail') ||
-        container.querySelector('a[href*="watch?v="]');
+        container.querySelector('a[href*="watch?v="], a[href*="/shorts/"]');
     if (!linkEl || !linkEl.href) return;
 
-    let videoId;
-    try {
-        videoId = new URL(linkEl.href).searchParams.get('v');
-    } catch(e) { return; }
+    const videoId = getVideoId(linkEl.href);
     if (!videoId) return;
 
-    // 找 metadata 注入目標（涵蓋舊版 polymer + 新版 yt-lockup-view-model）
+    // 找 metadata 注入目標，涵蓋各頁面的不同渲染結構
     const metaLine =
         container.querySelector('#metadata-line')                      ||
         container.querySelector('ytd-video-meta-block #metadata-line') ||
         container.querySelector('#metadata')                           ||
         container.querySelector('yt-video-attributes-view-model')      || // 新版 UI
-        container.querySelector('ytd-video-meta-block');
+        container.querySelector('ytd-video-meta-block')                ||
+        container.querySelector('#meta')                               ||
+        container.querySelector('#details');                              // Shorts / 其他備援
+
     if (!metaLine) return;
 
     if (dateCache.has(videoId)) {
@@ -188,6 +216,7 @@ async function fetchExactDateForVideo(container) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 5000);
 
+        // 不論是 /watch?v=ID 或 /shorts/ID，都用 /watch?v=ID 取得 HTML（含 ld+json）
         const response = await fetch('/watch?v=' + videoId, { signal: controller.signal });
         clearTimeout(timer);
 
