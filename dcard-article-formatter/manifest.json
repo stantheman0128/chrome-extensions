@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Dcard 文章排版優化",
+  "version": "1.0",
+  "description": "一鍵優化 Dcard 文章排版：自動分行、標點符號修正、中英文間距，讓閱讀更舒適。",
+  "content_scripts": [
+    {
+      "matches": ["*://www.dcard.tw/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
