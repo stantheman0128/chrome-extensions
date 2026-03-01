@@ -11,16 +11,45 @@
 
 | # | 擴充功能 | 下載 |
 |---|---------|------|
-| 1 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | [![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
-| 2 | [YouTube 絕對精確日期 (完美客製版)](#ext-youtube-video-upload-time) | [![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
+| 1 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | [![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
+| 2 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | [![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
+| 3 | [YouTube 絕對精確日期 (完美客製版)](#ext-youtube-video-upload-time) | [![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
 
 ---
 
 ## 擴充功能列表
 
+<a id="ext-dcard-article-formatter"></a>
+
+### 1. Dcard 文章排版優化
+
+**資料夾：** `dcard-article-formatter/`
+
+一鍵優化 Dcard 文章排版，讓閱讀體驗大幅提升。
+
+- **自動分行**：在句號、問號、驚嘆號等標點後自動換行，將整坨文字牆變成清楚的段落
+- **標點符號修正**：自動將中文語境中的半形標點（, ! ? : ;）轉換為全形標點（，！？：；）
+- **中英文間距**：自動在中文與英文/數字之間加入空格（盤古之白），提升可讀性
+- **段落間距優化**：增加行高與段落間距，讓文章視覺更舒適
+- **一鍵切換**：右下角浮動按鈕，一鍵排版 / 一鍵還原，隨時切換
+- **SPA 導航支援**：完整支援 Dcard 的單頁應用程式導航，切換文章自動重置
+- **僅在文章頁啟動**：只在 Dcard 文章頁面（`/f/看板/p/文章ID`）顯示按鈕，不干擾其他頁面
+
+**一鍵下載**
+
+[![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
+
+**安裝方式**
+1. 點上方按鈕下載 `.zip` 並解壓縮
+2. 開啟 Chrome，前往 `chrome://extensions`
+3. 啟用右上角的**開發人員模式**
+4. 點擊**載入未封裝項目**，選擇解壓縮後的 `dcard-article-formatter` 資料夾
+
+---
+
 <a id="ext-glasp-remnants-remover"></a>
 
-### 1. Remove Glasp Remnants
+### 2. Remove Glasp Remnants
 
 **資料夾：** `glasp-remnants-remover/`
 
@@ -33,7 +62,7 @@
 
 **一鍵下載**
 
-[![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
+[![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -45,7 +74,7 @@
 
 <a id="ext-youtube-video-upload-time"></a>
 
-### 2. YouTube 絕對精確日期 (完美客製版)
+### 3. YouTube 絕對精確日期 (完美客製版)
 
 **資料夾：** `youtube-video-upload-time/`
 
@@ -74,7 +103,7 @@
 
 **一鍵下載**
 
-[![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
+[![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -88,6 +117,10 @@
 
 ```
 stan-chrome-extensions/
+├── dcard-article-formatter/
+│   ├── DESCRIPTION.md
+│   ├── content.js
+│   └── manifest.json
 ├── glasp-remnants-remover/
 │   ├── DESCRIPTION.md
 │   ├── content.js
