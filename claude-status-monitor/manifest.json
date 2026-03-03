@@ -3,7 +3,7 @@
   "name": "Claude Status Monitor",
   "version": "1.0",
   "description": "在 Claude.ai 頁面即時顯示 Claude 服務狀態，資料來源：status.claude.com",
-  "permissions": ["alarms"],
+  "permissions": ["alarms", "storage"],
   "host_permissions": ["https://status.claude.com/*"],
   "background": {
     "service_worker": "background.js"

@@ -6,6 +6,14 @@
   const POLL_MS = 30_000;
   const TICK_MS = 15_000;
 
+  const DEFAULTS = {
+    badgeX: null, // null = use CSS default (right:16px, bottom:16px)
+    badgeY: null,
+    panelW: 640,
+    panelH: 460,
+    fontSize: 14,
+  };
+
   // ── Claude light-mode palette ───────────────────────────────────
   const C = {
     bg:        "#F4F3EE",
@@ -85,6 +93,58 @@
     }
     return arr;
   }
+  function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
+
+  // ── Settings persistence ─────────────────────────────────────────
+  let settings = { ...DEFAULTS };
+
+  function loadSettings() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get("csm_settings", (result) => {
+        if (result.csm_settings) {
+          settings = { ...DEFAULTS, ...result.csm_settings };
+        }
+        resolve();
+      });
+    });
+  }
+
+  function saveSettings() {
+    chrome.storage.local.set({ csm_settings: settings });
+  }
+
+  function resetSettings() {
+    settings = { ...DEFAULTS };
+    chrome.storage.local.remove("csm_settings");
+    applySettings();
+  }
+
+  function applySettings() {
+    // Badge position
+    if (settings.badgeX !== null && settings.badgeY !== null) {
+      host.style.right = "auto";
+      host.style.bottom = "auto";
+      host.style.left = clamp(settings.badgeX, 0, window.innerWidth - 60) + "px";
+      host.style.top = clamp(settings.badgeY, 0, window.innerHeight - 30) + "px";
+    } else {
+      host.style.right = "16px";
+      host.style.bottom = "16px";
+      host.style.left = "auto";
+      host.style.top = "auto";
+    }
+
+    // Panel size
+    panel.style.width = settings.panelW + "px";
+    panel.style.height = settings.panelH + "px";
+
+    // Font size
+    host.style.fontSize = settings.fontSize + "px";
+    if (fontSlider) fontSlider.value = settings.fontSize;
+    if (fontLabel) fontLabel.textContent = settings.fontSize + "px";
+
+    // Update responsive layout
+    updateLayout();
+  }
 
   // ── Shadow DOM ─────────────────────────────────────────────────────
   const host = document.createElement("div");
@@ -107,7 +167,6 @@
       pointer-events: none;
     }
 
-    /* Wrapper anchors the badge; panel floats above it */
     .wrap { position: relative; }
 
     /* ── Badge ────────────────────────────── */
@@ -119,17 +178,17 @@
       border-radius: 999px;
       background: ${C.surface};
       border: 1px solid ${C.border};
-      cursor: pointer;
+      cursor: grab;
       user-select: none;
       box-shadow: 0 2px 8px rgba(0,0,0,.08);
       pointer-events: auto;
-      transition: opacity .18s ease, transform .18s ease, background .12s ease, box-shadow .12s ease;
+      transition: opacity .18s ease, background .12s ease, box-shadow .12s ease;
     }
     .badge:hover {
       background: ${C.elevated};
       box-shadow: 0 4px 14px rgba(0,0,0,.12);
-      transform: translateY(-1px);
     }
+    .badge.dragging { cursor: grabbing; }
     .badge.hide {
       opacity: 0;
       transform: scale(.85);
@@ -147,7 +206,7 @@
       white-space: nowrap;
     }
 
-    /* ── Panel (absolutely positioned above badge) ── */
+    /* ── Panel ── */
     .panel {
       position: absolute;
       bottom: calc(100% + 8px);
@@ -156,6 +215,8 @@
       max-width: calc(100vw - 32px);
       height: 460px;
       max-height: calc(100vh - 80px);
+      min-width: 300px;
+      min-height: 250px;
       background: ${C.bg};
       border: 1px solid ${C.border};
       border-radius: 14px;
@@ -181,6 +242,24 @@
       transition-delay: 0s;
     }
 
+    /* ── Resize handles ── */
+    .resize-handle {
+      position: absolute;
+      pointer-events: auto;
+    }
+    .resize-n {
+      top: -4px; left: 14px; right: 14px; height: 8px;
+      cursor: n-resize;
+    }
+    .resize-w {
+      left: -4px; top: 14px; bottom: 14px; width: 8px;
+      cursor: w-resize;
+    }
+    .resize-nw {
+      top: -4px; left: -4px; width: 14px; height: 14px;
+      cursor: nw-resize;
+    }
+
     /* Header */
     .p-header {
       display: flex; align-items: center; gap: 10px;
@@ -190,8 +269,32 @@
     }
     .p-header .dot { width: 10px; height: 10px; }
     .p-header-info { flex: 1; min-width: 0; }
-    .p-title { font-weight: 600; font-size: 15px; }
-    .p-desc  { font-size: 13px; color: ${C.textSec}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .p-title { font-weight: 600; font-size: 1.07em; }
+    .p-desc  { font-size: .93em; color: ${C.textSec}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .header-controls {
+      display: flex; align-items: center; gap: 8px;
+      flex-shrink: 0;
+    }
+    .font-control {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 11px; color: ${C.textMut};
+    }
+    .font-control label { white-space: nowrap; }
+    .font-slider {
+      width: 60px; height: 3px;
+      -webkit-appearance: none; appearance: none;
+      background: ${C.border}; border-radius: 2px;
+      outline: none; cursor: pointer;
+    }
+    .font-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: ${C.accent}; cursor: pointer;
+      border: none;
+    }
+    .font-label { min-width: 30px; text-align: center; }
+
     .close-btn {
       background: none; border: none; color: ${C.textMut};
       cursor: pointer; font-size: 18px; line-height: 1;
@@ -206,8 +309,11 @@
       overflow: hidden;
       min-height: 0;
     }
+    .p-body.stacked {
+      flex-direction: column-reverse;
+    }
     .col { overflow-y: auto; padding: 14px 16px; }
-    .col::-webkit-scrollbar { width: 4px; }
+    .col::-webkit-scrollbar { width: 3px; }
     .col::-webkit-scrollbar-thumb { background: ${C.borderSub}; border-radius: 2px; }
     .col::-webkit-scrollbar-track { background: transparent; }
     .col-left {
@@ -216,8 +322,17 @@
     }
     .col-right { width: 270px; flex-shrink: 0; }
 
+    .p-body.stacked .col-left {
+      border-right: none;
+      border-top: 1px solid ${C.border};
+    }
+    .p-body.stacked .col-right {
+      width: auto;
+      flex-shrink: 1;
+    }
+
     .sec-title {
-      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      font-size: .79em; font-weight: 600; text-transform: uppercase;
       letter-spacing: .6px; color: ${C.textMut}; margin-bottom: 10px;
     }
 
@@ -227,9 +342,9 @@
       display: flex; align-items: center; justify-content: space-between;
       margin-bottom: 5px;
     }
-    .comp-name { font-size: 13px; font-weight: 500; }
+    .comp-name { font-size: .93em; font-weight: 500; }
     .comp-badge {
-      font-size: 11px; font-weight: 600; padding: 2px 8px;
+      font-size: .79em; font-weight: 600; padding: 2px 8px;
       border-radius: 999px; letter-spacing: .2px;
     }
     .bars { display: flex; gap: 2px; height: 28px; }
@@ -240,7 +355,7 @@
     .bar:hover { opacity: .6; }
     .bar-labels {
       display: flex; justify-content: space-between; align-items: center;
-      margin-top: 3px; font-size: 11px; color: ${C.textMut};
+      margin-top: 3px; font-size: .79em; color: ${C.textMut};
     }
     .bar-labels-center { text-align: center; }
 
@@ -260,25 +375,24 @@
     .inc-top:hover { background: ${C.elevated}; }
     .inc-header { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
     .inc-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
-    .inc-name { font-size: 13px; font-weight: 600; line-height: 1.35; }
+    .inc-name { font-size: .93em; font-weight: 600; line-height: 1.35; }
     .inc-status-line { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
     .inc-status-badge {
-      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      font-size: .79em; font-weight: 600; text-transform: uppercase;
       letter-spacing: .3px;
     }
-    .inc-time { font-size: 11px; color: ${C.textMut}; }
+    .inc-time { font-size: .79em; color: ${C.textMut}; }
     .inc-body {
-      font-size: 12px; color: ${C.textSec}; line-height: 1.5;
+      font-size: .86em; color: ${C.textSec}; line-height: 1.5;
       display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
       overflow: hidden;
     }
     .incident.expanded .inc-body { -webkit-line-clamp: unset; }
 
-    /* Expand toggle */
     .inc-toggle {
       display: flex; align-items: center; gap: 5px;
       padding: 6px 14px 8px;
-      font-size: 11px; color: ${C.accent}; cursor: pointer;
+      font-size: .79em; color: ${C.accent}; cursor: pointer;
     }
     .inc-toggle:hover { text-decoration: underline; }
     .inc-toggle .arrow {
@@ -291,7 +405,6 @@
     .incident.expanded .when-collapsed { display: none; }
     .incident.expanded .when-expanded { display: inline; }
 
-    /* Timeline */
     .inc-timeline {
       max-height: 0;
       overflow: hidden;
@@ -323,15 +436,15 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 18px; margin-bottom: 8px;
     }
-    .no-inc-title { font-size: 14px; font-weight: 600; color: ${C.textSec}; }
-    .no-inc-sub { font-size: 12px; margin-top: 2px; }
+    .no-inc-title { font-size: 1em; font-weight: 600; color: ${C.textSec}; }
+    .no-inc-sub { font-size: .86em; margin-top: 2px; }
 
     /* ── Footer ── */
     .p-footer {
       display: flex; align-items: center; justify-content: space-between;
       padding: 10px 16px;
       border-top: 1px solid ${C.border};
-      font-size: 12px; color: ${C.textMut};
+      font-size: .86em; color: ${C.textMut};
       background: ${C.surface};
     }
     .p-footer-left { display: flex; align-items: center; gap: 6px; }
@@ -344,6 +457,15 @@
     .refresh-btn:hover { color: ${C.text}; background: ${C.elevated}; }
     .refresh-btn.spinning { animation: spin .6s ease; }
     @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+
+    .reset-btn {
+      background: none; border: 1px solid ${C.border};
+      color: ${C.textMut}; cursor: pointer; font-size: .86em;
+      padding: 3px 8px; border-radius: 6px; transition: all .1s;
+      white-space: nowrap;
+    }
+    .reset-btn:hover { color: ${C.text}; background: ${C.elevated}; }
+
     .p-footer a { color: ${C.accent}; text-decoration: none; }
     .p-footer a:hover { text-decoration: underline; }
 
@@ -352,7 +474,7 @@
       position: fixed; pointer-events: none;
       padding: 6px 10px; border-radius: 6px;
       background: ${C.surface}; border: 1px solid ${C.borderSub};
-      font-size: 12px; line-height: 1.4; white-space: nowrap;
+      font-size: .86em; line-height: 1.4; white-space: nowrap;
       opacity: 0; transition: opacity .1s;
       transform: translate(-50%, -100%);
       box-shadow: 0 3px 10px rgba(0,0,0,.1);
@@ -361,17 +483,16 @@
     .tooltip-date { font-weight: 600; color: ${C.text}; }
     .tooltip-status { color: ${C.textSec}; }
 
-    /* Loading / error */
     .loading, .error {
       display: flex; align-items: center; justify-content: center;
-      height: 100%; text-align: center; font-size: 13px; color: ${C.textMut};
+      height: 100%; text-align: center; font-size: .93em; color: ${C.textMut};
       padding: 24px;
     }
     .error { color: ${C.red}; flex-direction: column; }
     .retry-btn {
       margin-top: 10px; padding: 5px 14px; border-radius: 8px;
       border: 1px solid ${C.border}; background: ${C.surface};
-      color: ${C.text}; cursor: pointer; font-size: 12px; transition: background .1s;
+      color: ${C.text}; cursor: pointer; font-size: .86em; transition: background .1s;
     }
     .retry-btn:hover { background: ${C.elevated}; }
   `;
@@ -384,13 +505,23 @@
   const panel = document.createElement("div");
   panel.className = "panel";
   panel.innerHTML = `
+    <div class="resize-handle resize-n"></div>
+    <div class="resize-handle resize-w"></div>
+    <div class="resize-handle resize-nw"></div>
     <div class="p-header">
       <span class="dot pulse" style="background:${C.gray}"></span>
       <div class="p-header-info">
         <div class="p-title">Claude Status</div>
         <div class="p-desc">Loading…</div>
       </div>
-      <button class="close-btn" title="Close">✕</button>
+      <div class="header-controls">
+        <div class="font-control">
+          <label>A</label>
+          <input type="range" class="font-slider" min="10" max="20" value="14" step="1">
+          <span class="font-label">14px</span>
+        </div>
+        <button class="close-btn" title="Close">✕</button>
+      </div>
     </div>
     <div class="p-body">
       <div class="col col-left"><div class="loading">Loading…</div></div>
@@ -401,6 +532,7 @@
         <span class="updated-at"></span>
         <button class="refresh-btn" title="Refresh now">↻</button>
       </div>
+      <button class="reset-btn" title="Reset position, size and font to defaults">Reset</button>
       <a href="https://status.claude.com" target="_blank" rel="noopener">status.claude.com</a>
     </div>`;
 
@@ -424,8 +556,12 @@
   const headerDesc  = panel.querySelector(".p-desc");
   const colLeft     = panel.querySelector(".col-left");
   const colRight    = panel.querySelector(".col-right");
+  const pBody       = panel.querySelector(".p-body");
   const updatedAtEl = panel.querySelector(".updated-at");
   const refreshBtn  = panel.querySelector(".refresh-btn");
+  const resetBtn    = panel.querySelector(".reset-btn");
+  const fontSlider  = panel.querySelector(".font-slider");
+  const fontLabel   = panel.querySelector(".font-label");
 
   // ── State ──────────────────────────────────────────────────────────
   let panelOpen = false;
@@ -437,6 +573,7 @@
     panelOpen = true;
     panel.classList.add("open");
     badge.classList.add("hide");
+    updateLayout();
   }
   function closePanel() {
     if (!panelOpen) return;
@@ -446,7 +583,10 @@
     hideTooltip();
   }
 
-  badge.addEventListener("click", openPanel);
+  badge.addEventListener("click", (e) => {
+    if (badge._wasDragged) { badge._wasDragged = false; return; }
+    openPanel();
+  });
   panel.querySelector(".close-btn").addEventListener("click", closePanel);
 
   // Click outside to close
@@ -454,11 +594,133 @@
     if (!panelOpen) return;
     if (!host.contains(e.target) && e.target !== host) closePanel();
   });
-  // Also handle clicks that land on the host but outside the panel (shadow retargeting)
   wrap.addEventListener("pointerdown", (e) => {
     if (!panelOpen) return;
-    // If the click is not inside the panel, close it
     if (!panel.contains(e.target)) closePanel();
+  });
+
+  // ── Draggable badge ──────────────────────────────────────────────
+  let dragState = null;
+
+  badge.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    const rect = host.getBoundingClientRect();
+    dragState = {
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startX: rect.left,
+      startY: rect.top,
+      moved: false,
+    };
+    badge.classList.add("dragging");
+    badge.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  badge.addEventListener("pointermove", (e) => {
+    if (!dragState) return;
+    const dx = e.clientX - dragState.startMouseX;
+    const dy = e.clientY - dragState.startMouseY;
+    if (!dragState.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+    dragState.moved = true;
+
+    const newX = clamp(dragState.startX + dx, 0, window.innerWidth - 60);
+    const newY = clamp(dragState.startY + dy, 0, window.innerHeight - 30);
+
+    host.style.left = newX + "px";
+    host.style.top = newY + "px";
+    host.style.right = "auto";
+    host.style.bottom = "auto";
+  });
+
+  badge.addEventListener("pointerup", (e) => {
+    if (!dragState) return;
+    badge.classList.remove("dragging");
+    if (dragState.moved) {
+      badge._wasDragged = true;
+      const rect = host.getBoundingClientRect();
+      settings.badgeX = rect.left;
+      settings.badgeY = rect.top;
+      saveSettings();
+    }
+    dragState = null;
+  });
+
+  // ── Resizable panel ──────────────────────────────────────────────
+  let resizeState = null;
+
+  function startResize(e, dir) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const panelRect = panel.getBoundingClientRect();
+    resizeState = {
+      dir,
+      startX: e.clientX,
+      startY: e.clientY,
+      startW: panelRect.width,
+      startH: panelRect.height,
+    };
+    document.addEventListener("pointermove", onResizeMove, true);
+    document.addEventListener("pointerup", onResizeEnd, true);
+  }
+
+  function onResizeMove(e) {
+    if (!resizeState) return;
+    const dx = e.clientX - resizeState.startX;
+    const dy = e.clientY - resizeState.startY;
+    const { dir, startW, startH } = resizeState;
+
+    if (dir === "w" || dir === "nw") {
+      const newW = clamp(startW - dx, 300, window.innerWidth - 32);
+      panel.style.width = newW + "px";
+      settings.panelW = newW;
+    }
+    if (dir === "n" || dir === "nw") {
+      const newH = clamp(startH - dy, 250, window.innerHeight - 80);
+      panel.style.height = newH + "px";
+      settings.panelH = newH;
+    }
+    updateLayout();
+  }
+
+  function onResizeEnd() {
+    if (!resizeState) return;
+    resizeState = null;
+    document.removeEventListener("pointermove", onResizeMove, true);
+    document.removeEventListener("pointerup", onResizeEnd, true);
+    saveSettings();
+  }
+
+  panel.querySelector(".resize-n").addEventListener("pointerdown", (e) => startResize(e, "n"));
+  panel.querySelector(".resize-w").addEventListener("pointerdown", (e) => startResize(e, "w"));
+  panel.querySelector(".resize-nw").addEventListener("pointerdown", (e) => startResize(e, "nw"));
+
+  // ── Responsive layout ────────────────────────────────────────────
+  function updateLayout() {
+    const w = parseInt(panel.style.width) || settings.panelW;
+    if (w < 480) {
+      pBody.classList.add("stacked");
+    } else {
+      pBody.classList.remove("stacked");
+    }
+  }
+
+  // ── Font-size slider ─────────────────────────────────────────────
+  fontSlider.addEventListener("input", (e) => {
+    const size = parseInt(e.target.value);
+    settings.fontSize = size;
+    host.style.fontSize = size + "px";
+    fontLabel.textContent = size + "px";
+  });
+  fontSlider.addEventListener("change", () => {
+    saveSettings();
+  });
+
+  // ── Reset button ─────────────────────────────────────────────────
+  resetBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    resetSettings();
   });
 
   // ── Tooltip ────────────────────────────────────────────────────────
@@ -504,7 +766,7 @@
   refreshBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     refreshBtn.classList.remove("spinning");
-    void refreshBtn.offsetWidth; // reflow to restart animation
+    void refreshBtn.offsetWidth;
     refreshBtn.classList.add("spinning");
     requestStatus(true);
   });
@@ -518,12 +780,10 @@
     const iColor = INDICATOR_COLOR[indicator] || C.gray;
     const desc = data.status?.description || "Unknown";
 
-    // Badge
     badgeDot.style.background = iColor;
     badgeText.textContent = desc;
     badgeDot.classList.toggle("pulse", indicator !== "none");
 
-    // Header
     headerDot.style.background = iColor;
     headerDot.classList.toggle("pulse", indicator !== "none");
     headerDesc.textContent = desc;
@@ -583,7 +843,7 @@
             </div>
             <div class="inc-body">${esc(latest.body)}</div>`;
         }
-        right += `</div>`; // close inc-top
+        right += `</div>`;
 
         if (previous.length) {
           right += `<div class="inc-toggle">
@@ -604,10 +864,10 @@
               <div class="inc-body">${esc(upd.body)}</div>
             </div>`;
           }
-          right += `</div></div>`; // close inc-tl-inner, inc-timeline
+          right += `</div></div>`;
         }
 
-        right += `</div>`; // close incident
+        right += `</div>`;
       }
     } else {
       right += `<div class="no-incidents">
@@ -618,7 +878,6 @@
     }
     colRight.innerHTML = right;
 
-    // Footer
     lastUpdatedAt = data.updated_at;
     updateFooterTime();
   }
@@ -657,7 +916,10 @@
     if (msg.type === "STATUS_UPDATE") render(msg.data);
   });
 
-  // Initial + periodic
-  requestStatus();
+  // ── Init ───────────────────────────────────────────────────────────
+  loadSettings().then(() => {
+    applySettings();
+    requestStatus();
+  });
   setInterval(requestStatus, POLL_MS);
 })();
