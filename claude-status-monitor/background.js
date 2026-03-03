@@ -73,6 +73,7 @@ async function fetchStatusData() {
 // Content script messaging
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === "GET_STATUS") {
+    if (msg.force) lastFetch = 0; // bust cache on manual refresh
     fetchStatusData()
       .then((data) => sendResponse({ ok: true, data }))
       .catch((err) => sendResponse({ ok: false, error: err.message }));
