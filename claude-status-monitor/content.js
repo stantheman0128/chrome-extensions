@@ -3,17 +3,18 @@
 
   // ── Config ─────────────────────────────────────────────────────────
   const DAYS = 30;
-  const POLL_MS = 30_000; // 30 seconds
+  const POLL_MS = 30_000;
+  const TICK_MS = 15_000;
 
-  // ── Claude-inspired warm dark palette ──────────────────────────────
+  // ── Claude warm dark palette ───────────────────────────────────────
   const C = {
     bg:        "#1B1A17",
-    surface:   "#292824",
+    surface:   "#2A2926",
     elevated:  "#35332E",
     border:    "#3E3D38",
     borderSub: "#4A4845",
     text:      "#E8E4DC",
-    textSec:   "#9B9890",
+    textSec:   "#9A958D",
     textMut:   "#6C6A63",
     accent:    "#D97756",
     green:     "#3D9B5A",
@@ -44,11 +45,12 @@
     minor: C.barMinor, major: C.barMajor, critical: C.barCrit,
   };
   const BAR_LABEL = {
-    operational: "No incidents",
-    none: "No incidents",
-    minor: "Minor incident",
-    major: "Major incident",
-    critical: "Critical incident",
+    operational: "No incidents", none: "No incidents",
+    minor: "Minor incident", major: "Major incident", critical: "Critical incident",
+  };
+  const UPDATE_COLOR = {
+    investigating: C.orange, identified: C.yellow, monitoring: C.blue,
+    update: C.textSec, resolved: C.green, postmortem: C.textMut,
   };
 
   // ── Helpers ────────────────────────────────────────────────────────
@@ -61,21 +63,20 @@
     if (h < 24) return h + "h ago";
     return Math.floor(h / 24) + "d ago";
   }
-
   function fmtDate(d) {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   }
-
   function esc(s) {
     const el = document.createElement("span");
     el.textContent = s;
     return el.innerHTML;
   }
-
-  // Pre-compute date array: index 0 = oldest, index DAYS-1 = today
+  function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function cleanName(name) {
+    return name.replace(/\s*\(formerly[^)]*\)/gi, "").trim();
+  }
   function buildDates() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const arr = [];
     for (let i = 0; i < DAYS; i++) {
       const d = new Date(today);
@@ -107,9 +108,10 @@
       flex-direction: column;
       align-items: flex-end;
       gap: 8px;
+      pointer-events: none;
     }
 
-    /* ── Badge ── */
+    /* ── Badge ────────────────────────────── */
     .badge {
       display: flex;
       align-items: center;
@@ -121,12 +123,18 @@
       cursor: pointer;
       user-select: none;
       box-shadow: 0 2px 10px rgba(0,0,0,.35);
-      transition: all .15s ease;
+      pointer-events: auto;
+      transition: opacity .18s ease, transform .18s ease, background .12s ease, box-shadow .12s ease;
     }
     .badge:hover {
       background: ${C.elevated};
-      box-shadow: 0 4px 16px rgba(0,0,0,.45);
+      box-shadow: 0 4px 18px rgba(0,0,0,.45);
       transform: translateY(-1px);
+    }
+    .badge.hide {
+      opacity: 0;
+      transform: scale(.85);
+      pointer-events: none;
     }
     .dot {
       width: 8px; height: 8px;
@@ -134,217 +142,263 @@
       flex-shrink: 0;
     }
     .dot.pulse { animation: pulse 2s ease-in-out infinite; }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50%      { opacity: .35; }
-    }
-    .badge-text {
-      font-size: 12px;
-      font-weight: 500;
-      white-space: nowrap;
-      color: ${C.textSec};
-    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+    .badge-text { font-size: 12px; font-weight: 500; white-space: nowrap; color: ${C.textSec}; }
 
-    /* ── Panel ── */
+    /* ── Panel ────────────────────────────── */
     .panel {
-      display: none;
-      flex-direction: column;
-      width: 370px;
-      max-height: 540px;
+      width: 620px;
+      max-width: calc(100vw - 32px);
+      max-height: calc(100vh - 80px);
       background: ${C.bg};
       border: 1px solid ${C.border};
       border-radius: 14px;
       box-shadow: 0 8px 32px rgba(0,0,0,.55);
-      overflow: hidden;
-    }
-    .panel.open { display: flex; }
-
-    .p-header {
       display: flex;
-      align-items: center;
-      gap: 10px;
+      flex-direction: column;
+      overflow: hidden;
+      pointer-events: auto;
+
+      visibility: hidden;
+      opacity: 0;
+      transform: scale(.96) translateY(8px);
+      transition:
+        visibility 0s .22s,
+        opacity .22s ease,
+        transform .22s cubic-bezier(.16,1,.3,1);
+    }
+    .panel.open {
+      visibility: visible;
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      transition-delay: 0s;
+    }
+
+    /* Header */
+    .p-header {
+      display: flex; align-items: center; gap: 10px;
       padding: 14px 16px;
       border-bottom: 1px solid ${C.border};
+      background: ${C.surface};
     }
     .p-header .dot { width: 10px; height: 10px; }
-    .p-header-info { flex: 1; }
+    .p-header-info { flex: 1; min-width: 0; }
     .p-title { font-weight: 600; font-size: 14px; }
-    .p-desc  { font-size: 12px; color: ${C.textSec}; }
+    .p-desc  { font-size: 12px; color: ${C.textSec}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .close-btn {
       background: none; border: none; color: ${C.textMut};
       cursor: pointer; font-size: 18px; line-height: 1;
-      padding: 4px; border-radius: 6px; transition: all .1s;
+      padding: 4px 6px; border-radius: 6px; transition: all .1s;
     }
-    .close-btn:hover { color: ${C.text}; background: ${C.surface}; }
+    .close-btn:hover { color: ${C.text}; background: ${C.elevated}; }
 
-    /* ── Panel body ── */
+    /* ── Two-column body ── */
     .p-body {
       flex: 1;
-      overflow-y: auto;
-      padding: 14px 16px;
-    }
-    .p-body::-webkit-scrollbar { width: 4px; }
-    .p-body::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 2px; }
-    .p-body::-webkit-scrollbar-track { background: transparent; }
-
-    /* Component block */
-    .comp { margin-bottom: 16px; }
-    .comp-header {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 6px;
+      overflow: hidden;
+      min-height: 0;
     }
-    .comp-name { font-size: 13px; font-weight: 500; }
+    .col { overflow-y: auto; padding: 14px 16px; }
+    .col::-webkit-scrollbar { width: 4px; }
+    .col::-webkit-scrollbar-thumb { background: ${C.borderSub}; border-radius: 2px; }
+    .col::-webkit-scrollbar-track { background: transparent; }
+    .col-left {
+      flex: 1; min-width: 0;
+      border-right: 1px solid ${C.border};
+    }
+    .col-right { width: 260px; flex-shrink: 0; }
+
+    .sec-title {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .6px; color: ${C.textMut}; margin-bottom: 10px;
+    }
+
+    /* ── Components + bars ── */
+    .comp { margin-bottom: 14px; }
+    .comp-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    .comp-name { font-size: 12px; font-weight: 500; }
     .comp-badge {
-      font-size: 10px;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 999px;
-      text-transform: uppercase;
+      font-size: 10px; font-weight: 600; padding: 1px 8px;
+      border-radius: 999px; letter-spacing: .2px;
+    }
+    .bars { display: flex; gap: 2px; height: 28px; }
+    .bar {
+      flex: 1; min-width: 0; border-radius: 2px;
+      cursor: pointer; transition: opacity .1s;
+    }
+    .bar:hover { opacity: .6; }
+    .bar-labels {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 3px; font-size: 10px; color: ${C.textMut};
+    }
+    .bar-labels-center { text-align: center; }
+
+    /* ── Incidents ── */
+    .incident {
+      background: ${C.surface};
+      border-radius: 8px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+    .inc-top {
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .inc-top:hover { background: ${C.elevated}; }
+    .inc-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .inc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .inc-name { font-size: 12px; font-weight: 600; line-height: 1.3; }
+    .inc-status-line { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+    .inc-status-badge {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
       letter-spacing: .3px;
     }
+    .inc-time { font-size: 10px; color: ${C.textMut}; }
+    .inc-body {
+      font-size: 11px; color: ${C.textSec}; line-height: 1.45;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .incident.expanded .inc-body { -webkit-line-clamp: unset; }
 
-    /* Uptime bars */
-    .bars-wrap { position: relative; }
-    .bars {
-      display: flex;
-      gap: 2px;
-      height: 30px;
+    /* Expand toggle */
+    .inc-toggle {
+      display: flex; align-items: center; gap: 4px;
+      padding: 0 12px; margin-top: 4px;
+      font-size: 10px; color: ${C.accent}; cursor: pointer;
     }
-    .bar {
-      flex: 1;
-      min-width: 0;
-      border-radius: 2px;
-      cursor: pointer;
-      transition: opacity .1s;
+    .inc-toggle:hover { text-decoration: underline; }
+    .inc-toggle .arrow {
+      display: inline-block;
+      transition: transform .2s ease;
+      font-size: 8px;
     }
-    .bar:hover { opacity: .65; }
-    .bar-labels {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 4px;
-      font-size: 10px;
-      color: ${C.textMut};
-    }
+    .incident.expanded .inc-toggle .arrow { transform: rotate(180deg); }
+    .when-expanded { display: none; }
+    .incident.expanded .when-collapsed { display: none; }
+    .incident.expanded .when-expanded { display: inline; }
 
-    /* Uptime percentage */
-    .uptime-pct {
-      font-size: 10px;
-      color: ${C.textMut};
-      text-align: right;
-      margin-top: 2px;
+    /* Timeline */
+    .inc-timeline {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .3s ease-out;
     }
-
-    /* Divider */
-    .divider {
-      height: 1px;
-      background: ${C.border};
-      margin: 8px 0 12px;
+    .inc-tl-inner {
+      margin: 8px 12px 10px 15px;
+      border-left: 2px solid ${C.border};
+      padding-left: 12px;
     }
-
-    /* Section title */
-    .sec-title {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .5px;
-      color: ${C.textMut};
-      margin-bottom: 10px;
+    .inc-update { position: relative; margin-bottom: 10px; }
+    .inc-update:last-child { margin-bottom: 0; }
+    .tl-dot {
+      position: absolute; left: -17px; top: 5px;
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+    .inc-update .inc-body {
+      -webkit-line-clamp: unset;
     }
 
-    /* Incidents */
-    .incident {
-      padding: 10px 12px;
-      border-radius: 8px;
-      background: ${C.surface};
-      margin-bottom: 8px;
+    .no-incidents {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; text-align: center;
+      padding: 32px 12px; color: ${C.textMut};
     }
-    .inc-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-    .inc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .inc-name { font-size: 13px; font-weight: 600; }
-    .inc-body { font-size: 12px; color: ${C.textSec}; margin-left: 14px; margin-top: 2px; }
-    .inc-time { font-size: 11px; color: ${C.textMut}; margin-left: 14px; margin-top: 2px; }
-    .no-incidents { font-size: 12px; color: ${C.textMut}; }
+    .no-inc-icon {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: ${C.green}18; color: ${C.green};
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; margin-bottom: 8px;
+    }
+    .no-inc-title { font-size: 13px; font-weight: 600; color: ${C.textSec}; }
+    .no-inc-sub { font-size: 11px; margin-top: 2px; }
 
-    /* Footer */
+    /* ── Footer ── */
     .p-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 9px 16px;
       border-top: 1px solid ${C.border};
-      font-size: 11px;
-      color: ${C.textMut};
+      font-size: 11px; color: ${C.textMut};
+      background: ${C.surface};
     }
+    .p-footer-left { display: flex; align-items: center; gap: 6px; }
+    .refresh-btn {
+      background: none; border: none; color: ${C.textMut};
+      cursor: pointer; font-size: 14px; line-height: 1;
+      padding: 2px; border-radius: 4px; transition: all .1s;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .refresh-btn:hover { color: ${C.text}; background: ${C.elevated}; }
+    .refresh-btn.spinning { animation: spin .6s ease; }
+    @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
     .p-footer a { color: ${C.accent}; text-decoration: none; }
     .p-footer a:hover { text-decoration: underline; }
 
-    /* Loading / error */
-    .loading, .error { text-align: center; padding: 32px 16px; font-size: 13px; }
-    .error { color: ${C.red}; }
-    .retry-btn {
-      margin-top: 10px;
-      padding: 5px 14px;
-      border-radius: 8px;
-      border: 1px solid ${C.border};
-      background: ${C.surface};
-      color: ${C.text};
-      cursor: pointer;
-      font-size: 12px;
-      transition: background .1s;
-    }
-    .retry-btn:hover { background: ${C.elevated}; }
-
-    /* Tooltip */
+    /* ── Tooltip ── */
     .tooltip {
-      position: fixed;
-      pointer-events: none;
-      padding: 6px 10px;
-      border-radius: 8px;
-      background: ${C.surface};
-      border: 1px solid ${C.borderSub};
-      font-size: 11px;
-      line-height: 1.4;
-      white-space: nowrap;
-      opacity: 0;
-      transition: opacity .12s;
+      position: fixed; pointer-events: none;
+      padding: 5px 9px; border-radius: 6px;
+      background: ${C.elevated}; border: 1px solid ${C.borderSub};
+      font-size: 11px; line-height: 1.4; white-space: nowrap;
+      opacity: 0; transition: opacity .1s;
       transform: translate(-50%, -100%);
-      box-shadow: 0 4px 14px rgba(0,0,0,.45);
+      box-shadow: 0 3px 10px rgba(0,0,0,.4);
     }
     .tooltip.show { opacity: 1; }
     .tooltip-date { font-weight: 600; color: ${C.text}; }
     .tooltip-status { color: ${C.textSec}; }
+
+    /* Loading / error */
+    .loading, .error {
+      display: flex; align-items: center; justify-content: center;
+      height: 100%; text-align: center; font-size: 13px; color: ${C.textMut};
+      padding: 24px;
+    }
+    .error { color: ${C.red}; flex-direction: column; }
+    .retry-btn {
+      margin-top: 10px; padding: 5px 14px; border-radius: 8px;
+      border: 1px solid ${C.border}; background: ${C.surface};
+      color: ${C.text}; cursor: pointer; font-size: 12px; transition: background .1s;
+    }
+    .retry-btn:hover { background: ${C.elevated}; }
   `;
   shadow.appendChild(style);
 
-  // ── DOM structure ──────────────────────────────────────────────────
+  // ── DOM ────────────────────────────────────────────────────────────
   const wrap = document.createElement("div");
 
-  // Panel (appears above badge in visual order due to column layout)
   const panel = document.createElement("div");
   panel.className = "panel";
   panel.innerHTML = `
     <div class="p-header">
-      <span class="dot pulse" style="width:10px;height:10px;background:${C.gray}"></span>
+      <span class="dot pulse" style="background:${C.gray}"></span>
       <div class="p-header-info">
         <div class="p-title">Claude Status</div>
         <div class="p-desc">Loading…</div>
       </div>
       <button class="close-btn" title="Close">✕</button>
     </div>
-    <div class="p-body"><div class="loading">Loading…</div></div>
+    <div class="p-body">
+      <div class="col col-left"><div class="loading">Loading…</div></div>
+      <div class="col col-right"><div class="loading">Loading…</div></div>
+    </div>
     <div class="p-footer">
-      <span class="updated-at"></span>
+      <div class="p-footer-left">
+        <span class="updated-at"></span>
+        <button class="refresh-btn" title="Refresh now">↻</button>
+      </div>
       <a href="https://status.claude.com" target="_blank" rel="noopener">status.claude.com</a>
     </div>`;
 
-  // Badge
   const badge = document.createElement("div");
   badge.className = "badge";
   badge.innerHTML = `<span class="dot pulse" style="background:${C.gray}"></span><span class="badge-text">Loading…</span>`;
 
-  // Tooltip (global, repositioned on hover)
   const tooltip = document.createElement("div");
   tooltip.className = "tooltip";
 
@@ -354,59 +408,96 @@
   shadow.appendChild(wrap);
   document.body.appendChild(host);
 
-  // Grab references
-  const badgeDot  = badge.querySelector(".dot");
-  const badgeText = badge.querySelector(".badge-text");
-  const headerDot = panel.querySelector(".p-header .dot");
-  const headerDesc = panel.querySelector(".p-desc");
-  const panelBody = panel.querySelector(".p-body");
-  const updatedAt = panel.querySelector(".updated-at");
+  // Refs
+  const badgeDot    = badge.querySelector(".dot");
+  const badgeText   = badge.querySelector(".badge-text");
+  const headerDot   = panel.querySelector(".p-header .dot");
+  const headerDesc  = panel.querySelector(".p-desc");
+  const colLeft     = panel.querySelector(".col-left");
+  const colRight    = panel.querySelector(".col-right");
+  const updatedAtEl = panel.querySelector(".updated-at");
+  const refreshBtn  = panel.querySelector(".refresh-btn");
 
-  // ── Interaction ────────────────────────────────────────────────────
+  // ── State ──────────────────────────────────────────────────────────
   let panelOpen = false;
+  let lastUpdatedAt = null;
+  let dates = buildDates();
 
-  badge.addEventListener("click", () => {
+  // ── Panel open / close ─────────────────────────────────────────────
+  function openPanel() {
     panelOpen = true;
     panel.classList.add("open");
-    badge.style.display = "none";
-  });
-
-  panel.querySelector(".close-btn").addEventListener("click", () => {
+    badge.classList.add("hide");
+  }
+  function closePanel() {
+    if (!panelOpen) return;
     panelOpen = false;
     panel.classList.remove("open");
-    badge.style.display = "flex";
+    badge.classList.remove("hide");
     hideTooltip();
+  }
+
+  badge.addEventListener("click", openPanel);
+  panel.querySelector(".close-btn").addEventListener("click", closePanel);
+
+  // Click outside to close
+  document.addEventListener("pointerdown", (e) => {
+    if (!panelOpen) return;
+    if (!host.contains(e.target) && e.target !== host) closePanel();
+  });
+  // Also handle clicks that land on the host but outside the panel (shadow retargeting)
+  wrap.addEventListener("pointerdown", (e) => {
+    if (!panelOpen) return;
+    // If the click is not inside the panel, close it
+    if (!panel.contains(e.target)) closePanel();
   });
 
   // ── Tooltip ────────────────────────────────────────────────────────
-  let dates = buildDates();
-
   function showTooltip(barEl, dayIdx, status) {
-    const date = dates[dayIdx];
-    if (!date) return;
+    const d = dates[dayIdx]; if (!d) return;
     const label = BAR_LABEL[status] || status;
     const color = BAR_COLOR[status] || C.barEmpty;
-    tooltip.innerHTML =
-      `<span class="tooltip-date">${fmtDate(date)}</span><br>` +
-      `<span class="tooltip-status" style="color:${color}">${label}</span>`;
-    const rect = barEl.getBoundingClientRect();
-    tooltip.style.left = (rect.left + rect.width / 2) + "px";
-    tooltip.style.top  = (rect.top - 8) + "px";
+    tooltip.innerHTML = `<span class="tooltip-date">${fmtDate(d)}</span><br><span class="tooltip-status" style="color:${color}">${label}</span>`;
+    const r = barEl.getBoundingClientRect();
+    tooltip.style.left = (r.left + r.width / 2) + "px";
+    tooltip.style.top  = (r.top - 6) + "px";
     tooltip.classList.add("show");
   }
+  function hideTooltip() { tooltip.classList.remove("show"); }
 
-  function hideTooltip() {
-    tooltip.classList.remove("show");
-  }
-
-  // Event delegation for bar hover
-  panelBody.addEventListener("mouseover", (e) => {
+  colLeft.addEventListener("mouseover", (e) => {
     const bar = e.target.closest(".bar");
-    if (!bar) return;
-    showTooltip(bar, parseInt(bar.dataset.idx), bar.dataset.status);
+    if (bar) showTooltip(bar, +bar.dataset.idx, bar.dataset.status);
   });
-  panelBody.addEventListener("mouseout", (e) => {
+  colLeft.addEventListener("mouseout", (e) => {
     if (e.target.closest(".bar")) hideTooltip();
+  });
+
+  // ── Incident expand / collapse ─────────────────────────────────────
+  colRight.addEventListener("click", (e) => {
+    const toggle = e.target.closest(".inc-top, .inc-toggle");
+    if (!toggle) return;
+    const card = toggle.closest(".incident");
+    if (!card) return;
+    const timeline = card.querySelector(".inc-timeline");
+    if (!timeline) return;
+
+    if (card.classList.contains("expanded")) {
+      card.classList.remove("expanded");
+      timeline.style.maxHeight = "0";
+    } else {
+      card.classList.add("expanded");
+      timeline.style.maxHeight = timeline.scrollHeight + "px";
+    }
+  });
+
+  // ── Refresh button ─────────────────────────────────────────────────
+  refreshBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    refreshBtn.classList.remove("spinning");
+    void refreshBtn.offsetWidth; // reflow to restart animation
+    refreshBtn.classList.add("spinning");
+    requestStatus(true);
   });
 
   // ── Render ─────────────────────────────────────────────────────────
@@ -423,87 +514,127 @@
     badgeText.textContent = desc;
     badgeDot.classList.toggle("pulse", indicator !== "none");
 
-    // Panel header
+    // Header
     headerDot.style.background = iColor;
     headerDot.classList.toggle("pulse", indicator !== "none");
     headerDesc.textContent = desc;
 
-    // Build body
-    const components = (data.components || []).filter((c) => !c.group);
+    // ── Left column: components ──
+    const comps = (data.components || []).filter((c) => !c.group);
     const history = data.history || {};
+    let left = '<div class="sec-title">Components</div>';
 
-    let html = "";
-
-    for (const comp of components) {
+    for (const comp of comps) {
       const s = COMP_STATUS[comp.status] || { label: comp.status, color: C.gray };
       const hist = history[comp.id] || new Array(DAYS).fill("operational");
-
-      // Uptime %
       const okDays = hist.filter((d) => d === "operational" || d === "none").length;
       const pct = ((okDays / DAYS) * 100).toFixed(1);
 
-      html += `<div class="comp">
+      left += `<div class="comp">
         <div class="comp-header">
-          <span class="comp-name">${esc(comp.name)}</span>
+          <span class="comp-name">${esc(cleanName(comp.name))}</span>
           <span class="comp-badge" style="color:${s.color};background:${s.color}18">${s.label}</span>
         </div>
-        <div class="bars-wrap"><div class="bars">`;
-
+        <div class="bars">`;
       for (let i = 0; i < DAYS; i++) {
         const st = hist[i] || "operational";
-        const bc = BAR_COLOR[st] || C.barEmpty;
-        html += `<div class="bar" style="background:${bc}" data-idx="${i}" data-status="${st}"></div>`;
+        left += `<div class="bar" style="background:${BAR_COLOR[st] || C.barEmpty}" data-idx="${i}" data-status="${st}"></div>`;
       }
-
-      html += `</div>
+      left += `</div>
         <div class="bar-labels">
           <span>${fmtDate(dates[0])}</span>
-          <span>${pct}% uptime</span>
+          <span class="bar-labels-center">${pct}% uptime</span>
           <span>Today</span>
-        </div>
         </div></div>`;
     }
+    colLeft.innerHTML = left;
 
-    // Incidents
-    html += `<div class="divider"></div><div class="sec-title">Active Incidents</div>`;
+    // ── Right column: incidents ──
+    let right = '<div class="sec-title">Active Incidents</div>';
 
     if (data.incidents?.length) {
       for (const inc of data.incidents) {
         const ic = INDICATOR_COLOR[inc.impact] || C.gray;
-        const upd = inc.incident_updates?.[0];
-        html += `<div class="incident">
-          <div class="inc-header">
-            <span class="inc-dot" style="background:${ic}"></span>
-            <span class="inc-name">${esc(inc.name)}</span>
-          </div>`;
-        if (upd) {
-          html += `<div class="inc-body">${esc(upd.body)}</div>
-            <div class="inc-time">${timeAgo(upd.updated_at)}</div>`;
+        const updates = inc.incident_updates || [];
+        const latest = updates[0];
+        const previous = updates.slice(1);
+
+        right += `<div class="incident">
+          <div class="inc-top">
+            <div class="inc-header">
+              <span class="inc-dot" style="background:${ic}"></span>
+              <span class="inc-name">${esc(inc.name)}</span>
+            </div>`;
+
+        if (latest) {
+          const sc = UPDATE_COLOR[latest.status] || C.textSec;
+          right += `<div class="inc-status-line">
+              <span class="inc-status-badge" style="color:${sc}">${capitalize(latest.status)}</span>
+              <span class="inc-time">${timeAgo(latest.updated_at)}</span>
+            </div>
+            <div class="inc-body">${esc(latest.body)}</div>`;
         }
-        html += `</div>`;
+        right += `</div>`; // close inc-top
+
+        if (previous.length) {
+          right += `<div class="inc-toggle">
+            <span class="arrow">▾</span>
+            <span class="when-collapsed">${previous.length} previous update${previous.length > 1 ? "s" : ""}</span>
+            <span class="when-expanded">Collapse</span>
+          </div>
+          <div class="inc-timeline"><div class="inc-tl-inner">`;
+
+          for (const upd of previous) {
+            const uc = UPDATE_COLOR[upd.status] || C.textSec;
+            right += `<div class="inc-update">
+              <span class="tl-dot" style="background:${uc}"></span>
+              <div class="inc-status-line">
+                <span class="inc-status-badge" style="color:${uc}">${capitalize(upd.status)}</span>
+                <span class="inc-time">${timeAgo(upd.updated_at)}</span>
+              </div>
+              <div class="inc-body">${esc(upd.body)}</div>
+            </div>`;
+          }
+          right += `</div></div>`; // close inc-tl-inner, inc-timeline
+        }
+
+        right += `</div>`; // close incident
       }
     } else {
-      html += `<div class="no-incidents">No active incidents — all systems normal.</div>`;
+      right += `<div class="no-incidents">
+        <div class="no-inc-icon">✓</div>
+        <div class="no-inc-title">All Systems Operational</div>
+        <div class="no-inc-sub">No active incidents</div>
+      </div>`;
     }
-
-    panelBody.innerHTML = html;
+    colRight.innerHTML = right;
 
     // Footer
-    if (data.updated_at) {
-      updatedAt.textContent = "Updated " + timeAgo(data.updated_at);
-    }
+    lastUpdatedAt = data.updated_at;
+    updateFooterTime();
   }
 
   function renderError(msg) {
-    panelBody.innerHTML = `<div class="error">${esc(msg)}<br><button class="retry-btn">Retry</button></div>`;
-    panelBody.querySelector(".retry-btn").addEventListener("click", requestStatus);
+    colLeft.innerHTML = `<div class="error">${esc(msg)}<br><button class="retry-btn">Retry</button></div>`;
+    colRight.innerHTML = "";
+    colLeft.querySelector(".retry-btn")?.addEventListener("click", () => requestStatus(true));
     badgeDot.style.background = C.gray;
     badgeText.textContent = "Status unavailable";
+    headerDot.style.background = C.gray;
+    headerDesc.textContent = "Unable to load status";
   }
 
-  // ── Fetching ───────────────────────────────────────────────────────
-  function requestStatus() {
-    chrome.runtime.sendMessage({ type: "GET_STATUS" }, (res) => {
+  // ── Footer time ticker ─────────────────────────────────────────────
+  function updateFooterTime() {
+    if (lastUpdatedAt) {
+      updatedAtEl.textContent = "Updated " + timeAgo(lastUpdatedAt);
+    }
+  }
+  setInterval(updateFooterTime, TICK_MS);
+
+  // ── Data fetching ──────────────────────────────────────────────────
+  function requestStatus(force = false) {
+    chrome.runtime.sendMessage({ type: "GET_STATUS", force }, (res) => {
       if (chrome.runtime.lastError) {
         renderError("Cannot reach extension background");
         return;
@@ -513,12 +644,11 @@
     });
   }
 
-  // Listen for pushed updates from background
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.type === "STATUS_UPDATE") render(msg.data);
   });
 
-  // Initial fetch + periodic polling
+  // Initial + periodic
   requestStatus();
   setInterval(requestStatus, POLL_MS);
 })();
