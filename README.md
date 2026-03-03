@@ -11,17 +11,55 @@
 
 | # | 擴充功能 | 下載 |
 |---|---------|------|
-| 1 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | [![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
-| 2 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | [![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
-| 3 | [YouTube 絕對精確日期 (完美客製版)](#ext-youtube-video-upload-time) | [![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
+| 1 | [Claude Status Monitor](#ext-claude-status-monitor) | [![下載 claude-status-monitor](https://img.shields.io/badge/下載-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
+| 2 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | [![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
+| 3 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | [![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
+| 4 | [YouTube 絕對精確日期 (完美客製版)](#ext-youtube-video-upload-time) | [![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
 
 ---
 
 ## 擴充功能列表
 
+<a id="ext-claude-status-monitor"></a>
+
+### 1. Claude Status Monitor
+
+**資料夾：** `claude-status-monitor/`
+
+## Claude Status Monitor
+
+在 Claude.ai 網頁版（含 Claude Code 網頁版）即時顯示 Claude 服務狀態，資料來源為 [status.claude.com](https://status.claude.com)。
+
+**功能特色**
+
+- 於頁面右下角顯示浮動狀態徽章，顏色對應目前整體狀態（綠色＝正常、黃色＝輕微、橘色＝重大、紅色＝嚴重）
+- 點擊徽章展開詳細面板，顯示所有服務元件（claude.ai、Claude API、Claude Code 等）的即時狀態
+- 自動顯示進行中的事件（Incidents）及最新更新內容
+- 每 60 秒自動刷新，亦可手動重試
+- 使用 Shadow DOM 完全隔離樣式，不影響 Claude.ai 原有介面
+- 深色主題設計，與 Claude.ai 風格一致
+
+**技術細節**
+
+- 透過 Atlassian Statuspage 公開 API（`/api/v2/summary.json`、`/api/v2/incidents/unresolved.json`）取得即時狀態資料
+- 採用 Service Worker（`background.js`）統一發送 API 請求，避免跨域限制
+- 使用 `chrome.alarms` 定期推送更新至所有已開啟的 Claude.ai 分頁
+
+**一鍵下載**
+
+[![下載 claude-status-monitor](https://img.shields.io/badge/下載-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/claude-status-monitor.zip)
+
+**安裝方式**
+1. 點上方按鈕下載 `.zip` 並解壓縮
+2. 開啟 Chrome，前往 `chrome://extensions`
+3. 啟用右上角的**開發人員模式**
+4. 點擊**載入未封裝項目**，選擇解壓縮後的 `claude-status-monitor` 資料夾
+
+---
+
 <a id="ext-dcard-article-formatter"></a>
 
-### 1. Dcard 文章排版優化
+### 2. Dcard 文章排版優化
 
 **資料夾：** `dcard-article-formatter/`
 
@@ -37,7 +75,7 @@
 
 **一鍵下載**
 
-[![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
+[![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -49,7 +87,7 @@
 
 <a id="ext-glasp-remnants-remover"></a>
 
-### 2. Remove Glasp Remnants
+### 3. Remove Glasp Remnants
 
 **資料夾：** `glasp-remnants-remover/`
 
@@ -62,7 +100,7 @@
 
 **一鍵下載**
 
-[![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
+[![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -74,7 +112,7 @@
 
 <a id="ext-youtube-video-upload-time"></a>
 
-### 3. YouTube 絕對精確日期 (完美客製版)
+### 4. YouTube 絕對精確日期 (完美客製版)
 
 **資料夾：** `youtube-video-upload-time/`
 
@@ -103,7 +141,7 @@
 
 **一鍵下載**
 
-[![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
+[![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -117,6 +155,11 @@
 
 ```
 stan-chrome-extensions/
+├── claude-status-monitor/
+│   ├── DESCRIPTION.md
+│   ├── background.js
+│   ├── content.js
+│   └── manifest.json
 ├── dcard-article-formatter/
 │   ├── DESCRIPTION.md
 │   ├── content.js
