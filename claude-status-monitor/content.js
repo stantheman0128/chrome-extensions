@@ -6,13 +6,13 @@
   const POLL_MS = 30_000;
   const TICK_MS = 15_000;
 
-  // ── Claude warm dark palette ───────────────────────────────────────
+  // ── Claude dark-mode palette (matches claude.ai) ────────────────
   const C = {
-    bg:        "#1B1A17",
-    surface:   "#2A2926",
-    elevated:  "#35332E",
-    border:    "#3E3D38",
-    borderSub: "#4A4845",
+    bg:        "#302F2B",
+    surface:   "#3A3935",
+    elevated:  "#45443F",
+    border:    "#504E4A",
+    borderSub: "#5A5854",
     text:      "#E8E4DC",
     textSec:   "#9A958D",
     textMut:   "#6C6A63",
@@ -27,7 +27,7 @@
     barMinor:  "#BFA716",
     barMajor:  "#CC6A1E",
     barCrit:   "#CC3030",
-    barEmpty:  "#2E2D29",
+    barEmpty:  "#3A3935",
   };
 
   const INDICATOR_COLOR = {
@@ -115,8 +115,8 @@
     .badge {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 7px 14px;
+      gap: 6px;
+      padding: 6px 12px;
       border-radius: 999px;
       background: ${C.surface};
       border: 1px solid ${C.border};
@@ -397,7 +397,7 @@
 
   const badge = document.createElement("div");
   badge.className = "badge";
-  badge.innerHTML = `<span class="dot pulse" style="background:${C.gray}"></span><span class="badge-text">Loading…</span>`;
+  badge.innerHTML = `<span class="dot pulse" style="background:${C.gray}"></span><span class="badge-text">Status</span>`;
 
   const tooltip = document.createElement("div");
   tooltip.className = "tooltip";
@@ -509,9 +509,8 @@
     const iColor = INDICATOR_COLOR[indicator] || C.gray;
     const desc = data.status?.description || "Unknown";
 
-    // Badge
+    // Badge – keep text fixed & compact, only update dot color
     badgeDot.style.background = iColor;
-    badgeText.textContent = desc;
     badgeDot.classList.toggle("pulse", indicator !== "none");
 
     // Header
@@ -619,7 +618,6 @@
     colRight.innerHTML = "";
     colLeft.querySelector(".retry-btn")?.addEventListener("click", () => requestStatus(true));
     badgeDot.style.background = C.gray;
-    badgeText.textContent = "Status unavailable";
     headerDot.style.background = C.gray;
     headerDesc.textContent = "Unable to load status";
   }
