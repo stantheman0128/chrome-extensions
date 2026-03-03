@@ -6,28 +6,28 @@
   const POLL_MS = 30_000;
   const TICK_MS = 15_000;
 
-  // ── Claude dark-mode palette (matches claude.ai) ────────────────
+  // ── Claude light-mode palette ───────────────────────────────────
   const C = {
-    bg:        "#302F2B",
-    surface:   "#3A3935",
-    elevated:  "#45443F",
-    border:    "#504E4A",
-    borderSub: "#5A5854",
-    text:      "#E8E4DC",
-    textSec:   "#9A958D",
-    textMut:   "#6C6A63",
+    bg:        "#F4F3EE",
+    surface:   "#FFFFFF",
+    elevated:  "#EAE9E5",
+    border:    "#D9D8D4",
+    borderSub: "#C8C7C3",
+    text:      "#1F1E1D",
+    textSec:   "#6B6A68",
+    textMut:   "#9B9A97",
     accent:    "#D97756",
-    green:     "#3D9B5A",
-    yellow:    "#BFA716",
-    orange:    "#CC6A1E",
+    green:     "#2D8A4E",
+    yellow:    "#9A7B00",
+    orange:    "#C75A1E",
     red:       "#CC3030",
-    blue:      "#4B83D6",
-    gray:      "#6C6A63",
-    barOk:     "#3D9B5A",
-    barMinor:  "#BFA716",
-    barMajor:  "#CC6A1E",
-    barCrit:   "#CC3030",
-    barEmpty:  "#3A3935",
+    blue:      "#3574D1",
+    gray:      "#9B9A97",
+    barOk:     "#45B26B",
+    barMinor:  "#E5B800",
+    barMajor:  "#E87C2A",
+    barCrit:   "#E04040",
+    barEmpty:  "#E2E1DD",
   };
 
   const INDICATOR_COLOR = {
@@ -117,18 +117,19 @@
       align-items: center;
       gap: 6px;
       padding: 6px 12px;
+      max-width: 240px;
       border-radius: 999px;
       background: ${C.surface};
       border: 1px solid ${C.border};
       cursor: pointer;
       user-select: none;
-      box-shadow: 0 2px 10px rgba(0,0,0,.35);
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
       pointer-events: auto;
       transition: opacity .18s ease, transform .18s ease, background .12s ease, box-shadow .12s ease;
     }
     .badge:hover {
       background: ${C.elevated};
-      box-shadow: 0 4px 18px rgba(0,0,0,.45);
+      box-shadow: 0 4px 14px rgba(0,0,0,.12);
       transform: translateY(-1px);
     }
     .badge.hide {
@@ -143,7 +144,10 @@
     }
     .dot.pulse { animation: pulse 2s ease-in-out infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
-    .badge-text { font-size: 12px; font-weight: 500; white-space: nowrap; color: ${C.textSec}; }
+    .badge-text {
+      font-size: 12px; font-weight: 500; color: ${C.textSec};
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
 
     /* ── Panel ────────────────────────────── */
     .panel {
@@ -153,7 +157,7 @@
       background: ${C.bg};
       border: 1px solid ${C.border};
       border-radius: 14px;
-      box-shadow: 0 8px 32px rgba(0,0,0,.55);
+      box-shadow: 0 8px 32px rgba(0,0,0,.12);
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -347,7 +351,7 @@
       font-size: 11px; line-height: 1.4; white-space: nowrap;
       opacity: 0; transition: opacity .1s;
       transform: translate(-50%, -100%);
-      box-shadow: 0 3px 10px rgba(0,0,0,.4);
+      box-shadow: 0 3px 10px rgba(0,0,0,.1);
     }
     .tooltip.show { opacity: 1; }
     .tooltip-date { font-weight: 600; color: ${C.text}; }
@@ -397,7 +401,7 @@
 
   const badge = document.createElement("div");
   badge.className = "badge";
-  badge.innerHTML = `<span class="dot pulse" style="background:${C.gray}"></span><span class="badge-text">Status</span>`;
+  badge.innerHTML = `<span class="dot pulse" style="background:${C.gray}"></span><span class="badge-text">Loading…</span>`;
 
   const tooltip = document.createElement("div");
   tooltip.className = "tooltip";
@@ -509,8 +513,9 @@
     const iColor = INDICATOR_COLOR[indicator] || C.gray;
     const desc = data.status?.description || "Unknown";
 
-    // Badge – keep text fixed & compact, only update dot color
+    // Badge
     badgeDot.style.background = iColor;
+    badgeText.textContent = desc;
     badgeDot.classList.toggle("pulse", indicator !== "none");
 
     // Header
@@ -618,6 +623,7 @@
     colRight.innerHTML = "";
     colLeft.querySelector(".retry-btn")?.addEventListener("click", () => requestStatus(true));
     badgeDot.style.background = C.gray;
+    badgeText.textContent = "Unavailable";
     headerDot.style.background = C.gray;
     headerDesc.textContent = "Unable to load status";
   }
