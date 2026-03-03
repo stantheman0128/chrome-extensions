@@ -101,23 +101,21 @@
       right: 16px;
       z-index: 2147483647;
       font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 13px;
+      font-size: 14px;
       line-height: 1.5;
       color: ${C.text};
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 8px;
       pointer-events: none;
     }
 
+    /* Wrapper anchors the badge; panel floats above it */
+    .wrap { position: relative; }
+
     /* ── Badge ────────────────────────────── */
     .badge {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 12px;
-      max-width: 240px;
+      padding: 7px 14px;
       border-radius: 999px;
       background: ${C.surface};
       border: 1px solid ${C.border};
@@ -145,14 +143,18 @@
     .dot.pulse { animation: pulse 2s ease-in-out infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
     .badge-text {
-      font-size: 12px; font-weight: 500; color: ${C.textSec};
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-size: 13px; font-weight: 500; color: ${C.textSec};
+      white-space: nowrap;
     }
 
-    /* ── Panel ────────────────────────────── */
+    /* ── Panel (absolutely positioned above badge) ── */
     .panel {
-      width: 620px;
+      position: absolute;
+      bottom: calc(100% + 8px);
+      right: 0;
+      width: 640px;
       max-width: calc(100vw - 32px);
+      height: 460px;
       max-height: calc(100vh - 80px);
       background: ${C.bg};
       border: 1px solid ${C.border};
@@ -161,7 +163,7 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      pointer-events: auto;
+      pointer-events: none;
 
       visibility: hidden;
       opacity: 0;
@@ -175,6 +177,7 @@
       visibility: visible;
       opacity: 1;
       transform: scale(1) translateY(0);
+      pointer-events: auto;
       transition-delay: 0s;
     }
 
@@ -187,8 +190,8 @@
     }
     .p-header .dot { width: 10px; height: 10px; }
     .p-header-info { flex: 1; min-width: 0; }
-    .p-title { font-weight: 600; font-size: 14px; }
-    .p-desc  { font-size: 12px; color: ${C.textSec}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .p-title { font-weight: 600; font-size: 15px; }
+    .p-desc  { font-size: 13px; color: ${C.textSec}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .close-btn {
       background: none; border: none; color: ${C.textMut};
       cursor: pointer; font-size: 18px; line-height: 1;
@@ -211,10 +214,10 @@
       flex: 1; min-width: 0;
       border-right: 1px solid ${C.border};
     }
-    .col-right { width: 260px; flex-shrink: 0; }
+    .col-right { width: 270px; flex-shrink: 0; }
 
     .sec-title {
-      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
       letter-spacing: .6px; color: ${C.textMut}; margin-bottom: 10px;
     }
 
@@ -224,9 +227,9 @@
       display: flex; align-items: center; justify-content: space-between;
       margin-bottom: 5px;
     }
-    .comp-name { font-size: 12px; font-weight: 500; }
+    .comp-name { font-size: 13px; font-weight: 500; }
     .comp-badge {
-      font-size: 10px; font-weight: 600; padding: 1px 8px;
+      font-size: 11px; font-weight: 600; padding: 2px 8px;
       border-radius: 999px; letter-spacing: .2px;
     }
     .bars { display: flex; gap: 2px; height: 28px; }
@@ -237,34 +240,35 @@
     .bar:hover { opacity: .6; }
     .bar-labels {
       display: flex; justify-content: space-between; align-items: center;
-      margin-top: 3px; font-size: 10px; color: ${C.textMut};
+      margin-top: 3px; font-size: 11px; color: ${C.textMut};
     }
     .bar-labels-center { text-align: center; }
 
     /* ── Incidents ── */
     .incident {
       background: ${C.surface};
-      border-radius: 8px;
-      margin-bottom: 8px;
+      border: 1px solid ${C.border};
+      border-radius: 10px;
+      margin-bottom: 10px;
       overflow: hidden;
     }
     .inc-top {
-      padding: 10px 12px;
+      padding: 12px 14px;
       cursor: pointer;
       transition: background .1s;
     }
     .inc-top:hover { background: ${C.elevated}; }
-    .inc-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-    .inc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .inc-name { font-size: 12px; font-weight: 600; line-height: 1.3; }
-    .inc-status-line { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+    .inc-header { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+    .inc-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+    .inc-name { font-size: 13px; font-weight: 600; line-height: 1.35; }
+    .inc-status-line { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
     .inc-status-badge {
-      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
       letter-spacing: .3px;
     }
-    .inc-time { font-size: 10px; color: ${C.textMut}; }
+    .inc-time { font-size: 11px; color: ${C.textMut}; }
     .inc-body {
-      font-size: 11px; color: ${C.textSec}; line-height: 1.45;
+      font-size: 12px; color: ${C.textSec}; line-height: 1.5;
       display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
       overflow: hidden;
     }
@@ -272,15 +276,15 @@
 
     /* Expand toggle */
     .inc-toggle {
-      display: flex; align-items: center; gap: 4px;
-      padding: 0 12px; margin-top: 4px;
-      font-size: 10px; color: ${C.accent}; cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      padding: 6px 14px 8px;
+      font-size: 11px; color: ${C.accent}; cursor: pointer;
     }
     .inc-toggle:hover { text-decoration: underline; }
     .inc-toggle .arrow {
       display: inline-block;
       transition: transform .2s ease;
-      font-size: 8px;
+      font-size: 9px;
     }
     .incident.expanded .inc-toggle .arrow { transform: rotate(180deg); }
     .when-expanded { display: none; }
@@ -294,14 +298,14 @@
       transition: max-height .3s ease-out;
     }
     .inc-tl-inner {
-      margin: 8px 12px 10px 15px;
+      margin: 4px 14px 12px 18px;
       border-left: 2px solid ${C.border};
-      padding-left: 12px;
+      padding-left: 14px;
     }
-    .inc-update { position: relative; margin-bottom: 10px; }
+    .inc-update { position: relative; margin-bottom: 12px; }
     .inc-update:last-child { margin-bottom: 0; }
     .tl-dot {
-      position: absolute; left: -17px; top: 5px;
+      position: absolute; left: -19px; top: 5px;
       width: 8px; height: 8px; border-radius: 50%;
     }
     .inc-update .inc-body {
@@ -319,21 +323,21 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 18px; margin-bottom: 8px;
     }
-    .no-inc-title { font-size: 13px; font-weight: 600; color: ${C.textSec}; }
-    .no-inc-sub { font-size: 11px; margin-top: 2px; }
+    .no-inc-title { font-size: 14px; font-weight: 600; color: ${C.textSec}; }
+    .no-inc-sub { font-size: 12px; margin-top: 2px; }
 
     /* ── Footer ── */
     .p-footer {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 9px 16px;
+      padding: 10px 16px;
       border-top: 1px solid ${C.border};
-      font-size: 11px; color: ${C.textMut};
+      font-size: 12px; color: ${C.textMut};
       background: ${C.surface};
     }
     .p-footer-left { display: flex; align-items: center; gap: 6px; }
     .refresh-btn {
       background: none; border: none; color: ${C.textMut};
-      cursor: pointer; font-size: 14px; line-height: 1;
+      cursor: pointer; font-size: 15px; line-height: 1;
       padding: 2px; border-radius: 4px; transition: all .1s;
       display: inline-flex; align-items: center; justify-content: center;
     }
@@ -346,9 +350,9 @@
     /* ── Tooltip ── */
     .tooltip {
       position: fixed; pointer-events: none;
-      padding: 5px 9px; border-radius: 6px;
-      background: ${C.elevated}; border: 1px solid ${C.borderSub};
-      font-size: 11px; line-height: 1.4; white-space: nowrap;
+      padding: 6px 10px; border-radius: 6px;
+      background: ${C.surface}; border: 1px solid ${C.borderSub};
+      font-size: 12px; line-height: 1.4; white-space: nowrap;
       opacity: 0; transition: opacity .1s;
       transform: translate(-50%, -100%);
       box-shadow: 0 3px 10px rgba(0,0,0,.1);
@@ -375,6 +379,7 @@
 
   // ── DOM ────────────────────────────────────────────────────────────
   const wrap = document.createElement("div");
+  wrap.className = "wrap";
 
   const panel = document.createElement("div");
   panel.className = "panel";
