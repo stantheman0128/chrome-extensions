@@ -1,0 +1,8 @@
+{
+  "extensionName": {
+    "message": "Claude Status Monitor"
+  },
+  "extensionDescription": {
+    "message": "Real-time Claude service status widget on claude.ai — uptime charts, live incidents, and alerts at a glance."
+  }
+}

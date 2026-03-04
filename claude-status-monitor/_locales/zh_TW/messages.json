@@ -1,0 +1,8 @@
+{
+  "extensionName": {
+    "message": "Claude 服務狀態監控"
+  },
+  "extensionDescription": {
+    "message": "在 claude.ai 頁面即時顯示 Claude 服務狀態——運行時間圖表、即時事件追蹤，一目了然。"
+  }
+}
