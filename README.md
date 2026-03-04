@@ -16,7 +16,7 @@ A lightweight collection of Chrome extensions built on Manifest V3.
 | 1 | [Claude Status Monitor](#ext-claude-status-monitor) | [![Download claude-status-monitor](https://img.shields.io/badge/Download-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
 | 2 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | [![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
 | 3 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | [![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
-| 4 | [YouTube 絕對精確日期 (完美客製版)](#ext-youtube-video-upload-time) | [![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
+| 4 | [YouTube Upload Time](#ext-youtube-video-upload-time) | [![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
 
 ---
 
@@ -117,7 +117,7 @@ Automatically removes leftover UI elements that the Glasp extension injects into
 
 <a id="ext-youtube-video-upload-time"></a>
 
-### 4. YouTube 絕對精確日期 (完美客製版)
+### 4. YouTube Upload Time
 
 **Folder:** `youtube-video-upload-time/`
 
@@ -180,6 +180,7 @@ stan-chrome-extensions/
 └── youtube-video-upload-time/
     ├── DESCRIPTION.en.md
     ├── DESCRIPTION.md
+    ├── PRIVACY.md
     ├── content.js
     └── manifest.json
 ```

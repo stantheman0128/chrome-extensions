@@ -1,0 +1,8 @@
+{
+  "extensionName": {
+    "message": "YouTube Upload Time"
+  },
+  "extensionDescription": {
+    "message": "Show precise upload dates (down to the second) on YouTube. Stream-based fetching + persistent cache for minimal resource usage. Supports all pages: home, recommendations, subscriptions, history, playlists, Shorts, and more."
+  }
+}
