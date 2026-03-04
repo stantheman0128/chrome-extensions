@@ -7,10 +7,11 @@
   const TICK_MS = 15_000;
 
   const DEFAULTS = {
-    badgeX: null, // null = use CSS default (right:16px, bottom:16px)
+    badgeX: null,
     badgeY: null,
     panelW: 640,
     panelH: 460,
+    colRightW: 270,
     fontSize: 14,
   };
 
@@ -120,7 +121,6 @@
   }
 
   function applySettings() {
-    // Badge position
     if (settings.badgeX !== null && settings.badgeY !== null) {
       host.style.right = "auto";
       host.style.bottom = "auto";
@@ -133,16 +133,14 @@
       host.style.top = "auto";
     }
 
-    // Panel size
     panel.style.width = settings.panelW + "px";
     panel.style.height = settings.panelH + "px";
+    colRight.style.width = settings.colRightW + "px";
 
-    // Font size
     host.style.fontSize = settings.fontSize + "px";
     if (fontSlider) fontSlider.value = settings.fontSize;
     if (fontLabel) fontLabel.textContent = settings.fontSize + "px";
 
-    // Update responsive layout
     updateLayout();
   }
 
@@ -240,7 +238,7 @@
       transition-delay: 0s;
     }
 
-    /* ── Resize handles (all edges + corners) ── */
+    /* ── Resize handles ── */
     .resize-handle {
       position: absolute;
       z-index: 10;
@@ -316,12 +314,37 @@
     .col::-webkit-scrollbar-track { background: transparent; }
     .col-left {
       flex: 1; min-width: 0;
-      border-right: 1px solid ${C.border};
     }
     .col-right { width: 270px; flex-shrink: 0; }
 
+    /* ── Column divider ── */
+    .col-divider {
+      width: 5px;
+      flex-shrink: 0;
+      cursor: col-resize;
+      position: relative;
+      background: transparent;
+      transition: background .15s;
+    }
+    .col-divider::after {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0;
+      left: 2px;
+      width: 1px;
+      background: ${C.border};
+    }
+    .col-divider:hover, .col-divider.active {
+      background: ${C.accent}22;
+    }
+    .col-divider:hover::after, .col-divider.active::after {
+      background: ${C.accent};
+    }
+
+    .p-body.stacked .col-divider {
+      display: none;
+    }
     .p-body.stacked .col-left {
-      border-right: none;
       border-top: 1px solid ${C.border};
     }
     .p-body.stacked .col-right {
@@ -419,14 +442,12 @@
       position: absolute; left: -19px; top: 5px;
       width: 8px; height: 8px; border-radius: 50%;
     }
-    .inc-update .inc-body {
-      -webkit-line-clamp: unset;
-    }
+    .inc-update .inc-body { -webkit-line-clamp: unset; }
 
     .no-incidents {
       display: flex; flex-direction: column; align-items: center;
       justify-content: center; text-align: center;
-      padding: 32px 12px; color: ${C.textMut};
+      padding: 24px 12px 16px; color: ${C.textMut};
     }
     .no-inc-icon {
       width: 36px; height: 36px; border-radius: 50%;
@@ -437,16 +458,35 @@
     .no-inc-title { font-size: 1em; font-weight: 600; color: ${C.textSec}; }
     .no-inc-sub { font-size: .86em; margin-top: 2px; }
 
+    /* Recent incidents toggle */
+    .recent-toggle {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px;
+      font-size: .86em; font-weight: 500; color: ${C.accent};
+      cursor: pointer;
+      border-top: 1px solid ${C.border};
+      transition: background .1s;
+    }
+    .recent-toggle:hover { background: ${C.elevated}; }
+    .recent-toggle .arrow {
+      display: inline-block; font-size: 9px;
+      transition: transform .2s ease;
+    }
+    .recent-toggle.expanded .arrow { transform: rotate(180deg); }
+    .recent-list { padding: 0 8px 8px; }
+    .recent-list .incident { opacity: .7; }
+    .recent-list .incident:hover { opacity: 1; }
+
     /* ── Footer ── */
     .p-footer {
-      display: flex; align-items: center; justify-content: space-between;
+      display: flex; align-items: center; gap: 8px;
       padding: 10px 16px;
       border-top: 1px solid ${C.border};
       font-size: .86em; color: ${C.textMut};
       background: ${C.surface};
       border-radius: 0 0 14px 14px;
     }
-    .p-footer-left { display: flex; align-items: center; gap: 6px; }
+    .p-footer-left { display: flex; align-items: center; gap: 6px; flex: 1; }
     .refresh-btn {
       background: none; border: none; color: ${C.textMut};
       cursor: pointer; font-size: 15px; line-height: 1;
@@ -458,15 +498,28 @@
     @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
 
     .reset-btn {
-      background: none; border: 1px solid ${C.border};
-      color: ${C.textMut}; cursor: pointer; font-size: .86em;
-      padding: 3px 8px; border-radius: 6px; transition: all .1s;
-      white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 4px;
+      background: ${C.bg}; border: 1px solid ${C.border};
+      color: ${C.textSec}; cursor: pointer;
+      font-size: .79em; font-weight: 500;
+      padding: 4px 10px; border-radius: 8px;
+      transition: all .15s ease; white-space: nowrap;
     }
-    .reset-btn:hover { color: ${C.text}; background: ${C.elevated}; }
+    .reset-btn:hover {
+      color: ${C.text}; background: ${C.elevated};
+      border-color: ${C.borderSub};
+    }
 
-    .p-footer a { color: ${C.accent}; text-decoration: none; }
-    .p-footer a:hover { text-decoration: underline; }
+    .footer-link {
+      color: ${C.accent}; text-decoration: none;
+      font-weight: 500; font-size: .86em;
+      padding: 4px 10px; border-radius: 8px;
+      transition: all .15s; white-space: nowrap;
+    }
+    .footer-link:hover {
+      background: ${C.accent}14;
+      text-decoration: none;
+    }
 
     /* ── Tooltip ── */
     .tooltip {
@@ -529,6 +582,7 @@
     </div>
     <div class="p-body">
       <div class="col col-left"><div class="loading">Loading…</div></div>
+      <div class="col-divider"></div>
       <div class="col col-right"><div class="loading">Loading…</div></div>
     </div>
     <div class="p-footer">
@@ -536,8 +590,8 @@
         <span class="updated-at"></span>
         <button class="refresh-btn" title="Refresh now">↻</button>
       </div>
-      <button class="reset-btn" title="Reset position, size and font to defaults">Reset</button>
-      <a href="https://status.claude.com" target="_blank" rel="noopener">status.claude.com</a>
+      <button class="reset-btn" title="Reset all settings to defaults">↺ Reset</button>
+      <a class="footer-link" href="https://status.claude.com" target="_blank" rel="noopener">status.claude.com ↗</a>
     </div>`;
 
   const badge = document.createElement("div");
@@ -560,6 +614,7 @@
   const headerDot   = panel.querySelector(".p-header .dot");
   const headerDesc  = panel.querySelector(".p-desc");
   const colLeft     = panel.querySelector(".col-left");
+  const colDivider  = panel.querySelector(".col-divider");
   const colRight    = panel.querySelector(".col-right");
   const pBody       = panel.querySelector(".p-body");
   const updatedAtEl = panel.querySelector(".updated-at");
@@ -570,11 +625,12 @@
 
   // ── State ──────────────────────────────────────────────────────────
   let panelOpen = false;
+  let panelWasDragged = false;
   let lastUpdatedAt = null;
   let dates = buildDates();
 
   // ── Smart panel positioning ──────────────────────────────────────
-  // Opens the panel toward the center of the viewport relative to badge
+  // Centers panel horizontally on badge, opens vertically toward screen center
   function positionPanel() {
     const badgeRect = badge.getBoundingClientRect();
     const bCx = badgeRect.left + badgeRect.width / 2;
@@ -586,40 +642,62 @@
     const gap = 8;
     const margin = 8;
 
-    let left, top;
+    // Horizontal: CENTER the panel on the badge
+    let left = bCx - pw / 2;
 
-    // Vertical: badge in bottom half → open upward; top half → open downward
+    // Vertical: open toward where there's more space
+    let top;
     if (bCy > vh / 2) {
       top = badgeRect.top - gap - ph;
     } else {
       top = badgeRect.bottom + gap;
     }
 
-    // Horizontal: badge in right half → extend leftward; left half → extend rightward
-    if (bCx > vw / 2) {
-      left = badgeRect.right - pw;
-    } else {
-      left = badgeRect.left;
-    }
-
-    // Clamp to viewport with margin
+    // Clamp to viewport
     left = clamp(left, margin, vw - pw - margin);
     top = clamp(top, margin, vh - ph - margin);
 
     panel.style.left = left + "px";
     panel.style.top = top + "px";
+
+    // Set transform-origin so animation grows from badge direction
+    const originX = clamp((bCx - left) / pw * 100, 0, 100);
+    const originY = clamp((bCy - top) / ph * 100, 0, 100);
+    panel.style.transformOrigin = `${Math.round(originX)}% ${Math.round(originY)}%`;
   }
 
   // ── Panel open / close ─────────────────────────────────────────────
   function openPanel() {
     panelOpen = true;
+    panelWasDragged = false;
     positionPanel();
     panel.classList.add("open");
     badge.classList.add("hide");
     updateLayout();
   }
+
   function closePanel() {
     if (!panelOpen) return;
+
+    // If panel was dragged, move badge to panel center
+    if (panelWasDragged) {
+      const pr = panel.getBoundingClientRect();
+      const bw = badge.offsetWidth || 120;
+      const bh = badge.offsetHeight || 32;
+      const newX = clamp(pr.left + pr.width / 2 - bw / 2, 0, window.innerWidth - bw);
+      const newY = clamp(pr.top + pr.height / 2 - bh / 2, 0, window.innerHeight - bh);
+
+      host.style.left = newX + "px";
+      host.style.top = newY + "px";
+      host.style.right = "auto";
+      host.style.bottom = "auto";
+
+      settings.badgeX = newX;
+      settings.badgeY = newY;
+      saveSettings();
+    }
+
+    panelWasDragged = false;
     panelOpen = false;
     panel.classList.remove("open");
     badge.classList.remove("hide");
@@ -632,20 +710,17 @@
   });
   panel.querySelector(".close-btn").addEventListener("click", closePanel);
 
-  // Click outside to close — check against both panel and host
+  // Click outside to close
   document.addEventListener("pointerdown", (e) => {
     if (!panelOpen) return;
-    // Check if click is inside the panel (which is a direct child of shadow root)
     if (panel.contains(e.composedPath()[0])) return;
     if (host.contains(e.target) || e.target === host) return;
     closePanel();
   });
-  // Shadow retargeting: clicks on shadow children show up as host
   wrap.addEventListener("pointerdown", (e) => {
     if (!panelOpen) return;
     closePanel();
   });
-  // Prevent panel clicks from reaching wrap's close handler
   panel.addEventListener("pointerdown", (e) => {
     e.stopPropagation();
   });
@@ -701,7 +776,6 @@
   let panelDragState = null;
 
   pHeader.addEventListener("pointerdown", (e) => {
-    // Don't start drag from interactive elements
     if (e.target.closest(".close-btn, .font-control, button, input")) return;
     if (e.button !== 0) return;
     e.preventDefault();
@@ -719,6 +793,7 @@
 
   pHeader.addEventListener("pointermove", (e) => {
     if (!panelDragState) return;
+    panelWasDragged = true;
     const dx = e.clientX - panelDragState.startMouseX;
     const dy = e.clientY - panelDragState.startMouseY;
 
@@ -766,29 +841,23 @@
     const maxW = window.innerWidth - 16;
     const maxH = window.innerHeight - 16;
 
-    // North edge: drag up to make taller, panel top moves
     if (dir.includes("n")) {
       const newH = clamp(startH - dy, 250, maxH);
-      const newTop = startTop + (startH - newH);
       panel.style.height = newH + "px";
-      panel.style.top = Math.max(0, newTop) + "px";
+      panel.style.top = Math.max(0, startTop + (startH - newH)) + "px";
       settings.panelH = newH;
     }
-    // South edge: drag down to make taller
     if (dir.includes("s")) {
       const newH = clamp(startH + dy, 250, maxH);
       panel.style.height = newH + "px";
       settings.panelH = newH;
     }
-    // West edge: drag left to make wider, panel left moves
     if (dir.includes("w")) {
       const newW = clamp(startW - dx, 300, maxW);
-      const newLeft = startLeft + (startW - newW);
       panel.style.width = newW + "px";
-      panel.style.left = Math.max(0, newLeft) + "px";
+      panel.style.left = Math.max(0, startLeft + (startW - newW)) + "px";
       settings.panelW = newW;
     }
-    // East edge: drag right to make wider
     if (dir.includes("e")) {
       const newW = clamp(startW + dx, 300, maxW);
       panel.style.width = newW + "px";
@@ -805,10 +874,39 @@
     saveSettings();
   }
 
-  // Attach all 8 resize handles
   for (const dir of ["n", "s", "w", "e", "nw", "ne", "sw", "se"]) {
     panel.querySelector(`.resize-${dir}`).addEventListener("pointerdown", (e) => startResize(e, dir));
   }
+
+  // ── Draggable column divider ─────────────────────────────────────
+  let dividerState = null;
+
+  colDivider.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dividerState = {
+      startX: e.clientX,
+      startRightW: colRight.offsetWidth,
+    };
+    colDivider.classList.add("active");
+    colDivider.setPointerCapture(e.pointerId);
+  });
+
+  colDivider.addEventListener("pointermove", (e) => {
+    if (!dividerState) return;
+    const dx = e.clientX - dividerState.startX;
+    const newW = clamp(dividerState.startRightW - dx, 120, panel.offsetWidth - 200);
+    colRight.style.width = newW + "px";
+    settings.colRightW = newW;
+  });
+
+  colDivider.addEventListener("pointerup", () => {
+    if (!dividerState) return;
+    dividerState = null;
+    colDivider.classList.remove("active");
+    saveSettings();
+  });
 
   // ── Responsive layout ────────────────────────────────────────────
   function updateLayout() {
@@ -858,8 +956,21 @@
     if (e.target.closest(".bar")) hideTooltip();
   });
 
-  // ── Incident expand / collapse ─────────────────────────────────────
+  // ── Right column click handling ──────────────────────────────────
   colRight.addEventListener("click", (e) => {
+    // Recent incidents toggle
+    const recentToggle = e.target.closest(".recent-toggle");
+    if (recentToggle) {
+      const list = colRight.querySelector(".recent-list");
+      if (list) {
+        const isShown = list.style.display !== "none";
+        list.style.display = isShown ? "none" : "";
+        recentToggle.classList.toggle("expanded", !isShown);
+      }
+      return;
+    }
+
+    // Incident expand/collapse
     const toggle = e.target.closest(".inc-top, .inc-toggle");
     if (!toggle) return;
     const card = toggle.closest(".incident");
@@ -884,6 +995,56 @@
     refreshBtn.classList.add("spinning");
     requestStatus(true);
   });
+
+  // ── Render helpers ─────────────────────────────────────────────────
+  function renderIncidentCard(inc) {
+    const ic = INDICATOR_COLOR[inc.impact] || C.gray;
+    const updates = inc.incident_updates || [];
+    const latest = updates[0];
+    const previous = updates.slice(1);
+
+    let html = `<div class="incident">
+      <div class="inc-top">
+        <div class="inc-header">
+          <span class="inc-dot" style="background:${ic}"></span>
+          <span class="inc-name">${esc(inc.name)}</span>
+        </div>`;
+
+    if (latest) {
+      const sc = UPDATE_COLOR[latest.status] || C.textSec;
+      html += `<div class="inc-status-line">
+          <span class="inc-status-badge" style="color:${sc}">${capitalize(latest.status)}</span>
+          <span class="inc-time">${timeAgo(latest.updated_at)}</span>
+        </div>
+        <div class="inc-body">${esc(latest.body)}</div>`;
+    }
+    html += `</div>`;
+
+    if (previous.length) {
+      html += `<div class="inc-toggle">
+        <span class="arrow">▾</span>
+        <span class="when-collapsed">${previous.length} previous update${previous.length > 1 ? "s" : ""}</span>
+        <span class="when-expanded">Collapse</span>
+      </div>
+      <div class="inc-timeline"><div class="inc-tl-inner">`;
+
+      for (const upd of previous) {
+        const uc = UPDATE_COLOR[upd.status] || C.textSec;
+        html += `<div class="inc-update">
+          <span class="tl-dot" style="background:${uc}"></span>
+          <div class="inc-status-line">
+            <span class="inc-status-badge" style="color:${uc}">${capitalize(upd.status)}</span>
+            <span class="inc-time">${timeAgo(upd.updated_at)}</span>
+          </div>
+          <div class="inc-body">${esc(upd.body)}</div>
+        </div>`;
+      }
+      html += `</div></div>`;
+    }
+
+    html += `</div>`;
+    return html;
+  }
 
   // ── Render ─────────────────────────────────────────────────────────
   function render(data) {
@@ -933,63 +1094,57 @@
     colLeft.innerHTML = left;
 
     // ── Right column: incidents ──
-    let right = '<div class="sec-title">Active Incidents</div>';
+    const hasActive = data.incidents?.length > 0;
+    const recentIncs = data.recentIncidents || [];
+    const hasRecent = recentIncs.length > 0;
 
-    if (data.incidents?.length) {
+    let right = "";
+
+    if (hasActive) {
+      // Show active incidents
+      right += '<div class="sec-title">Active Incidents</div>';
       for (const inc of data.incidents) {
-        const ic = INDICATOR_COLOR[inc.impact] || C.gray;
-        const updates = inc.incident_updates || [];
-        const latest = updates[0];
-        const previous = updates.slice(1);
-
-        right += `<div class="incident">
-          <div class="inc-top">
-            <div class="inc-header">
-              <span class="inc-dot" style="background:${ic}"></span>
-              <span class="inc-name">${esc(inc.name)}</span>
-            </div>`;
-
-        if (latest) {
-          const sc = UPDATE_COLOR[latest.status] || C.textSec;
-          right += `<div class="inc-status-line">
-              <span class="inc-status-badge" style="color:${sc}">${capitalize(latest.status)}</span>
-              <span class="inc-time">${timeAgo(latest.updated_at)}</span>
-            </div>
-            <div class="inc-body">${esc(latest.body)}</div>`;
-        }
-        right += `</div>`;
-
-        if (previous.length) {
-          right += `<div class="inc-toggle">
-            <span class="arrow">▾</span>
-            <span class="when-collapsed">${previous.length} previous update${previous.length > 1 ? "s" : ""}</span>
-            <span class="when-expanded">Collapse</span>
-          </div>
-          <div class="inc-timeline"><div class="inc-tl-inner">`;
-
-          for (const upd of previous) {
-            const uc = UPDATE_COLOR[upd.status] || C.textSec;
-            right += `<div class="inc-update">
-              <span class="tl-dot" style="background:${uc}"></span>
-              <div class="inc-status-line">
-                <span class="inc-status-badge" style="color:${uc}">${capitalize(upd.status)}</span>
-                <span class="inc-time">${timeAgo(upd.updated_at)}</span>
-              </div>
-              <div class="inc-body">${esc(upd.body)}</div>
-            </div>`;
-          }
-          right += `</div></div>`;
-        }
-
-        right += `</div>`;
+        right += renderIncidentCard(inc);
       }
-    } else {
+      colRight.style.display = "";
+      colDivider.style.display = "";
+    } else if (hasRecent) {
+      // Compact mode: all operational + collapsed recent list
+      right += '<div class="sec-title">Incidents</div>';
       right += `<div class="no-incidents">
         <div class="no-inc-icon">✓</div>
         <div class="no-inc-title">All Systems Operational</div>
         <div class="no-inc-sub">No active incidents</div>
       </div>`;
+      right += `<div class="recent-toggle">
+        <span class="arrow">▾</span>
+        <span>Recent Incidents</span>
+      </div>
+      <div class="recent-list" style="display:none">`;
+      for (const inc of recentIncs) {
+        const ic = C.green;
+        right += `<div class="incident">
+          <div class="inc-top">
+            <div class="inc-header">
+              <span class="inc-dot" style="background:${ic}"></span>
+              <span class="inc-name">${esc(inc.name)}</span>
+            </div>
+            <div class="inc-status-line">
+              <span class="inc-status-badge" style="color:${C.green}">Resolved</span>
+              <span class="inc-time">${timeAgo(inc.resolved_at)}</span>
+            </div>
+          </div>
+        </div>`;
+      }
+      right += `</div>`;
+      colRight.style.display = "";
+      colDivider.style.display = "";
+    } else {
+      // No incidents at all → hide right column
+      colRight.style.display = "none";
+      colDivider.style.display = "none";
     }
+
     colRight.innerHTML = right;
 
     lastUpdatedAt = data.updated_at;
