@@ -58,10 +58,16 @@ async function fetchStatusData() {
     }
   }
 
+  // Recent resolved incidents (for display when no active incidents)
+  const recentIncidents = allIncidents.incidents
+    .filter((inc) => inc.resolved_at)
+    .slice(0, 5);
+
   cache = {
     status: summary.status,
     components: summary.components,
     incidents: unresolved.incidents,
+    recentIncidents,
     history,
     historyDays: HISTORY_DAYS,
     updated_at: summary.page.updated_at,
