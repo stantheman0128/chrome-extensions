@@ -177,6 +177,7 @@ stan-chrome-extensions/
 └── youtube-video-upload-time/
     ├── DESCRIPTION.en.md
     ├── DESCRIPTION.md
+    ├── PRIVACY.md
     ├── content.js
     └── manifest.json
 ```

@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "YouTube 絕對精確日期 (完美客製版)",
+  "name": "__MSG_extensionName__",
   "version": "9.0",
-  "description": "精準顯示上傳日期至秒數。Stream 讀取 + 持久化 cache，低資源消耗。支援首頁、推薦欄、訂閱、歷史、播放清單、Shorts 等所有頁面。",
+  "description": "__MSG_extensionDescription__",
+  "default_locale": "en",
   "permissions": ["storage"],
   "content_scripts": [
     {
