@@ -1,5 +1,3 @@
-## Claude Status Monitor
-
 在 Claude.ai 網頁版（含 Claude Code 網頁版）即時顯示 Claude 服務狀態，資料來源為 [status.claude.com](https://status.claude.com)。
 
 **功能特色**

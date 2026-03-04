@@ -13,6 +13,8 @@
     panelH: 460,
     colRightW: 270,
     fontSize: 14,
+    locale: null,
+    badgeScale: 1.0,
   };
 
   // ── Claude light-mode palette ───────────────────────────────────
@@ -39,41 +41,166 @@
     barEmpty:  "#E2E1DD",
   };
 
+  // ── i18n strings ──────────────────────────────────────────────────
+  const STRINGS = {
+    en: {
+      panelTitle: "Claude Status",
+      loading: "Loading\u2026",
+      close: "Close",
+      refreshNow: "Refresh now",
+      resetTitle: "Reset all settings to defaults",
+      resetLabel: "\u21BA Reset",
+      footerLink: "status.claude.com \u2197",
+      fontLabel: "A",
+      statusOperational: "Operational",
+      statusDegraded: "Degraded",
+      statusPartialOutage: "Partial Outage",
+      statusMajorOutage: "Major Outage",
+      statusMaintenance: "Maintenance",
+      barNoIncidents: "No incidents",
+      barMinor: "Minor incident",
+      barMajor: "Major incident",
+      barCritical: "Critical incident",
+      timeJustNow: "just now",
+      timeMinAgo: "$1m ago",
+      timeHourAgo: "$1h ago",
+      timeDayAgo: "$1d ago",
+      sectionComponents: "Components",
+      sectionActiveIncidents: "Active Incidents",
+      sectionIncidents: "Incidents",
+      allOperational: "All Systems Operational",
+      noActiveIncidents: "No active incidents",
+      recentIncidents: "Recent Incidents",
+      today: "Today",
+      uptime: "% uptime",
+      previousUpdate: "$1 previous update",
+      previousUpdates: "$1 previous updates",
+      collapse: "Collapse",
+      resolved: "Resolved",
+      incInvestigating: "Investigating",
+      incIdentified: "Identified",
+      incMonitoring: "Monitoring",
+      incUpdate: "Update",
+      incResolved: "Resolved",
+      incPostmortem: "Postmortem",
+      errorBackground: "Cannot reach extension background",
+      errorLoad: "Failed to load status",
+      errorUnableToLoad: "Unable to load status",
+      unavailable: "Unavailable",
+      retry: "Retry",
+      updatedPrefix: "Updated ",
+      dateLocale: "en-US",
+    },
+    zh_TW: {
+      panelTitle: "Claude \u670D\u52D9\u72C0\u614B",
+      loading: "\u8F09\u5165\u4E2D\u2026",
+      close: "\u95DC\u9589",
+      refreshNow: "\u7ACB\u5373\u91CD\u65B0\u6574\u7406",
+      resetTitle: "\u91CD\u8A2D\u6240\u6709\u8A2D\u5B9A\u70BA\u9810\u8A2D\u503C",
+      resetLabel: "\u21BA \u91CD\u8A2D",
+      footerLink: "status.claude.com \u2197",
+      fontLabel: "A",
+      statusOperational: "\u6B63\u5E38\u904B\u4F5C",
+      statusDegraded: "\u6548\u80FD\u964D\u4F4E",
+      statusPartialOutage: "\u90E8\u5206\u4E2D\u65B7",
+      statusMajorOutage: "\u91CD\u5927\u4E2D\u65B7",
+      statusMaintenance: "\u7DAD\u8B77\u4E2D",
+      barNoIncidents: "\u7121\u4E8B\u4EF6",
+      barMinor: "\u8F15\u5FAE\u4E8B\u4EF6",
+      barMajor: "\u91CD\u5927\u4E8B\u4EF6",
+      barCritical: "\u56B4\u91CD\u4E8B\u4EF6",
+      timeJustNow: "\u525B\u525B",
+      timeMinAgo: "$1 \u5206\u9418\u524D",
+      timeHourAgo: "$1 \u5C0F\u6642\u524D",
+      timeDayAgo: "$1 \u5929\u524D",
+      sectionComponents: "\u670D\u52D9\u5143\u4EF6",
+      sectionActiveIncidents: "\u9032\u884C\u4E2D\u7684\u4E8B\u4EF6",
+      sectionIncidents: "\u4E8B\u4EF6",
+      allOperational: "\u6240\u6709\u7CFB\u7D71\u6B63\u5E38\u904B\u4F5C",
+      noActiveIncidents: "\u76EE\u524D\u7121\u9032\u884C\u4E2D\u7684\u4E8B\u4EF6",
+      recentIncidents: "\u8FD1\u671F\u4E8B\u4EF6",
+      today: "\u4ECA\u5929",
+      uptime: "% \u6B63\u5E38\u904B\u884C",
+      previousUpdate: "$1 \u5247\u5148\u524D\u66F4\u65B0",
+      previousUpdates: "$1 \u5247\u5148\u524D\u66F4\u65B0",
+      collapse: "\u6536\u5408",
+      resolved: "\u5DF2\u89E3\u6C7A",
+      incInvestigating: "\u8ABF\u67E5\u4E2D",
+      incIdentified: "\u5DF2\u78BA\u8A8D",
+      incMonitoring: "\u76E3\u63A7\u4E2D",
+      incUpdate: "\u66F4\u65B0",
+      incResolved: "\u5DF2\u89E3\u6C7A",
+      incPostmortem: "\u4E8B\u5F8C\u5206\u6790",
+      errorBackground: "\u7121\u6CD5\u9023\u7DDA\u81F3\u64F4\u5145\u529F\u80FD\u80CC\u666F\u7A0B\u5F0F",
+      errorLoad: "\u7121\u6CD5\u8F09\u5165\u72C0\u614B",
+      errorUnableToLoad: "\u7121\u6CD5\u8F09\u5165\u72C0\u614B",
+      unavailable: "\u7121\u6CD5\u4F7F\u7528",
+      retry: "\u91CD\u8A66",
+      updatedPrefix: "\u66F4\u65B0\u65BC ",
+      dateLocale: "zh-TW",
+    },
+  };
+
+  function getLocale() {
+    if (settings.locale) return settings.locale;
+    try {
+      const uiLang = chrome.i18n.getUILanguage();
+      if (uiLang.startsWith("zh")) return "zh_TW";
+    } catch (e) {}
+    return "en";
+  }
+
+  function msg(key) {
+    const locale = getLocale();
+    return STRINGS[locale]?.[key] || STRINGS.en[key] || key;
+  }
+
+  // ── Status mappings ───────────────────────────────────────────────
   const INDICATOR_COLOR = {
     none: C.green, minor: C.yellow, major: C.orange, critical: C.red, unknown: C.gray,
   };
   const COMP_STATUS = {
-    operational:          { label: "Operational",    color: C.green },
-    degraded_performance: { label: "Degraded",       color: C.yellow },
-    partial_outage:       { label: "Partial Outage", color: C.orange },
-    major_outage:         { label: "Major Outage",   color: C.red },
-    under_maintenance:    { label: "Maintenance",    color: C.blue },
+    operational:          { key: "statusOperational",    color: C.green },
+    degraded_performance: { key: "statusDegraded",       color: C.yellow },
+    partial_outage:       { key: "statusPartialOutage",  color: C.orange },
+    major_outage:         { key: "statusMajorOutage",    color: C.red },
+    under_maintenance:    { key: "statusMaintenance",    color: C.blue },
+  };
+  const DESC_KEY = {
+    none: "allOperational", minor: "statusDegraded",
+    major: "statusPartialOutage", critical: "statusMajorOutage",
+    maintenance: "statusMaintenance",
   };
   const BAR_COLOR = {
     operational: C.barOk, none: C.barOk,
     minor: C.barMinor, major: C.barMajor, critical: C.barCrit,
   };
-  const BAR_LABEL = {
-    operational: "No incidents", none: "No incidents",
-    minor: "Minor incident", major: "Major incident", critical: "Critical incident",
+  const BAR_LABEL_KEY = {
+    operational: "barNoIncidents", none: "barNoIncidents",
+    minor: "barMinor", major: "barMajor", critical: "barCritical",
   };
   const UPDATE_COLOR = {
     investigating: C.orange, identified: C.yellow, monitoring: C.blue,
     update: C.textSec, resolved: C.green, postmortem: C.textMut,
+  };
+  const INC_STATUS_KEY = {
+    investigating: "incInvestigating", identified: "incIdentified",
+    monitoring: "incMonitoring", update: "incUpdate",
+    resolved: "incResolved", postmortem: "incPostmortem",
   };
 
   // ── Helpers ────────────────────────────────────────────────────────
   function timeAgo(iso) {
     const ms = Date.now() - new Date(iso).getTime();
     const m = Math.floor(ms / 60000);
-    if (m < 1) return "just now";
-    if (m < 60) return m + "m ago";
+    if (m < 1) return msg("timeJustNow");
+    if (m < 60) return msg("timeMinAgo").replace("$1", m);
     const h = Math.floor(m / 60);
-    if (h < 24) return h + "h ago";
-    return Math.floor(h / 24) + "d ago";
+    if (h < 24) return msg("timeHourAgo").replace("$1", h);
+    return msg("timeDayAgo").replace("$1", Math.floor(h / 24));
   }
   function fmtDate(d) {
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return d.toLocaleDateString(msg("dateLocale"), { month: "short", day: "numeric" });
   }
   function esc(s) {
     const el = document.createElement("span");
@@ -81,6 +208,9 @@
     return el.innerHTML;
   }
   function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function incStatusLabel(status) {
+    return INC_STATUS_KEY[status] ? msg(INC_STATUS_KEY[status]) : capitalize(status);
+  }
   function cleanName(name) {
     return name.replace(/\s*\(formerly[^)]*\)/gi, "").trim();
   }
@@ -118,6 +248,7 @@
     settings = { ...DEFAULTS };
     chrome.storage.local.remove("csm_settings");
     applySettings();
+    refreshUI();
   }
 
   function applySettings() {
@@ -140,6 +271,8 @@
     host.style.fontSize = settings.fontSize + "px";
     if (fontSlider) fontSlider.value = settings.fontSize;
     if (fontLabel) fontLabel.textContent = settings.fontSize + "px";
+
+    badge.style.transform = `scale(${settings.badgeScale})`;
 
     updateLayout();
   }
@@ -181,12 +314,14 @@
       box-shadow: 0 2px 8px rgba(0,0,0,.08);
       pointer-events: auto;
       transition: opacity .18s ease, background .12s ease, box-shadow .12s ease;
+      transform-origin: center center;
     }
     .badge:hover {
       background: ${C.elevated};
       box-shadow: 0 4px 14px rgba(0,0,0,.12);
     }
     .badge.dragging { cursor: grabbing; }
+    .badge.resize-cursor { cursor: nwse-resize !important; }
     .badge.hide {
       opacity: 0;
       transform: scale(.85);
@@ -510,6 +645,19 @@
       border-color: ${C.borderSub};
     }
 
+    .lang-btn {
+      display: inline-flex; align-items: center;
+      background: ${C.bg}; border: 1px solid ${C.border};
+      color: ${C.textSec}; cursor: pointer;
+      font-size: .79em; font-weight: 500;
+      padding: 4px 10px; border-radius: 8px;
+      transition: all .15s ease; white-space: nowrap;
+    }
+    .lang-btn:hover {
+      color: ${C.text}; background: ${C.elevated};
+      border-color: ${C.borderSub};
+    }
+
     .footer-link {
       color: ${C.accent}; text-decoration: none;
       font-weight: 500; font-size: .86em;
@@ -568,35 +716,36 @@
     <div class="p-header">
       <span class="dot pulse" style="background:${C.gray}"></span>
       <div class="p-header-info">
-        <div class="p-title">Claude Status</div>
-        <div class="p-desc">Loading…</div>
+        <div class="p-title">${msg("panelTitle")}</div>
+        <div class="p-desc">${msg("loading")}</div>
       </div>
       <div class="header-controls">
         <div class="font-control">
-          <label>A</label>
+          <label>${msg("fontLabel")}</label>
           <input type="range" class="font-slider" min="10" max="20" value="14" step="1">
           <span class="font-label">14px</span>
         </div>
-        <button class="close-btn" title="Close">✕</button>
+        <button class="close-btn" title="${msg("close")}">&#x2715;</button>
       </div>
     </div>
     <div class="p-body">
-      <div class="col col-left"><div class="loading">Loading…</div></div>
+      <div class="col col-left"><div class="loading">${msg("loading")}</div></div>
       <div class="col-divider"></div>
-      <div class="col col-right"><div class="loading">Loading…</div></div>
+      <div class="col col-right"><div class="loading">${msg("loading")}</div></div>
     </div>
     <div class="p-footer">
       <div class="p-footer-left">
         <span class="updated-at"></span>
-        <button class="refresh-btn" title="Refresh now">↻</button>
+        <button class="refresh-btn" title="${msg("refreshNow")}">&#x21BB;</button>
       </div>
-      <button class="reset-btn" title="Reset all settings to defaults">↺ Reset</button>
-      <a class="footer-link" href="https://status.claude.com" target="_blank" rel="noopener">status.claude.com ↗</a>
+      <button class="reset-btn" title="${msg("resetTitle")}">${msg("resetLabel")}</button>
+      <button class="lang-btn">${getLocale() === "en" ? "\u4E2D\u6587" : "EN"}</button>
+      <a class="footer-link" href="https://status.claude.com" target="_blank" rel="noopener">${msg("footerLink")}</a>
     </div>`;
 
   const badge = document.createElement("div");
   badge.className = "badge";
-  badge.innerHTML = `<span class="dot pulse" style="background:${C.gray}"></span><span class="badge-text">Loading…</span>`;
+  badge.innerHTML = `<span class="dot pulse" style="background:${C.gray}"></span><span class="badge-text">${msg("loading")}</span>`;
 
   const tooltip = document.createElement("div");
   tooltip.className = "tooltip";
@@ -620,6 +769,7 @@
   const updatedAtEl = panel.querySelector(".updated-at");
   const refreshBtn  = panel.querySelector(".refresh-btn");
   const resetBtn    = panel.querySelector(".reset-btn");
+  const langBtn     = panel.querySelector(".lang-btn");
   const fontSlider  = panel.querySelector(".font-slider");
   const fontLabel   = panel.querySelector(".font-label");
 
@@ -627,7 +777,9 @@
   let panelOpen = false;
   let panelWasDragged = false;
   let lastUpdatedAt = null;
+  let lastData = null;
   let dates = buildDates();
+  let badgeResizeState = null;
 
   // ── Smart panel positioning ──────────────────────────────────────
   // Centers panel horizontally on badge, opens vertically toward screen center
@@ -725,17 +877,43 @@
     e.stopPropagation();
   });
 
-  // ── Draggable badge ──────────────────────────────────────────────
+  // ── Draggable badge + badge resize ──────────────────────────────
   let dragState = null;
 
   badge.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
-    const rect = host.getBoundingClientRect();
+    const rect = badge.getBoundingClientRect();
+    const threshold = 8;
+    const nearEdge = (
+      e.clientX - rect.left < threshold ||
+      rect.right - e.clientX < threshold ||
+      e.clientY - rect.top < threshold ||
+      rect.bottom - e.clientY < threshold
+    );
+
+    if (nearEdge) {
+      // Start badge resize
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
+      badgeResizeState = {
+        startDist: startDist || 1,
+        startScale: settings.badgeScale,
+        centerX,
+        centerY,
+      };
+      badge.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
+
+    // Start badge drag
+    const hostRect = host.getBoundingClientRect();
     dragState = {
       startMouseX: e.clientX,
       startMouseY: e.clientY,
-      startX: rect.left,
-      startY: rect.top,
+      startX: hostRect.left,
+      startY: hostRect.top,
       moved: false,
     };
     badge.classList.add("dragging");
@@ -744,6 +922,15 @@
   });
 
   badge.addEventListener("pointermove", (e) => {
+    if (badgeResizeState) {
+      const dist = Math.hypot(e.clientX - badgeResizeState.centerX, e.clientY - badgeResizeState.centerY);
+      const ratio = dist / badgeResizeState.startDist;
+      settings.badgeScale = clamp(badgeResizeState.startScale * ratio, 0.5, 2.5);
+      badge.style.transform = `scale(${settings.badgeScale})`;
+      badge._wasDragged = true;
+      return;
+    }
+
     if (!dragState) return;
     const dx = e.clientX - dragState.startMouseX;
     const dy = e.clientY - dragState.startMouseY;
@@ -760,6 +947,12 @@
   });
 
   badge.addEventListener("pointerup", (e) => {
+    if (badgeResizeState) {
+      badgeResizeState = null;
+      saveSettings();
+      return;
+    }
+
     if (!dragState) return;
     badge.classList.remove("dragging");
     if (dragState.moved) {
@@ -770,6 +963,23 @@
       saveSettings();
     }
     dragState = null;
+  });
+
+  // Badge edge hover cursor
+  badge.addEventListener("mousemove", (e) => {
+    if (dragState || badgeResizeState) return;
+    const rect = badge.getBoundingClientRect();
+    const threshold = 8;
+    const nearEdge = (
+      e.clientX - rect.left < threshold ||
+      rect.right - e.clientX < threshold ||
+      e.clientY - rect.top < threshold ||
+      rect.bottom - e.clientY < threshold
+    );
+    badge.classList.toggle("resize-cursor", nearEdge);
+  });
+  badge.addEventListener("mouseleave", () => {
+    badge.classList.remove("resize-cursor");
   });
 
   // ── Draggable panel (via header) ─────────────────────────────────
@@ -935,10 +1145,39 @@
     resetSettings();
   });
 
+  // ── Language toggle ──────────────────────────────────────────────
+  langBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    settings.locale = getLocale() === "en" ? "zh_TW" : "en";
+    saveSettings();
+    refreshUI();
+  });
+
+  // ── Refresh UI (language change) ─────────────────────────────────
+  function refreshUI() {
+    // Header
+    panel.querySelector(".p-title").textContent = msg("panelTitle");
+    panel.querySelector(".close-btn").title = msg("close");
+    panel.querySelector(".font-control label").textContent = msg("fontLabel");
+
+    // Footer
+    refreshBtn.title = msg("refreshNow");
+    resetBtn.title = msg("resetTitle");
+    resetBtn.textContent = msg("resetLabel");
+    langBtn.textContent = getLocale() === "en" ? "\u4E2D\u6587" : "EN";
+    panel.querySelector(".footer-link").textContent = msg("footerLink");
+
+    updateFooterTime();
+
+    // Re-render data if available
+    if (lastData) render(lastData);
+  }
+
   // ── Tooltip ────────────────────────────────────────────────────────
   function showTooltip(barEl, dayIdx, status) {
     const d = dates[dayIdx]; if (!d) return;
-    const label = BAR_LABEL[status] || status;
+    const labelKey = BAR_LABEL_KEY[status];
+    const label = labelKey ? msg(labelKey) : status;
     const color = BAR_COLOR[status] || C.barEmpty;
     tooltip.innerHTML = `<span class="tooltip-date">${fmtDate(d)}</span><br><span class="tooltip-status" style="color:${color}">${label}</span>`;
     const r = barEl.getBoundingClientRect();
@@ -1013,7 +1252,7 @@
     if (latest) {
       const sc = UPDATE_COLOR[latest.status] || C.textSec;
       html += `<div class="inc-status-line">
-          <span class="inc-status-badge" style="color:${sc}">${capitalize(latest.status)}</span>
+          <span class="inc-status-badge" style="color:${sc}">${incStatusLabel(latest.status)}</span>
           <span class="inc-time">${timeAgo(latest.updated_at)}</span>
         </div>
         <div class="inc-body">${esc(latest.body)}</div>`;
@@ -1021,10 +1260,13 @@
     html += `</div>`;
 
     if (previous.length) {
+      const prevText = previous.length === 1
+        ? msg("previousUpdate").replace("$1", previous.length)
+        : msg("previousUpdates").replace("$1", previous.length);
       html += `<div class="inc-toggle">
-        <span class="arrow">▾</span>
-        <span class="when-collapsed">${previous.length} previous update${previous.length > 1 ? "s" : ""}</span>
-        <span class="when-expanded">Collapse</span>
+        <span class="arrow">\u25BE</span>
+        <span class="when-collapsed">${prevText}</span>
+        <span class="when-expanded">${msg("collapse")}</span>
       </div>
       <div class="inc-timeline"><div class="inc-tl-inner">`;
 
@@ -1033,7 +1275,7 @@
         html += `<div class="inc-update">
           <span class="tl-dot" style="background:${uc}"></span>
           <div class="inc-status-line">
-            <span class="inc-status-badge" style="color:${uc}">${capitalize(upd.status)}</span>
+            <span class="inc-status-badge" style="color:${uc}">${incStatusLabel(upd.status)}</span>
             <span class="inc-time">${timeAgo(upd.updated_at)}</span>
           </div>
           <div class="inc-body">${esc(upd.body)}</div>
@@ -1048,12 +1290,13 @@
 
   // ── Render ─────────────────────────────────────────────────────────
   function render(data) {
+    lastData = data;
     hideTooltip();
     dates = buildDates();
 
     const indicator = data.status?.indicator || "unknown";
     const iColor = INDICATOR_COLOR[indicator] || C.gray;
-    const desc = data.status?.description || "Unknown";
+    const desc = DESC_KEY[indicator] ? msg(DESC_KEY[indicator]) : (data.status?.description || msg("unavailable"));
 
     badgeDot.style.background = iColor;
     badgeText.textContent = desc;
@@ -1066,10 +1309,11 @@
     // ── Left column: components ──
     const comps = (data.components || []).filter((c) => !c.group);
     const history = data.history || {};
-    let left = '<div class="sec-title">Components</div>';
+    let left = `<div class="sec-title">${msg("sectionComponents")}</div>`;
 
     for (const comp of comps) {
-      const s = COMP_STATUS[comp.status] || { label: comp.status, color: C.gray };
+      const s = COMP_STATUS[comp.status] || { key: null, color: C.gray };
+      const label = s.key ? msg(s.key) : comp.status;
       const hist = history[comp.id] || new Array(DAYS).fill("operational");
       const okDays = hist.filter((d) => d === "operational" || d === "none").length;
       const pct = ((okDays / DAYS) * 100).toFixed(1);
@@ -1077,7 +1321,7 @@
       left += `<div class="comp">
         <div class="comp-header">
           <span class="comp-name">${esc(cleanName(comp.name))}</span>
-          <span class="comp-badge" style="color:${s.color};background:${s.color}18">${s.label}</span>
+          <span class="comp-badge" style="color:${s.color};background:${s.color}18">${label}</span>
         </div>
         <div class="bars">`;
       for (let i = 0; i < DAYS; i++) {
@@ -1087,8 +1331,8 @@
       left += `</div>
         <div class="bar-labels">
           <span>${fmtDate(dates[0])}</span>
-          <span class="bar-labels-center">${pct}% uptime</span>
-          <span>Today</span>
+          <span class="bar-labels-center">${pct}${msg("uptime")}</span>
+          <span>${msg("today")}</span>
         </div></div>`;
     }
     colLeft.innerHTML = left;
@@ -1102,7 +1346,7 @@
 
     if (hasActive) {
       // Show active incidents
-      right += '<div class="sec-title">Active Incidents</div>';
+      right += `<div class="sec-title">${msg("sectionActiveIncidents")}</div>`;
       for (const inc of data.incidents) {
         right += renderIncidentCard(inc);
       }
@@ -1110,15 +1354,15 @@
       colDivider.style.display = "";
     } else if (hasRecent) {
       // Compact mode: all operational + collapsed recent list
-      right += '<div class="sec-title">Incidents</div>';
+      right += `<div class="sec-title">${msg("sectionIncidents")}</div>`;
       right += `<div class="no-incidents">
-        <div class="no-inc-icon">✓</div>
-        <div class="no-inc-title">All Systems Operational</div>
-        <div class="no-inc-sub">No active incidents</div>
+        <div class="no-inc-icon">\u2713</div>
+        <div class="no-inc-title">${msg("allOperational")}</div>
+        <div class="no-inc-sub">${msg("noActiveIncidents")}</div>
       </div>`;
       right += `<div class="recent-toggle">
-        <span class="arrow">▾</span>
-        <span>Recent Incidents</span>
+        <span class="arrow">\u25BE</span>
+        <span>${msg("recentIncidents")}</span>
       </div>
       <div class="recent-list" style="display:none">`;
       for (const inc of recentIncs) {
@@ -1130,7 +1374,7 @@
               <span class="inc-name">${esc(inc.name)}</span>
             </div>
             <div class="inc-status-line">
-              <span class="inc-status-badge" style="color:${C.green}">Resolved</span>
+              <span class="inc-status-badge" style="color:${C.green}">${msg("resolved")}</span>
               <span class="inc-time">${timeAgo(inc.resolved_at)}</span>
             </div>
           </div>
@@ -1151,20 +1395,20 @@
     updateFooterTime();
   }
 
-  function renderError(msg) {
-    colLeft.innerHTML = `<div class="error">${esc(msg)}<br><button class="retry-btn">Retry</button></div>`;
+  function renderError(errText) {
+    colLeft.innerHTML = `<div class="error">${esc(errText)}<br><button class="retry-btn">${msg("retry")}</button></div>`;
     colRight.innerHTML = "";
     colLeft.querySelector(".retry-btn")?.addEventListener("click", () => requestStatus(true));
     badgeDot.style.background = C.gray;
-    badgeText.textContent = "Unavailable";
+    badgeText.textContent = msg("unavailable");
     headerDot.style.background = C.gray;
-    headerDesc.textContent = "Unable to load status";
+    headerDesc.textContent = msg("errorUnableToLoad");
   }
 
   // ── Footer time ticker ─────────────────────────────────────────────
   function updateFooterTime() {
     if (lastUpdatedAt) {
-      updatedAtEl.textContent = "Updated " + timeAgo(lastUpdatedAt);
+      updatedAtEl.textContent = msg("updatedPrefix") + timeAgo(lastUpdatedAt);
     }
   }
   setInterval(updateFooterTime, TICK_MS);
@@ -1173,21 +1417,22 @@
   function requestStatus(force = false) {
     chrome.runtime.sendMessage({ type: "GET_STATUS", force }, (res) => {
       if (chrome.runtime.lastError) {
-        renderError("Cannot reach extension background");
+        renderError(msg("errorBackground"));
         return;
       }
       if (res?.ok) render(res.data);
-      else renderError(res?.error || "Failed to load status");
+      else renderError(res?.error || msg("errorLoad"));
     });
   }
 
-  chrome.runtime.onMessage.addListener((msg) => {
-    if (msg.type === "STATUS_UPDATE") render(msg.data);
+  chrome.runtime.onMessage.addListener((m) => {
+    if (m.type === "STATUS_UPDATE") render(m.data);
   });
 
   // ── Init ───────────────────────────────────────────────────────────
   loadSettings().then(() => {
     applySettings();
+    refreshUI();
     requestStatus();
   });
   setInterval(requestStatus, POLL_MS);
