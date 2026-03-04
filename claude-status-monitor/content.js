@@ -206,15 +206,13 @@
       white-space: nowrap;
     }
 
-    /* ── Panel ── */
+    /* ── Panel (fixed position, JS-placed) ── */
     .panel {
-      position: absolute;
-      bottom: calc(100% + 8px);
-      right: 0;
+      position: fixed;
       width: 640px;
-      max-width: calc(100vw - 32px);
+      max-width: calc(100vw - 16px);
       height: 460px;
-      max-height: calc(100vh - 80px);
+      max-height: calc(100vh - 16px);
       min-width: 300px;
       min-height: 250px;
       background: ${C.bg};
@@ -228,7 +226,7 @@
 
       visibility: hidden;
       opacity: 0;
-      transform: scale(.96) translateY(8px);
+      transform: scale(.96);
       transition:
         visibility 0s .22s,
         opacity .22s ease,
@@ -237,28 +235,24 @@
     .panel.open {
       visibility: visible;
       opacity: 1;
-      transform: scale(1) translateY(0);
+      transform: scale(1);
       pointer-events: auto;
       transition-delay: 0s;
     }
 
-    /* ── Resize handles ── */
+    /* ── Resize handles (all edges + corners) ── */
     .resize-handle {
       position: absolute;
-      pointer-events: auto;
+      z-index: 10;
     }
-    .resize-n {
-      top: -4px; left: 14px; right: 14px; height: 8px;
-      cursor: n-resize;
-    }
-    .resize-w {
-      left: -4px; top: 14px; bottom: 14px; width: 8px;
-      cursor: w-resize;
-    }
-    .resize-nw {
-      top: -4px; left: -4px; width: 14px; height: 14px;
-      cursor: nw-resize;
-    }
+    .resize-n  { top: -4px; left: 14px; right: 14px; height: 8px; cursor: n-resize; }
+    .resize-s  { bottom: -4px; left: 14px; right: 14px; height: 8px; cursor: s-resize; }
+    .resize-w  { left: -4px; top: 14px; bottom: 14px; width: 8px; cursor: w-resize; }
+    .resize-e  { right: -4px; top: 14px; bottom: 14px; width: 8px; cursor: e-resize; }
+    .resize-nw { top: -4px; left: -4px; width: 14px; height: 14px; cursor: nw-resize; }
+    .resize-ne { top: -4px; right: -4px; width: 14px; height: 14px; cursor: ne-resize; }
+    .resize-sw { bottom: -4px; left: -4px; width: 14px; height: 14px; cursor: sw-resize; }
+    .resize-se { bottom: -4px; right: -4px; width: 14px; height: 14px; cursor: se-resize; }
 
     /* Header */
     .p-header {
@@ -266,7 +260,11 @@
       padding: 14px 16px;
       border-bottom: 1px solid ${C.border};
       background: ${C.surface};
+      cursor: grab;
+      user-select: none;
+      border-radius: 14px 14px 0 0;
     }
+    .p-header.dragging { cursor: grabbing; }
     .p-header .dot { width: 10px; height: 10px; }
     .p-header-info { flex: 1; min-width: 0; }
     .p-title { font-weight: 600; font-size: 1.07em; }
@@ -446,6 +444,7 @@
       border-top: 1px solid ${C.border};
       font-size: .86em; color: ${C.textMut};
       background: ${C.surface};
+      border-radius: 0 0 14px 14px;
     }
     .p-footer-left { display: flex; align-items: center; gap: 6px; }
     .refresh-btn {
@@ -506,8 +505,13 @@
   panel.className = "panel";
   panel.innerHTML = `
     <div class="resize-handle resize-n"></div>
+    <div class="resize-handle resize-s"></div>
     <div class="resize-handle resize-w"></div>
+    <div class="resize-handle resize-e"></div>
     <div class="resize-handle resize-nw"></div>
+    <div class="resize-handle resize-ne"></div>
+    <div class="resize-handle resize-sw"></div>
+    <div class="resize-handle resize-se"></div>
     <div class="p-header">
       <span class="dot pulse" style="background:${C.gray}"></span>
       <div class="p-header-info">
@@ -543,15 +547,16 @@
   const tooltip = document.createElement("div");
   tooltip.className = "tooltip";
 
-  wrap.appendChild(panel);
   wrap.appendChild(badge);
   wrap.appendChild(tooltip);
+  shadow.appendChild(panel);
   shadow.appendChild(wrap);
   document.body.appendChild(host);
 
   // Refs
   const badgeDot    = badge.querySelector(".dot");
   const badgeText   = badge.querySelector(".badge-text");
+  const pHeader     = panel.querySelector(".p-header");
   const headerDot   = panel.querySelector(".p-header .dot");
   const headerDesc  = panel.querySelector(".p-desc");
   const colLeft     = panel.querySelector(".col-left");
@@ -568,9 +573,47 @@
   let lastUpdatedAt = null;
   let dates = buildDates();
 
+  // ── Smart panel positioning ──────────────────────────────────────
+  // Opens the panel toward the center of the viewport relative to badge
+  function positionPanel() {
+    const badgeRect = badge.getBoundingClientRect();
+    const bCx = badgeRect.left + badgeRect.width / 2;
+    const bCy = badgeRect.top + badgeRect.height / 2;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const pw = settings.panelW;
+    const ph = settings.panelH;
+    const gap = 8;
+    const margin = 8;
+
+    let left, top;
+
+    // Vertical: badge in bottom half → open upward; top half → open downward
+    if (bCy > vh / 2) {
+      top = badgeRect.top - gap - ph;
+    } else {
+      top = badgeRect.bottom + gap;
+    }
+
+    // Horizontal: badge in right half → extend leftward; left half → extend rightward
+    if (bCx > vw / 2) {
+      left = badgeRect.right - pw;
+    } else {
+      left = badgeRect.left;
+    }
+
+    // Clamp to viewport with margin
+    left = clamp(left, margin, vw - pw - margin);
+    top = clamp(top, margin, vh - ph - margin);
+
+    panel.style.left = left + "px";
+    panel.style.top = top + "px";
+  }
+
   // ── Panel open / close ─────────────────────────────────────────────
   function openPanel() {
     panelOpen = true;
+    positionPanel();
     panel.classList.add("open");
     badge.classList.add("hide");
     updateLayout();
@@ -589,14 +632,22 @@
   });
   panel.querySelector(".close-btn").addEventListener("click", closePanel);
 
-  // Click outside to close
+  // Click outside to close — check against both panel and host
   document.addEventListener("pointerdown", (e) => {
     if (!panelOpen) return;
-    if (!host.contains(e.target) && e.target !== host) closePanel();
+    // Check if click is inside the panel (which is a direct child of shadow root)
+    if (panel.contains(e.composedPath()[0])) return;
+    if (host.contains(e.target) || e.target === host) return;
+    closePanel();
   });
+  // Shadow retargeting: clicks on shadow children show up as host
   wrap.addEventListener("pointerdown", (e) => {
     if (!panelOpen) return;
-    if (!panel.contains(e.target)) closePanel();
+    closePanel();
+  });
+  // Prevent panel clicks from reaching wrap's close handler
+  panel.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
   });
 
   // ── Draggable badge ──────────────────────────────────────────────
@@ -646,6 +697,46 @@
     dragState = null;
   });
 
+  // ── Draggable panel (via header) ─────────────────────────────────
+  let panelDragState = null;
+
+  pHeader.addEventListener("pointerdown", (e) => {
+    // Don't start drag from interactive elements
+    if (e.target.closest(".close-btn, .font-control, button, input")) return;
+    if (e.button !== 0) return;
+    e.preventDefault();
+
+    const panelRect = panel.getBoundingClientRect();
+    panelDragState = {
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startLeft: panelRect.left,
+      startTop: panelRect.top,
+    };
+    pHeader.classList.add("dragging");
+    pHeader.setPointerCapture(e.pointerId);
+  });
+
+  pHeader.addEventListener("pointermove", (e) => {
+    if (!panelDragState) return;
+    const dx = e.clientX - panelDragState.startMouseX;
+    const dy = e.clientY - panelDragState.startMouseY;
+
+    const pw = panel.offsetWidth;
+    const ph = panel.offsetHeight;
+    const newLeft = clamp(panelDragState.startLeft + dx, 0, window.innerWidth - pw);
+    const newTop = clamp(panelDragState.startTop + dy, 0, window.innerHeight - ph);
+
+    panel.style.left = newLeft + "px";
+    panel.style.top = newTop + "px";
+  });
+
+  pHeader.addEventListener("pointerup", () => {
+    if (!panelDragState) return;
+    panelDragState = null;
+    pHeader.classList.remove("dragging");
+  });
+
   // ── Resizable panel ──────────────────────────────────────────────
   let resizeState = null;
 
@@ -653,13 +744,15 @@
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    const panelRect = panel.getBoundingClientRect();
+    const r = panel.getBoundingClientRect();
     resizeState = {
       dir,
       startX: e.clientX,
       startY: e.clientY,
-      startW: panelRect.width,
-      startH: panelRect.height,
+      startW: r.width,
+      startH: r.height,
+      startLeft: r.left,
+      startTop: r.top,
     };
     document.addEventListener("pointermove", onResizeMove, true);
     document.addEventListener("pointerup", onResizeEnd, true);
@@ -669,17 +762,37 @@
     if (!resizeState) return;
     const dx = e.clientX - resizeState.startX;
     const dy = e.clientY - resizeState.startY;
-    const { dir, startW, startH } = resizeState;
+    const { dir, startW, startH, startLeft, startTop } = resizeState;
+    const maxW = window.innerWidth - 16;
+    const maxH = window.innerHeight - 16;
 
-    if (dir === "w" || dir === "nw") {
-      const newW = clamp(startW - dx, 300, window.innerWidth - 32);
-      panel.style.width = newW + "px";
-      settings.panelW = newW;
+    // North edge: drag up to make taller, panel top moves
+    if (dir.includes("n")) {
+      const newH = clamp(startH - dy, 250, maxH);
+      const newTop = startTop + (startH - newH);
+      panel.style.height = newH + "px";
+      panel.style.top = Math.max(0, newTop) + "px";
+      settings.panelH = newH;
     }
-    if (dir === "n" || dir === "nw") {
-      const newH = clamp(startH - dy, 250, window.innerHeight - 80);
+    // South edge: drag down to make taller
+    if (dir.includes("s")) {
+      const newH = clamp(startH + dy, 250, maxH);
       panel.style.height = newH + "px";
       settings.panelH = newH;
+    }
+    // West edge: drag left to make wider, panel left moves
+    if (dir.includes("w")) {
+      const newW = clamp(startW - dx, 300, maxW);
+      const newLeft = startLeft + (startW - newW);
+      panel.style.width = newW + "px";
+      panel.style.left = Math.max(0, newLeft) + "px";
+      settings.panelW = newW;
+    }
+    // East edge: drag right to make wider
+    if (dir.includes("e")) {
+      const newW = clamp(startW + dx, 300, maxW);
+      panel.style.width = newW + "px";
+      settings.panelW = newW;
     }
     updateLayout();
   }
@@ -692,9 +805,10 @@
     saveSettings();
   }
 
-  panel.querySelector(".resize-n").addEventListener("pointerdown", (e) => startResize(e, "n"));
-  panel.querySelector(".resize-w").addEventListener("pointerdown", (e) => startResize(e, "w"));
-  panel.querySelector(".resize-nw").addEventListener("pointerdown", (e) => startResize(e, "nw"));
+  // Attach all 8 resize handles
+  for (const dir of ["n", "s", "w", "e", "nw", "ne", "sw", "se"]) {
+    panel.querySelector(`.resize-${dir}`).addEventListener("pointerdown", (e) => startResize(e, dir));
+  }
 
   // ── Responsive layout ────────────────────────────────────────────
   function updateLayout() {
