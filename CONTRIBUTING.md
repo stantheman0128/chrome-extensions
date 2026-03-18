@@ -84,6 +84,23 @@ stan-chrome-extensions/
 
 ---
 
+## 版本與變更日誌規範（必做）
+
+每次對任何 extension 有行為、功能、權限、UI、文件或相容性變更時，必須同時完成以下兩件事：
+
+1. 更新該 extension 的 `manifest.json` 中 `version`
+2. 更新 repo 根目錄 `CHANGELOG.md`，新增本次變更摘要
+
+建議版本規則：
+
+- 修正 bug / 小幅調整：`patch`（例如 `1.0.1` -> `1.0.2`）
+- 向下相容新功能：`minor`（例如 `1.0.2` -> `1.1.0`）
+- 破壞性變更：`major`（例如 `1.1.0` -> `2.0.0`）
+
+未同時更新 `version` 與 `CHANGELOG.md` 的變更，不應合併或發布。
+
+---
+
 ## 請 AI 新增 Extension 的標準提示詞
 
 當你要請 AI（如 Claude）新增一個 Extension 時，可以直接複製以下提示詞：
