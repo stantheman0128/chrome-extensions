@@ -14,9 +14,10 @@ A lightweight collection of Chrome extensions built on Manifest V3.
 | # | Extension | Download |
 |---|---------|------|
 | 1 | [Claude Status Monitor](#ext-claude-status-monitor) | [![Download claude-status-monitor](https://img.shields.io/badge/Download-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
-| 2 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | [![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
-| 3 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | [![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
-| 4 | [YouTube Upload Time](#ext-youtube-video-upload-time) | [![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
+| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | [![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
+| 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | [![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
+| 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | [![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
+| 5 | [YouTube Upload Time](#ext-youtube-video-upload-time) | [![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
 
 ---
 
@@ -61,9 +62,45 @@ Real-time Claude service status widget on Claude.ai (including Claude Code web),
 
 ---
 
+<a id="ext-colonist-stats-tracker"></a>
+
+### 2. Colonist.io Stats Tracker
+
+**Folder:** `colonist-stats-tracker/`
+
+A floating in-game overlay for [colonist.io](https://colonist.io/) that tracks dice-roll distribution and per-player resource holdings in real time.
+
+**Features**
+- **Dice histogram**: live count and percentage for every sum 2–12, coloured against the fair-dice expectation (2.78%, 5.56% … 16.67%) — green if above, red if below, grey if close
+- **Per-player resources**: best-effort tally of 🌲 lumber, 🧱 brick, 🐑 wool, 🌾 grain, ⛰️ ore per player, derived from the game log
+- **Unknown-card column (`?`)**: cards moved by robber/knight steals are tracked in a separate pool until spending makes their type obvious
+- **Event coverage**: dice rolls, initial placement yields, rolls, building (road/settlement/city), dev-card purchases, bank and port trades, player-to-player trades, discards, knight steals, and Monopoly
+- **Lightweight floating panel**: draggable, minimisable, one-click reset
+- **SPA friendly**: re-attaches to the game log after page/match navigation
+
+**Technical details**
+- Pure content script (Manifest V3), no service worker, no `<all_urls>` host permission
+- Runs only on `colonist.io`
+- Uses a `MutationObserver` on `#game-log-text` and identifies resource / dice icons via `alt`, class name, and `src` — resilient to colonist.io's cosmetic tweaks
+- When a player spends more of a resource than their known pool holds, the shortfall is pulled from the unknown pool, retroactively identifying stolen cards
+
+**Note**: resource counts are a best-effort estimate. Stealing and hidden dev-card effects leave genuine uncertainty, which the `?` column surfaces rather than hides.
+
+**Download**
+
+[![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/colonist-stats-tracker.zip)
+
+**Installation**
+1. Click the button above to download the `.zip` file and extract it
+2. Open Chrome and go to `chrome://extensions`
+3. Enable **Developer mode** in the top-right corner
+4. Click **Load unpacked** and select the extracted `colonist-stats-tracker` folder
+
+---
+
 <a id="ext-dcard-article-formatter"></a>
 
-### 2. Dcard 文章排版優化
+### 3. Dcard 文章排版優化
 
 **Folder:** `dcard-article-formatter/`
 
@@ -80,7 +117,7 @@ One-click formatting optimization for Dcard articles, dramatically improving rea
 
 **Download**
 
-[![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
+[![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
 
 **Installation**
 1. Click the button above to download the `.zip` file and extract it
@@ -92,7 +129,7 @@ One-click formatting optimization for Dcard articles, dramatically improving rea
 
 <a id="ext-glasp-remnants-remover"></a>
 
-### 3. Remove Glasp Remnants
+### 4. Remove Glasp Remnants
 
 **Folder:** `glasp-remnants-remover/`
 
@@ -105,7 +142,7 @@ Automatically removes leftover UI elements that the Glasp extension injects into
 
 **Download**
 
-[![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
+[![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
 
 **Installation**
 1. Click the button above to download the `.zip` file and extract it
@@ -117,7 +154,7 @@ Automatically removes leftover UI elements that the Glasp extension injects into
 
 <a id="ext-youtube-video-upload-time"></a>
 
-### 4. YouTube Upload Time
+### 5. YouTube Upload Time
 
 **Folder:** `youtube-video-upload-time/`
 
@@ -146,7 +183,7 @@ Replaces YouTube's vague relative timestamps (e.g., *"2 years ago"*) with precis
 
 **Download**
 
-[![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
+[![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
 
 **Installation**
 1. Click the button above to download the `.zip` file and extract it
@@ -165,6 +202,11 @@ stan-chrome-extensions/
 │   ├── DESCRIPTION.md
 │   ├── PRIVACY.md
 │   ├── background.js
+│   ├── content.js
+│   └── manifest.json
+├── colonist-stats-tracker/
+│   ├── DESCRIPTION.en.md
+│   ├── DESCRIPTION.md
 │   ├── content.js
 │   └── manifest.json
 ├── dcard-article-formatter/

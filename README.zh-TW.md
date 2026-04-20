@@ -14,9 +14,10 @@
 | # | 擴充功能 | 下載 |
 |---|---------|------|
 | 1 | [Claude 服務狀態監控](#ext-claude-status-monitor) | [![下載 claude-status-monitor](https://img.shields.io/badge/下載-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
-| 2 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | [![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
-| 3 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | [![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
-| 4 | [YouTube 絕對精確日期 (完美客製版)](#ext-youtube-video-upload-time) | [![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
+| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | [![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
+| 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | [![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
+| 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | [![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
+| 5 | [YouTube 絕對精確日期 (完美客製版)](#ext-youtube-video-upload-time) | [![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
 
 ---
 
@@ -59,9 +60,44 @@
 
 ---
 
+<a id="ext-colonist-stats-tracker"></a>
+
+### 2. Colonist.io Stats Tracker
+
+**資料夾：** `colonist-stats-tracker/`
+
+在 [colonist.io](https://colonist.io/) 對局中即時統計擲骰分佈與各玩家持有資源的浮動面板。
+
+**功能**
+- **擲骰分佈直方圖**：2–12 每個點數的出現次數、百分比，以及和理論機率（2.78%、5.56% … 16.67%）的偏差（綠：偏高、紅：偏低）
+- **玩家資源追蹤**：依照遊戲記錄（Game Log）推算每位玩家目前手上的 🌲木、🧱磚、🐑羊、🌾麥、⛰️礦 數量；並以 `?` 欄位顯示因強盜/騎士偷牌而無法確定類型的卡片數
+- **事件自動解析**：擲骰、初始配置獲得、建造（道路/聚落/城市）、發展卡、銀行/港口交易、玩家間交易、棄牌、騎士偷牌、壟斷（Monopoly）都會自動計入
+- **輕量浮動面板**：右上角顯示，可拖曳、可最小化、可一鍵重置
+- **SPA 支援**：換局、換頁都能自動重新掛上遊戲記錄監聽
+
+**技術細節**
+- 純 Content Script（Manifest V3），無背景 Service Worker、無 `<all_urls>` 權限
+- 只在 `colonist.io` 網域下啟動
+- 透過 `MutationObserver` 監聽 `#game-log-text` 的新訊息，並以 `<img>` 的 `alt`／`class`／`src` 三種線索辨識資源與骰子圖示，能容忍 colonist.io 常見的小幅改版
+- 偷牌時以「未知卡」池記帳：若之後該玩家花掉某項資源超過已知存量，會自動將未知卡回推為該類型
+
+**備註**：資源計算為「盡可能」的推算。偷牌、看不見的發展卡效果等不確定資訊，會透過 `?` 欄位標示，協助判讀而非保證精準。
+
+**一鍵下載**
+
+[![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/colonist-stats-tracker.zip)
+
+**安裝方式**
+1. 點上方按鈕下載 `.zip` 並解壓縮
+2. 開啟 Chrome，前往 `chrome://extensions`
+3. 啟用右上角的**開發人員模式**
+4. 點擊**載入未封裝項目**，選擇解壓縮後的 `colonist-stats-tracker` 資料夾
+
+---
+
 <a id="ext-dcard-article-formatter"></a>
 
-### 2. Dcard 文章排版優化
+### 3. Dcard 文章排版優化
 
 **資料夾：** `dcard-article-formatter/`
 
@@ -77,7 +113,7 @@
 
 **一鍵下載**
 
-[![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
+[![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -89,7 +125,7 @@
 
 <a id="ext-glasp-remnants-remover"></a>
 
-### 3. Remove Glasp Remnants
+### 4. Remove Glasp Remnants
 
 **資料夾：** `glasp-remnants-remover/`
 
@@ -102,7 +138,7 @@
 
 **一鍵下載**
 
-[![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
+[![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -114,7 +150,7 @@
 
 <a id="ext-youtube-video-upload-time"></a>
 
-### 4. YouTube 絕對精確日期 (完美客製版)
+### 5. YouTube 絕對精確日期 (完美客製版)
 
 **資料夾：** `youtube-video-upload-time/`
 
@@ -143,7 +179,7 @@
 
 **一鍵下載**
 
-[![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
+[![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -162,6 +198,11 @@ stan-chrome-extensions/
 │   ├── DESCRIPTION.md
 │   ├── PRIVACY.md
 │   ├── background.js
+│   ├── content.js
+│   └── manifest.json
+├── colonist-stats-tracker/
+│   ├── DESCRIPTION.en.md
+│   ├── DESCRIPTION.md
 │   ├── content.js
 │   └── manifest.json
 ├── dcard-article-formatter/
