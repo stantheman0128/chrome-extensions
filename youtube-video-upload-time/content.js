@@ -1,20 +1,80 @@
 
 const dateCache = new Map();
 
+// === Cache TTL 設定 ===
+const CACHE_MAX_AGE_MS = 180 * 24 * 60 * 60 * 1000; // 180 天
+
+// 清除過期及舊格式的 cache 項目
+async function cleanupStaleCache() {
+    const now = Date.now();
+    try {
+        const items = await chrome.storage.local.get(null);
+        const keysToRemove = [];
+
+        for (const [key, value] of Object.entries(items)) {
+            if (!key.startsWith('v_')) continue;
+
+            // 新格式：{ date, cachedAt } — 檢查是否過期
+            if (typeof value === 'object' && value !== null && value.cachedAt) {
+                if (now - value.cachedAt > CACHE_MAX_AGE_MS) {
+                    keysToRemove.push(key);
+                }
+            }
+            // 舊格式：純字串 — 直接移除，讓下次瀏覽時用新格式重新快取
+            else if (typeof value === 'string') {
+                keysToRemove.push(key);
+            }
+        }
+
+        if (keysToRemove.length > 0) {
+            await chrome.storage.local.remove(keysToRemove);
+            console.log(`[YT Upload Time] Cleaned up ${keysToRemove.length} stale cache entries`);
+        }
+    } catch (e) {
+        console.warn('[YT Upload Time] Cache cleanup failed:', e);
+    }
+}
+
 // 啟動時從 chrome.storage.local 載入持久化 cache（跨分頁、跨刷新永久有效）
 chrome.storage.local.get(null, (items) => {
     if (chrome.runtime.lastError) return;
     for (const [key, value] of Object.entries(items)) {
         if (key.startsWith('v_')) {
-            dateCache.set(key.slice(2), value);
+            // 相容新舊格式
+            if (typeof value === 'object' && value !== null && value.date) {
+                dateCache.set(key.slice(2), value.date);
+            } else if (typeof value === 'string') {
+                dateCache.set(key.slice(2), value);
+            }
         }
     }
 });
+
+// 啟動時執行一次清理
+cleanupStaleCache();
 
 const processingQueue = new Set();
 const processedMark = 'data-exact-date-processed';
 let activeRequests = 0;
 const MAX_CONCURRENT = 8;
+
+// === DOM 選擇器回退機制 ===
+// YouTube 經常更改 DOM 結構，使用多重選擇器確保穩定性
+function findElement(selectors, context = document) {
+    for (const selector of selectors) {
+        const el = context.querySelector(selector);
+        if (el) return el;
+    }
+    return null;
+}
+
+function findElementWithWarn(selectors, label, context = document) {
+    const el = findElement(selectors, context);
+    if (!el) {
+        console.warn(`[YT Upload Time] Could not find ${label} with any known selector:`, selectors);
+    }
+    return el;
+}
 
 // === 核心功能：時區與時間轉換器 ===
 function convertToLocalTime(isoDateStr, includeTime = false) {
@@ -149,12 +209,15 @@ function injectWatchPageDate() {
     const includeTime = hasTimeComponent(rawDate);
     const exactDateTime = convertToLocalTime(rawDate, includeTime) || rawDate.split('T')[0];
 
-    const infoTarget =
-        document.querySelector('ytd-watch-metadata #info')                    ||
-        document.querySelector('ytd-watch-metadata #description-inner #info') ||
-        document.querySelector('ytd-watch-metadata #info-container')          ||
-        document.querySelector('#above-the-fold #info')                       ||
-        document.querySelector('ytd-video-primary-info-renderer #info');
+    const infoTarget = findElementWithWarn([
+        'ytd-watch-metadata #info',
+        'ytd-watch-metadata #description-inner #info',
+        'ytd-watch-metadata #info-container',
+        '#above-the-fold #info',
+        'ytd-video-primary-info-renderer #info',
+        'ytd-watch-metadata #owner',                       // 備用：owner 區塊
+        'ytd-watch-metadata',                               // 最後手段：整個 metadata 區塊
+    ], 'watch page info target');
 
     if (!infoTarget) return;
 
@@ -179,7 +242,12 @@ function injectShortsWatchDate() {
     if (!shortsMatch) return;
     const videoId = shortsMatch[1];
 
-    const titleEl = document.querySelector('.ytShortsVideoTitleViewModelShortsVideoTitle');
+    const titleEl = findElementWithWarn([
+        '.ytShortsVideoTitleViewModelShortsVideoTitle',
+        'yt-shorts-video-title-view-model',                // 可能的新版 tag
+        '.shorts-video-title',                              // 備用 class
+        'ytd-reel-video-renderer h2',                       // 舊版 Shorts 標題
+    ], 'Shorts title element');
     if (!titleEl) return;
 
     // 已注入則跳過
@@ -192,7 +260,7 @@ function injectShortsWatchDate() {
         _doInjectShortsWatchBadge(titleEl, exactDate);
         if (!dateCache.has(videoId)) {
             dateCache.set(videoId, exactDate);
-            chrome.storage.local.set({ ['v_' + videoId]: exactDate });
+            chrome.storage.local.set({ ['v_' + videoId]: { date: exactDate, cachedAt: Date.now() } });
         }
         return;
     }
@@ -220,10 +288,15 @@ async function _fetchAndInjectShortsWatchDate(videoId, titleEl) {
         if (rawDate) {
             const exactDate = convertToLocalTime(rawDate, false) || rawDate.split('T')[0];
             dateCache.set(videoId, exactDate);
-            chrome.storage.local.set({ ['v_' + videoId]: exactDate });
+            chrome.storage.local.set({ ['v_' + videoId]: { date: exactDate, cachedAt: Date.now() } });
             // 確認使用者還在同一個 Short
             if (window.location.pathname.includes(videoId)) {
-                const el = document.querySelector('.ytShortsVideoTitleViewModelShortsVideoTitle');
+                const el = findElement([
+                    '.ytShortsVideoTitleViewModelShortsVideoTitle',
+                    'yt-shorts-video-title-view-model',
+                    '.shorts-video-title',
+                    'ytd-reel-video-renderer h2',
+                ]);
                 if (el) _doInjectShortsWatchBadge(el, exactDate);
             }
         }
@@ -430,7 +503,7 @@ async function fetchExactDateForVideo(container) {
         if (rawDate) {
             const exactDate = convertToLocalTime(rawDate, false) || rawDate.split('T')[0];
             dateCache.set(videoId, exactDate);
-            chrome.storage.local.set({ ['v_' + videoId]: exactDate });
+            chrome.storage.local.set({ ['v_' + videoId]: { date: exactDate, cachedAt: Date.now() } });
             if (isHistoryPage && tag === 'ytd-video-renderer') {
                 injectDateForHistory(container, exactDate);
             } else {
