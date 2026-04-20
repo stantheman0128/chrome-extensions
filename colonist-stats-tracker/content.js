@@ -23,15 +23,6 @@
     ore:   '⛰️',
   };
 
-  // Map any textual resource hint (alt, class, filename) → canonical key.
-  const RESOURCE_ALIASES = {
-    lumber: 'lumber', wood: 'lumber', tree: 'lumber',
-    brick: 'brick', clay: 'brick',
-    wool: 'wool', sheep: 'wool',
-    grain: 'grain', wheat: 'grain',
-    ore: 'ore', stone: 'ore', rock: 'ore',
-  };
-
   const BUILD_COST = {
     road:       { lumber: 1, brick: 1 },
     settlement: { lumber: 1, brick: 1, wool: 1, grain: 1 },
@@ -53,6 +44,7 @@
     totalRolls: 0,
     players: new Map(), // name -> { color, resources:{}, unknown:number }
     seenIndices: new Set(), // log message data-index values already processed
+    selfName: null, // local human player; messages with avatar=icon_player.svg
     paused: false,
   };
 
@@ -126,15 +118,15 @@
   // =============================================================
   // Resource / dice icon extraction
   // =============================================================
+  // Real resource cards have src/alt like `card_lumber.<hash>.svg` / alt
+  // "Lumber". The same word can appear in tile icons (`generated_tile_wool`,
+  // alt "wool tile") and in non-resource cards (`card_knight`,
+  // `card_devcardback`, `card_rescardback`), so we anchor on the
+  // `card_<resource>` substring to avoid those false positives.
   function resourceFromImg(img) {
-    const candidates = [
-      img.getAttribute('alt'),
-      img.className || '',
-      img.getAttribute('src') || '',
-      img.getAttribute('aria-label') || '',
-    ].join(' ').toLowerCase();
-    for (const [alias, key] of Object.entries(RESOURCE_ALIASES)) {
-      if (candidates.includes(alias)) return key;
+    const src = (img.getAttribute('src') || '').toLowerCase();
+    for (const r of RESOURCES) {
+      if (src.indexOf('card_' + r) !== -1) return r;
     }
     return null;
   }
@@ -221,6 +213,38 @@
     const primary = firstPlayerRef(msgEl);
     const player = getPlayer(primary.name, primary.color);
 
+    // Identify the local human player. The avatar uses icon_player.svg for
+    // self and icon_bot.svg for bots; we record the first coloured name we
+    // see paired with icon_player.svg as `selfName`. Used by the "You stole
+    // [resource] from X" handler below.
+    if (!state.selfName && player) {
+      const avatar = msgEl.querySelector('img[src*="icon_player"]');
+      if (avatar) state.selfName = player.name;
+    }
+
+    // --- "You stole [resource] from X" — local player as thief ---
+    // colonist.io reveals the actual stolen card to the player who stole it,
+    // so this message contains a real card_<resource> img. The visible
+    // colour-span is the victim, not the thief.
+    if (text.startsWith('you stole') || text.indexOf(' you stole ') !== -1) {
+      const refs = allPlayerRefs(msgEl);
+      const { counts, total } = countResources(msgEl);
+      const thief = state.selfName ? getPlayer(state.selfName) : null;
+      const victim = refs.length ? getPlayer(refs[0].name, refs[0].color) : null;
+      if (thief && victim && total > 0) {
+        for (const r of RESOURCES) {
+          if (counts[r] > 0) {
+            giveResource(thief, r, counts[r]);
+            takeResource(victim, r, counts[r]);
+          }
+        }
+        renderSoon();
+      }
+      // Always claim the message — falling through would let the generic
+      // "stole" branch below misread it as a Monopoly play.
+      return;
+    }
+
     // --- Dice roll ---
     if (text.includes('rolled') || text.includes('擲出') || text.includes('擲了')) {
       const sum = diceSum(msgEl);
@@ -257,10 +281,10 @@
     }
 
     // --- Bought dev card ---
-    if (
-      text.includes('bought') && (text.includes('development') || text.includes('card')) ||
-      text.includes('購買') && text.includes('發展')
-    ) {
+    // Text only contains "X bought " (the "Development Card" label is in the
+    // image alt, not in textContent), so don't gate on substring matches —
+    // dev cards are the only "buy" action in Catan.
+    if (text.includes('bought') || text.includes('購買')) {
       if (player) spend(player, BUILD_COST.devcard);
       renderSoon();
       return;
