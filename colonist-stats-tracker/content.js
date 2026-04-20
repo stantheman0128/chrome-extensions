@@ -23,15 +23,6 @@
     ore:   '⛰️',
   };
 
-  // Map any textual resource hint (alt, class, filename) → canonical key.
-  const RESOURCE_ALIASES = {
-    lumber: 'lumber', wood: 'lumber', tree: 'lumber',
-    brick: 'brick', clay: 'brick',
-    wool: 'wool', sheep: 'wool',
-    grain: 'grain', wheat: 'grain',
-    ore: 'ore', stone: 'ore', rock: 'ore',
-  };
-
   const BUILD_COST = {
     road:       { lumber: 1, brick: 1 },
     settlement: { lumber: 1, brick: 1, wool: 1, grain: 1 },
@@ -52,7 +43,8 @@
     ),
     totalRolls: 0,
     players: new Map(), // name -> { color, resources:{}, unknown:number }
-    seen: new WeakSet(), // already-processed message nodes
+    seenIndices: new Set(), // log message data-index values already processed
+    selfName: null, // local human player; messages with avatar=icon_player.svg
     paused: false,
   };
 
@@ -126,15 +118,15 @@
   // =============================================================
   // Resource / dice icon extraction
   // =============================================================
+  // Real resource cards have src/alt like `card_lumber.<hash>.svg` / alt
+  // "Lumber". The same word can appear in tile icons (`generated_tile_wool`,
+  // alt "wool tile") and in non-resource cards (`card_knight`,
+  // `card_devcardback`, `card_rescardback`), so we anchor on the
+  // `card_<resource>` substring to avoid those false positives.
   function resourceFromImg(img) {
-    const candidates = [
-      img.getAttribute('alt'),
-      img.className || '',
-      img.getAttribute('src') || '',
-      img.getAttribute('aria-label') || '',
-    ].join(' ').toLowerCase();
-    for (const [alias, key] of Object.entries(RESOURCE_ALIASES)) {
-      if (candidates.includes(alias)) return key;
+    const src = (img.getAttribute('src') || '').toLowerCase();
+    for (const r of RESOURCES) {
+      if (src.indexOf('card_' + r) !== -1) return r;
     }
     return null;
   }
@@ -150,10 +142,16 @@
     return null;
   }
 
+  // The avatar <img> sits inside the feedMessage but outside messagePart.
+  // Scoping image scans to messagePart keeps the avatar from leaking in.
+  function getMessagePart(msgEl) {
+    return msgEl.querySelector('[class*="messagePart"]') || msgEl;
+  }
+
   function countResources(msgEl) {
     const counts = { lumber: 0, brick: 0, wool: 0, grain: 0, ore: 0 };
     let total = 0;
-    msgEl.querySelectorAll('img').forEach((img) => {
+    getMessagePart(msgEl).querySelectorAll('img').forEach((img) => {
       const r = resourceFromImg(img);
       if (r) {
         counts[r] += 1;
@@ -165,7 +163,7 @@
 
   function diceSum(msgEl) {
     const values = [];
-    msgEl.querySelectorAll('img').forEach((img) => {
+    getMessagePart(msgEl).querySelectorAll('img').forEach((img) => {
       const v = diceFromImg(img);
       if (v) values.push(v);
     });
@@ -177,23 +175,21 @@
   // Player name / color extraction
   // =============================================================
   function firstPlayerRef(msgEl) {
-    // colonist.io styles player names with a coloured inline span.
-    const span = msgEl.querySelector('span[style*="color"]');
+    // colonist.io styles player names with a coloured inline span inside
+    // the messagePart wrapper (e.g. <span style="...color:#223697">Mirna</span>).
+    const span = getMessagePart(msgEl).querySelector('span[style*="color"]');
     if (span) {
       const name = (span.textContent || '').trim();
       const style = span.getAttribute('style') || '';
       const colorMatch = style.match(/color\s*:\s*([^;]+)/i);
       return { name, color: colorMatch ? colorMatch[1].trim() : null };
     }
-    // Fallback: first word before known verbs.
-    const text = (msgEl.textContent || '').trim();
-    const m = text.match(/^([A-Za-z0-9_\u4e00-\u9fff][^\s]{0,24})\s+/);
-    return m ? { name: m[1], color: null } : { name: null, color: null };
+    return { name: null, color: null };
   }
 
   function allPlayerRefs(msgEl) {
     const refs = [];
-    msgEl.querySelectorAll('span[style*="color"]').forEach((s) => {
+    getMessagePart(msgEl).querySelectorAll('span[style*="color"]').forEach((s) => {
       const name = (s.textContent || '').trim();
       if (!name) return;
       const style = s.getAttribute('style') || '';
@@ -207,14 +203,47 @@
   // Message routing
   // =============================================================
   function processMessage(msgEl) {
-    if (state.seen.has(msgEl)) return;
-    state.seen.add(msgEl);
-
-    const text = (msgEl.textContent || '').toLowerCase();
+    const text = (getMessagePart(msgEl).textContent || '').toLowerCase();
     if (!text) return;
+    // Trade proposals look like "X wants to give A for B". They aren't
+    // executed trades, so skip them — otherwise the " for " in the text
+    // would confuse splitTradeResources downstream.
+    if (text.includes('wants to give') || text.includes('wants to trade')) return;
 
     const primary = firstPlayerRef(msgEl);
     const player = getPlayer(primary.name, primary.color);
+
+    // Identify the local human player. The avatar uses icon_player.svg for
+    // self and icon_bot.svg for bots; we record the first coloured name we
+    // see paired with icon_player.svg as `selfName`. Used by the "You stole
+    // [resource] from X" handler below.
+    if (!state.selfName && player) {
+      const avatar = msgEl.querySelector('img[src*="icon_player"]');
+      if (avatar) state.selfName = player.name;
+    }
+
+    // --- "You stole [resource] from X" — local player as thief ---
+    // colonist.io reveals the actual stolen card to the player who stole it,
+    // so this message contains a real card_<resource> img. The visible
+    // colour-span is the victim, not the thief.
+    if (text.startsWith('you stole') || text.indexOf(' you stole ') !== -1) {
+      const refs = allPlayerRefs(msgEl);
+      const { counts, total } = countResources(msgEl);
+      const thief = state.selfName ? getPlayer(state.selfName) : null;
+      const victim = refs.length ? getPlayer(refs[0].name, refs[0].color) : null;
+      if (thief && victim && total > 0) {
+        for (const r of RESOURCES) {
+          if (counts[r] > 0) {
+            giveResource(thief, r, counts[r]);
+            takeResource(victim, r, counts[r]);
+          }
+        }
+        renderSoon();
+      }
+      // Always claim the message — falling through would let the generic
+      // "stole" branch below misread it as a Monopoly play.
+      return;
+    }
 
     // --- Dice roll ---
     if (text.includes('rolled') || text.includes('擲出') || text.includes('擲了')) {
@@ -252,10 +281,10 @@
     }
 
     // --- Bought dev card ---
-    if (
-      text.includes('bought') && (text.includes('development') || text.includes('card')) ||
-      text.includes('購買') && text.includes('發展')
-    ) {
+    // Text only contains "X bought " (the "Development Card" label is in the
+    // image alt, not in textContent), so don't gate on substring matches —
+    // dev cards are the only "buy" action in Catan.
+    if (text.includes('bought') || text.includes('購買')) {
       if (player) spend(player, BUILD_COST.devcard);
       renderSoon();
       return;
@@ -356,28 +385,44 @@
 
   // =============================================================
   // Log container discovery + observer
+  //
+  // colonist.io renders the game log as a virtual list:
+  //   div.virtualScroller-XXXX > div.scrollItemContainer-YYYY[data-index]
+  //                              > div.feedMessage-ZZZZ > span.messagePart-...
+  // Class suffixes are CSS-module hashes that change every deploy, so we
+  // match by class prefix. Off-screen items get unmounted/remounted as the
+  // user scrolls, so we de-dup by the stable `data-index` attribute rather
+  // than by node identity.
   // =============================================================
   function findLogContainer() {
-    return (
-      document.getElementById('game-log-text') ||
-      document.querySelector('[id*="game-log"]') ||
-      document.querySelector('[class*="game-log"]') ||
-      document.querySelector('[class*="messages"][class*="log"]')
-    );
+    // Walk up from any rendered message to its virtualScroller ancestor.
+    const anyMessage = document.querySelector('[class*="feedMessage"]');
+    if (anyMessage) {
+      let cur = anyMessage.parentElement;
+      while (cur) {
+        const cls = cur.className || '';
+        if (typeof cls === 'string' && cls.indexOf('virtualScroller') !== -1) {
+          return cur;
+        }
+        cur = cur.parentElement;
+      }
+    }
+    return document.querySelector('[class*="virtualScroller"]');
+  }
+
+  function processItem(itemEl) {
+    if (!itemEl || itemEl.nodeType !== 1) return;
+    if (!itemEl.matches || !itemEl.matches('[class*="scrollItemContainer"]')) return;
+    const idx = itemEl.getAttribute('data-index');
+    if (idx == null) return;
+    if (state.seenIndices.has(idx)) return;
+    state.seenIndices.add(idx);
+    const msg = itemEl.querySelector('[class*="feedMessage"]');
+    if (msg) processMessage(msg);
   }
 
   function scanExisting(container) {
-    // Only process direct children — each child is one log message, so
-    // counting images at the message level avoids double-summing wrappers.
-    Array.from(container.children).forEach((child) => processMessage(child));
-  }
-
-  function messageRoot(node, container) {
-    let cur = node;
-    while (cur && cur.parentElement && cur.parentElement !== container) {
-      cur = cur.parentElement;
-    }
-    return cur && cur.parentElement === container ? cur : null;
+    container.querySelectorAll('[class*="scrollItemContainer"]').forEach(processItem);
   }
 
   let observer = null;
@@ -387,6 +432,9 @@
     if (!container) return false;
     if (container === observedContainer && observer) return true;
     if (observer) observer.disconnect();
+    // New container = new game; reset transient log dedup but keep stats
+    // unless the user explicitly hits the reset button.
+    if (container !== observedContainer) state.seenIndices = new Set();
     observedContainer = container;
     scanExisting(container);
     observer = new MutationObserver((muts) => {
@@ -394,8 +442,13 @@
       for (const m of muts) {
         m.addedNodes.forEach((n) => {
           if (n.nodeType !== 1) return;
-          const root = messageRoot(n, container);
-          if (root) processMessage(root);
+          // Mutations may add a scrollItemContainer directly, or add it
+          // inside a wrapper — handle both.
+          if (n.matches && n.matches('[class*="scrollItemContainer"]')) {
+            processItem(n);
+          } else if (n.querySelectorAll) {
+            n.querySelectorAll('[class*="scrollItemContainer"]').forEach(processItem);
+          }
         });
       }
     });
@@ -449,6 +502,8 @@
       for (const k of Object.keys(state.diceCounts)) state.diceCounts[k] = 0;
       state.totalRolls = 0;
       state.players.clear();
+      state.seenIndices = new Set();
+      if (observedContainer) scanExisting(observedContainer);
       render();
     });
     host.querySelector('#cst-toggle').addEventListener('click', (e) => {
