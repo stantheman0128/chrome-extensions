@@ -220,6 +220,7 @@ stan-chrome-extensions/
 │   ├── content.js
 │   └── manifest.json
 └── youtube-video-upload-time/
+    ├── CHANGELOG.md
     ├── DESCRIPTION.en.md
     ├── DESCRIPTION.md
     ├── PRIVACY.md
