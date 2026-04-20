@@ -52,7 +52,7 @@
     ),
     totalRolls: 0,
     players: new Map(), // name -> { color, resources:{}, unknown:number }
-    seen: new WeakSet(), // already-processed message nodes
+    seenIndices: new Set(), // log message data-index values already processed
     paused: false,
   };
 
@@ -150,10 +150,16 @@
     return null;
   }
 
+  // The avatar <img> sits inside the feedMessage but outside messagePart.
+  // Scoping image scans to messagePart keeps the avatar from leaking in.
+  function getMessagePart(msgEl) {
+    return msgEl.querySelector('[class*="messagePart"]') || msgEl;
+  }
+
   function countResources(msgEl) {
     const counts = { lumber: 0, brick: 0, wool: 0, grain: 0, ore: 0 };
     let total = 0;
-    msgEl.querySelectorAll('img').forEach((img) => {
+    getMessagePart(msgEl).querySelectorAll('img').forEach((img) => {
       const r = resourceFromImg(img);
       if (r) {
         counts[r] += 1;
@@ -165,7 +171,7 @@
 
   function diceSum(msgEl) {
     const values = [];
-    msgEl.querySelectorAll('img').forEach((img) => {
+    getMessagePart(msgEl).querySelectorAll('img').forEach((img) => {
       const v = diceFromImg(img);
       if (v) values.push(v);
     });
@@ -177,23 +183,21 @@
   // Player name / color extraction
   // =============================================================
   function firstPlayerRef(msgEl) {
-    // colonist.io styles player names with a coloured inline span.
-    const span = msgEl.querySelector('span[style*="color"]');
+    // colonist.io styles player names with a coloured inline span inside
+    // the messagePart wrapper (e.g. <span style="...color:#223697">Mirna</span>).
+    const span = getMessagePart(msgEl).querySelector('span[style*="color"]');
     if (span) {
       const name = (span.textContent || '').trim();
       const style = span.getAttribute('style') || '';
       const colorMatch = style.match(/color\s*:\s*([^;]+)/i);
       return { name, color: colorMatch ? colorMatch[1].trim() : null };
     }
-    // Fallback: first word before known verbs.
-    const text = (msgEl.textContent || '').trim();
-    const m = text.match(/^([A-Za-z0-9_\u4e00-\u9fff][^\s]{0,24})\s+/);
-    return m ? { name: m[1], color: null } : { name: null, color: null };
+    return { name: null, color: null };
   }
 
   function allPlayerRefs(msgEl) {
     const refs = [];
-    msgEl.querySelectorAll('span[style*="color"]').forEach((s) => {
+    getMessagePart(msgEl).querySelectorAll('span[style*="color"]').forEach((s) => {
       const name = (s.textContent || '').trim();
       if (!name) return;
       const style = s.getAttribute('style') || '';
@@ -207,11 +211,12 @@
   // Message routing
   // =============================================================
   function processMessage(msgEl) {
-    if (state.seen.has(msgEl)) return;
-    state.seen.add(msgEl);
-
-    const text = (msgEl.textContent || '').toLowerCase();
+    const text = (getMessagePart(msgEl).textContent || '').toLowerCase();
     if (!text) return;
+    // Trade proposals look like "X wants to give A for B". They aren't
+    // executed trades, so skip them — otherwise the " for " in the text
+    // would confuse splitTradeResources downstream.
+    if (text.includes('wants to give') || text.includes('wants to trade')) return;
 
     const primary = firstPlayerRef(msgEl);
     const player = getPlayer(primary.name, primary.color);
@@ -356,28 +361,44 @@
 
   // =============================================================
   // Log container discovery + observer
+  //
+  // colonist.io renders the game log as a virtual list:
+  //   div.virtualScroller-XXXX > div.scrollItemContainer-YYYY[data-index]
+  //                              > div.feedMessage-ZZZZ > span.messagePart-...
+  // Class suffixes are CSS-module hashes that change every deploy, so we
+  // match by class prefix. Off-screen items get unmounted/remounted as the
+  // user scrolls, so we de-dup by the stable `data-index` attribute rather
+  // than by node identity.
   // =============================================================
   function findLogContainer() {
-    return (
-      document.getElementById('game-log-text') ||
-      document.querySelector('[id*="game-log"]') ||
-      document.querySelector('[class*="game-log"]') ||
-      document.querySelector('[class*="messages"][class*="log"]')
-    );
+    // Walk up from any rendered message to its virtualScroller ancestor.
+    const anyMessage = document.querySelector('[class*="feedMessage"]');
+    if (anyMessage) {
+      let cur = anyMessage.parentElement;
+      while (cur) {
+        const cls = cur.className || '';
+        if (typeof cls === 'string' && cls.indexOf('virtualScroller') !== -1) {
+          return cur;
+        }
+        cur = cur.parentElement;
+      }
+    }
+    return document.querySelector('[class*="virtualScroller"]');
+  }
+
+  function processItem(itemEl) {
+    if (!itemEl || itemEl.nodeType !== 1) return;
+    if (!itemEl.matches || !itemEl.matches('[class*="scrollItemContainer"]')) return;
+    const idx = itemEl.getAttribute('data-index');
+    if (idx == null) return;
+    if (state.seenIndices.has(idx)) return;
+    state.seenIndices.add(idx);
+    const msg = itemEl.querySelector('[class*="feedMessage"]');
+    if (msg) processMessage(msg);
   }
 
   function scanExisting(container) {
-    // Only process direct children — each child is one log message, so
-    // counting images at the message level avoids double-summing wrappers.
-    Array.from(container.children).forEach((child) => processMessage(child));
-  }
-
-  function messageRoot(node, container) {
-    let cur = node;
-    while (cur && cur.parentElement && cur.parentElement !== container) {
-      cur = cur.parentElement;
-    }
-    return cur && cur.parentElement === container ? cur : null;
+    container.querySelectorAll('[class*="scrollItemContainer"]').forEach(processItem);
   }
 
   let observer = null;
@@ -387,6 +408,9 @@
     if (!container) return false;
     if (container === observedContainer && observer) return true;
     if (observer) observer.disconnect();
+    // New container = new game; reset transient log dedup but keep stats
+    // unless the user explicitly hits the reset button.
+    if (container !== observedContainer) state.seenIndices = new Set();
     observedContainer = container;
     scanExisting(container);
     observer = new MutationObserver((muts) => {
@@ -394,8 +418,13 @@
       for (const m of muts) {
         m.addedNodes.forEach((n) => {
           if (n.nodeType !== 1) return;
-          const root = messageRoot(n, container);
-          if (root) processMessage(root);
+          // Mutations may add a scrollItemContainer directly, or add it
+          // inside a wrapper — handle both.
+          if (n.matches && n.matches('[class*="scrollItemContainer"]')) {
+            processItem(n);
+          } else if (n.querySelectorAll) {
+            n.querySelectorAll('[class*="scrollItemContainer"]').forEach(processItem);
+          }
         });
       }
     });
@@ -449,6 +478,8 @@
       for (const k of Object.keys(state.diceCounts)) state.diceCounts[k] = 0;
       state.totalRolls = 0;
       state.players.clear();
+      state.seenIndices = new Set();
+      if (observedContainer) scanExisting(observedContainer);
       render();
     });
     host.querySelector('#cst-toggle').addEventListener('click', (e) => {
