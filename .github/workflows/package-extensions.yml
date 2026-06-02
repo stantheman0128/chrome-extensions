@@ -12,7 +12,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Auto-detect every subdirectory that has a manifest.json and zip it.
       # Using "zip -r dir.zip dir/" so extraction preserves the folder structure
@@ -44,7 +44,7 @@ jobs:
 
       # Create or overwrite the "latest" GitHub Release with all packaged ZIPs.
       - name: Create or update "latest" release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: latest
           name: Latest Build
