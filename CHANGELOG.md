@@ -4,6 +4,17 @@ All notable changes in this repository are documented in this file.
 
 ## [Unreleased]
 
+## [2026-06-03]
+
+### Added
+- colonist-stats-tracker (1.5.1): the hand total (sum of a player's cards) is back, shown as a small badge next to each player's name. The player column was widened and the name switched to a flex/ellipsis layout (with the full name on hover) so longer names fit alongside the avatar and total.
+
+### Added
+- colonist-stats-tracker (1.6.0): **self-correcting counts + persistence.** (1) Each player's total is now continuously reconciled against colonist's own player-panel hand count (authoritative): a shortfall is added to the unknown pool, an excess is trimmed (unknown first, then the largest pile) — so even a missed message self-heals. (2) A 🔄 "re-sync" button re-scans the log and reconciles on demand, for when something looks off. (3) The in-progress game (players, resources, dice, seen messages) is saved to localStorage and restored on reload/reconnect, so a Chrome refresh or extension update no longer wipes the current game. A different game (no players in common with the live panel) auto-resets so stale data isn't shown.
+
+### Fixed
+- colonist-stats-tracker (1.5.2): some log messages (e.g. discards) were missed because colonist's log is a *recycling* virtual list — new messages can replace an existing row's content instead of adding a DOM node, which the MutationObserver doesn't observe. Added a 1-second safety-net re-scan of the mounted rows (de-duplicated by data-index), so a missed message is now picked up within ~1s of being on screen.
+
 ## [2026-06-02]
 
 ### Added

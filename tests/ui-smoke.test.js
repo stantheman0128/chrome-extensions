@@ -35,7 +35,8 @@ test('UI renders the full panel: dice bars + %, merged resources/bank, player ro
   const resources = panel.querySelector('#cst-resources');
   assert.equal(resources.querySelectorAll('img').length, 6);
   assert.equal(resources.querySelectorAll('span[title^="Bank:"]').length, 5);
-  assert.ok(!resources.textContent.includes('Σ'));
+  // A hand-total badge sits next to each player's name (2 players seeded).
+  assert.equal(resources.querySelectorAll('span[title="Total cards in hand"]').length, 2);
   assert.match(resources.textContent, /StanTheMan01/);
   assert.match(resources.textContent, /Thant/);
 

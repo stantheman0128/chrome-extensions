@@ -519,7 +519,13 @@
     if (observer) observer.disconnect();
     // New container = new game; reset transient log dedup but keep stats
     // unless the user explicitly hits the reset button.
-    if (container !== observedContainer) state.seenIndices = new Set();
+    // New container = new game; reset the per-game dedup — EXCEPT on the first
+    // attach right after a restore, where we keep the restored seenIndices so the
+    // already-counted messages aren't double-processed.
+    if (container !== observedContainer) {
+      if (!justRestored) state.seenIndices = new Set();
+      justRestored = false;
+    }
     observedContainer = container;
     scanExisting(container);
     observer = new MutationObserver((muts) => {
@@ -549,7 +555,7 @@
   function renderSoon() {
     if (renderScheduled) return;
     renderScheduled = true;
-    requestAnimationFrame(() => { renderScheduled = false; render(); });
+    requestAnimationFrame(() => { renderScheduled = false; render(); schedulePersist(); });
   }
 
   // ---- persisted UI prefs (position, size, font scale, minimized) ----
@@ -752,6 +758,7 @@
           <span id="cst-title">Colonist Stats</span>
         </strong>
         <div id="cst-controls" style="display:flex;gap:4px;align-items:center;">
+          ${ctrlBtn('cst-resync', '🔄', 'Re-sync card counts from the game')}
           ${ctrlBtn('cst-refresh', '⟳', 'Reset size & position (keeps stats)')}
         </div>
       </div>
@@ -808,6 +815,11 @@
       }).observe(host);
     }
 
+    host.querySelector('#cst-resync').addEventListener('click', () => {
+      if (observedContainer) scanExisting(observedContainer);
+      syncFromPanel();
+      render();
+    });
     host.querySelector('#cst-refresh').addEventListener('click', resetLayout);
 
     makeDraggable(host, host.querySelector('#cst-header'));
@@ -903,7 +915,9 @@
   // Player rows follow colonist's panel order and show each player's avatar.
   function renderResTable() {
     const bank = bankRemaining();
-    const cols = `minmax(88px,1.7fr) repeat(${RESOURCES.length}, 1fr) 0.95fr`;
+    // Wide player column (avatar + name + hand total) and slim single-digit
+    // resource columns so names have room.
+    const cols = `minmax(120px,2.6fr) repeat(${RESOURCES.length}, 0.8fr) 0.8fr`;
 
     const iconCell = (r) => {
       const low = bank[r] <= 2;
@@ -951,7 +965,7 @@
       rows.push(`
         <div style="display:grid;grid-template-columns:${cols};gap:4px;align-items:center;
              padding:5px 3px;border-top:1px solid ${THEME.rowLine};">
-          <span style="display:flex;align-items:center;color:${escapeAttr(p.color)};font-weight:700;overflow:hidden;white-space:nowrap;" title="${escapeHtml(p.name)}">${avatar}<span style="overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.name)}</span></span>
+          <span style="display:flex;align-items:center;gap:4px;min-width:0;color:${escapeAttr(p.color)};font-weight:700;" title="${escapeHtml(p.name)}">${avatar}<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span><span title="Total cards in hand" style="flex:0 0 auto;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;color:${THEME.text};background:#fbf9f4;border:1px solid ${THEME.border};border-radius:0.6em;padding:0 0.4em;">${playerTotal(p)}</span></span>
           ${RESOURCES.map((r) =>
             `<span style="text-align:center;font-variant-numeric:tabular-nums;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}">${p.resources[r]}</span>`
           ).join('')}
@@ -985,6 +999,7 @@
   // Boot
   // =============================================================
   function boot() {
+    restoreState();   // bring back the in-progress game (page reload / reconnect)
     createPanel();
     render();
     let tries = 0;
@@ -997,6 +1012,19 @@
         clearInterval(timer); // Give up after ~60s, stays idle till re-boot.
       }
     }, 500);
+
+    // Once a second:
+    //  1. drop stale data if the page is now a different game (maybeNewGame);
+    //  2. re-scan mounted rows — colonist's log is a *recycling* virtual list, so
+    //     some new messages replace a row's content instead of adding a node and
+    //     the MutationObserver misses them (processItem de-dups by data-index);
+    //  3. reconcile each player's total against colonist's authoritative panel.
+    setInterval(() => {
+      if (state.paused) return;
+      maybeNewGame();
+      if (observedContainer) scanExisting(observedContainer);
+      if (syncFromPanel()) renderSoon();
+    }, 1000);
   }
 
   // Reset all tracked stats. Shared by the panel's reset button and tests.
@@ -1007,6 +1035,115 @@
     state.seenIndices = new Set();
     state.selfName = null;
     state.paused = false;
+  }
+
+  // ---- persistence of the live game (survives page reloads / reconnects) ----
+  const STATE_KEY = 'colonist-stats-tracker:game';
+  let restoredSig = '';     // roster of the restored game, for new-game detection
+  let justRestored = false; // skip the first attach's seenIndices reset after a restore
+  let persistTimer = null;
+
+  function persistState() {
+    try {
+      localStorage.setItem(STATE_KEY, JSON.stringify({
+        sig: [...state.players.keys()].sort().join('|'),
+        diceCounts: state.diceCounts,
+        totalRolls: state.totalRolls,
+        selfName: state.selfName,
+        seenIndices: [...state.seenIndices],
+        players: [...state.players.values()].map((p) => ({
+          name: p.name, color: p.color, unknown: p.unknown, resources: p.resources,
+        })),
+      }));
+    } catch (e) { /* storage unavailable — non-fatal */ }
+  }
+
+  function schedulePersist() {
+    if (persistTimer) return;
+    persistTimer = setTimeout(() => { persistTimer = null; persistState(); }, 600);
+  }
+
+  function restoreState() {
+    let d;
+    try { d = JSON.parse(localStorage.getItem(STATE_KEY)); } catch (e) { return; }
+    if (!d || !Array.isArray(d.players)) return;
+    state.totalRolls = d.totalRolls || 0;
+    for (let n = 2; n <= 12; n++) state.diceCounts[n] = (d.diceCounts && d.diceCounts[n]) || 0;
+    state.selfName = d.selfName || null;
+    state.seenIndices = new Set(d.seenIndices || []);
+    state.players = new Map();
+    for (const p of d.players) {
+      const res = p.resources || {};
+      state.players.set(p.name, {
+        name: p.name,
+        color: p.color || '#888',
+        unknown: p.unknown || 0,
+        resources: {
+          lumber: res.lumber || 0, brick: res.brick || 0, wool: res.wool || 0,
+          grain: res.grain || 0, ore: res.ore || 0,
+        },
+      });
+    }
+    restoredSig = d.sig || '';
+    justRestored = state.players.size > 0;
+  }
+
+  // If the page now shows a DIFFERENT game than the one we restored (no players
+  // in common with colonist's live panel), start fresh.
+  function maybeNewGame() {
+    if (!restoredSig) return;
+    const live = readPlayerPanel();
+    if (!live || !live.length) return;        // panel not ready yet — re-check later
+    const liveNames = new Set(live.map((p) => p.name));
+    const common = [...state.players.keys()].filter((n) => liveNames.has(n));
+    if (state.players.size && common.length === 0) resetState();
+    restoredSig = '';
+  }
+
+  // ---- reconcile our counts against colonist's authoritative panel totals ----
+  function panelHandTotal(row) {
+    const el = row.querySelector('[data-resource-card] [class*="count"]');
+    const n = el ? parseInt((el.textContent || '').trim(), 10) : NaN;
+    return Number.isFinite(n) ? n : null;
+  }
+
+  // Force a player's tracked card count to `target`: a shortfall becomes unknown
+  // cards; an excess is removed (unknown first, then the largest known piles).
+  function reconcileTotal(p, target) {
+    const cur = playerTotal(p);
+    if (cur === target) return false;
+    if (cur < target) {
+      p.unknown += target - cur;
+      return true;
+    }
+    let excess = cur - target;
+    const fromUnknown = Math.min(p.unknown, excess);
+    p.unknown -= fromUnknown;
+    excess -= fromUnknown;
+    while (excess > 0) {
+      let best = null;
+      for (const r of RESOURCES) {
+        if (p.resources[r] > 0 && (best === null || p.resources[r] > p.resources[best])) best = r;
+      }
+      if (best === null) break;
+      p.resources[best] -= 1;
+      excess -= 1;
+    }
+    return true;
+  }
+
+  // Sync every tracked player's TOTAL to colonist's player panel (authoritative).
+  function syncFromPanel() {
+    let changed = false;
+    document.querySelectorAll('[data-player-color]').forEach((row) => {
+      const nameEl = row.querySelector('[class*="username"]');
+      if (!nameEl) return;
+      const p = state.players.get((nameEl.textContent || '').trim());
+      if (!p) return;
+      const total = panelHandTotal(row);
+      if (total != null && reconcileTotal(p, total)) changed = true;
+    });
+    return changed;
   }
 
   // In a browser (no CommonJS `module`) boot immediately and follow SPA
@@ -1027,6 +1164,10 @@
       takeResource,
       bankRemaining,
       hasUnknownCards,
+      reconcileTotal,
+      syncFromPanel,
+      persistState,
+      restoreState,
       // UI entry points (exposed so the jsdom smoke test can render the panel).
       createPanel,
       render,
