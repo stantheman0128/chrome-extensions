@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Colonist Stats Tracker — UI preview</title>
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body {
+      min-height: 100vh;
+      font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      /* Evoke colonist's board so the parchment panel is shown in context. */
+      background:
+        radial-gradient(120% 120% at 70% 20%, #7fa653 0%, #5d8540 45%, #41663a 100%);
+      color: #fff;
+    }
+    .hint {
+      position: fixed; left: 18px; top: 18px; max-width: 360px;
+      background: rgba(30, 24, 10, 0.55); padding: 14px 16px; border-radius: 10px;
+      font-size: 13px; line-height: 1.55; box-shadow: 0 4px 14px rgba(0,0,0,.3);
+    }
+    .hint b { color: #ffe9b0; }
+    .hint kbd {
+      background: #ede0c0; color: #3b2f1a; border-radius: 3px; padding: 0 5px;
+      font-family: inherit; font-size: 12px;
+    }
+    .hint code { color: #ffe9b0; }
+  </style>
+</head>
+<body>
+  <div class="hint">
+    <b>Colonist Stats Tracker — UI preview</b><br />
+    A static mock (no live game). Try it: drag the panel by its header; <b>drag any
+    corner/edge to resize</b> (width zooms the whole panel — font + icons scale with
+    it); click a section title (<b>▾ Dice Rolls</b> / <b>▾ Resources</b>) to fold it
+    with an animation; <b>click the 🎲 dice</b> to collapse the panel to a spinning
+    dice icon (click that icon to expand again).<br /><br />
+    Edit the mock data near the bottom of <code>preview.html</code> to explore other
+    game states (e.g. set <code>unknown</code> cards to see the "≈ upper bound" bank note).
+  </div>
+
+  <!-- Tell content.js to run in preview mode: build the panel, expose internals,
+       and do NOT try to attach to a colonist game log. -->
+  <script>
+    window.__CST_PREVIEW__ = true;
+    // Always open the preview in a clean default state — ignore any panel
+    // position/size/scale/minimised saved by a previous preview session, so
+    // each reopen shows the new design exactly as a fresh install would.
+    try { localStorage.removeItem('colonist-stats-tracker:ui'); } catch (e) {}
+  </script>
+  <script src="./colonist-stats-tracker/content.js"></script>
+
+  <script>
+    (function () {
+      const cst = window.__CST__;
+      if (!cst) {
+        const err = document.createElement('p');
+        err.style.padding = '1em';
+        err.textContent = 'Failed to load content.js (open this file from the repo root).';
+        document.body.appendChild(err);
+        return;
+      }
+
+      const seed = (name, color, bag, unknown) => {
+        const p = cst.getPlayer(name, color);
+        for (const k in bag) cst.giveResource(p, k, bag[k]);
+        if (unknown) p.unknown = unknown;
+      };
+
+      // --- mock players (colors match colonist's player palette) ---
+      seed('StanTheMan01', '#CF4449', { lumber: 2, brick: 1, wool: 0, grain: 3, ore: 1 });
+      seed('Thant',        '#285FBD', { lumber: 0, brick: 4, wool: 2, grain: 0, ore: 2 }, 1);
+      seed('Richia',       '#228103', { lumber: 1, brick: 0, wool: 3, grain: 1, ore: 0 });
+      seed('Tearle',       '#CF6B2E', { lumber: 0, brick: 1, wool: 1, grain: 0, ore: 0 }, 2);
+
+      // --- mock dice distribution (2..12) ---
+      Object.assign(cst.state.diceCounts, {
+        2: 1, 3: 3, 4: 4, 5: 6, 6: 9, 7: 7, 8: 8, 9: 5, 10: 4, 11: 2, 12: 1,
+      });
+      cst.state.totalRolls = Object.values(cst.state.diceCounts).reduce((a, b) => a + b, 0);
+
+      // --- mock colonist player panel so the preview can show avatars + the
+      //     panel-driven ordering (Thant, Richia, Tearle, StanTheMan01). ---
+      const bot = 'https://cdn.colonist.io/dist/assets/icon_bot.551858c518b9f2f8357a.svg';
+      const me = 'https://cdn.colonist.io/dist/assets/icon_player_loggedin.0269225ae4f7db8480ca.svg';
+      const pp = document.createElement('div');
+      pp.setAttribute('data-player-information-container', 'true');
+      pp.style.display = 'none';
+      [['Thant', bot], ['Richia', bot], ['Tearle', bot], ['StanTheMan01', me]].forEach(([name, src]) => {
+        const rowEl = document.createElement('div');
+        rowEl.setAttribute('data-player-color', '1');
+        const nm = document.createElement('div');
+        nm.className = 'username-x';
+        nm.textContent = name;
+        const img = document.createElement('img');
+        img.className = 'avatarImage-x';
+        img.src = src;
+        rowEl.append(nm, img);
+        pp.appendChild(rowEl);
+      });
+      document.body.appendChild(pp);
+
+      cst.render();
+    })();
+  </script>
+</body>
+</html>

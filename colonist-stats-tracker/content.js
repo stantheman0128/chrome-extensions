@@ -21,6 +21,39 @@
     wool:  '🐑',
     grain: '🌾',
     ore:   '⛰️',
+    unknown: '?',
+  };
+
+  // colonist's own resource-card SVGs. The URLs carry a content hash that
+  // changes per deploy, so these are only sensible *defaults*: resourceFromImg()
+  // overwrites each entry with the live src the moment that card is seen in the
+  // log, so the panel self-heals to whatever colonist currently serves.
+  const RESOURCE_ICON = {
+    lumber: 'https://cdn.colonist.io/dist/assets/card_lumber.cf22f8083cf89c2a29e7.svg',
+    brick:  'https://cdn.colonist.io/dist/assets/card_brick.5950ea07a7ea01bc54a5.svg',
+    wool:   'https://cdn.colonist.io/dist/assets/card_wool.17a6dea8d559949f0ccc.svg',
+    grain:  'https://cdn.colonist.io/dist/assets/card_grain.09c9d82146a64bce69b5.svg',
+    ore:    'https://cdn.colonist.io/dist/assets/card_ore.117f64dab28e1c987958.svg',
+    // colonist's face-down "?" card — used to head the unknown-cards column.
+    unknown: 'https://cdn.colonist.io/dist/assets/card_rescardback.03c18312a76028b0d9c9.svg',
+  };
+
+  // Palette sampled from colonist's own side panels (player cards / chat / log):
+  // a light warm-grey card on the blue page, near-black text, blue accents, and
+  // the familiar green/terracotta resource tones. Grouped here so the whole look
+  // is one easy edit.
+  const THEME = {
+    bg:       '#ece9e1', // panel — light warm grey (matches colonist cards)
+    bgAlt:    '#ddd8ca', // header strip
+    rowLine:  '#d2ccbd', // row separators
+    text:     '#2d2a24', // near-black body text
+    textDim:  '#857c66', // muted labels
+    border:   '#c6bfae', // panel + control borders
+    bar:      '#5b93c8', // dice bar — colonist blue (neutral)
+    barTrack: '#d8d3c4', // dice bar track
+    good:     '#3f8f3f', // above expected (green)
+    bad:      '#c0533a', // below expected (terracotta)
+    accent:   '#2f6f9f', // headings — colonist blue
   };
 
   const BUILD_COST = {
@@ -29,6 +62,9 @@
     city:       { ore: 3, grain: 2 },
     devcard:    { wool: 1, grain: 1, ore: 1 },
   };
+
+  // Catan ships 19 cards of each resource in the bank/supply.
+  const BANK_TOTAL = 19;
 
   // Expected frequency for a fair two-dice sum (for % comparison).
   const EXPECTED_PCT = {
@@ -70,6 +106,27 @@
 
   function playerTotal(p) {
     return RESOURCES.reduce((s, r) => s + p.resources[r], 0) + p.unknown;
+  }
+
+  // Cards still sitting in the bank for each resource: 19 minus what every
+  // player is *known* to hold. Unknown (stolen) cards can't be attributed to a
+  // resource, so this is an UPPER bound when unknowns are in play. Clamped to
+  // [0, 19] — a value outside that range would mean our tracking has drifted.
+  function bankRemaining() {
+    const bank = {};
+    for (const r of RESOURCES) {
+      let held = 0;
+      for (const p of state.players.values()) held += p.resources[r];
+      bank[r] = Math.max(0, Math.min(BANK_TOTAL, BANK_TOTAL - held));
+    }
+    return bank;
+  }
+
+  // True when any player holds unknown (stolen, untyped) cards — in which case
+  // bankRemaining() is an upper bound rather than an exact count.
+  function hasUnknownCards() {
+    for (const p of state.players.values()) if (p.unknown > 0) return true;
+    return false;
   }
 
   // Add cards of known type.
@@ -124,9 +181,20 @@
   // `card_devcardback`, `card_rescardback`), so we anchor on the
   // `card_<resource>` substring to avoid those false positives.
   function resourceFromImg(img) {
-    const src = (img.getAttribute('src') || '').toLowerCase();
+    const rawSrc = img.getAttribute('src') || '';
+    const src = rawSrc.toLowerCase();
+    // The face-down "?" card isn't a resource, but cache its live URL so the
+    // unknown-cards column header can use colonist's own art.
+    if (src.indexOf('card_rescardback') !== -1) {
+      RESOURCE_ICON.unknown = rawSrc;
+      return null;
+    }
     for (const r of RESOURCES) {
-      if (src.indexOf('card_' + r) !== -1) return r;
+      if (src.indexOf('card_' + r) !== -1) {
+        // Cache colonist's current card art so the panel uses the live URL.
+        RESOURCE_ICON[r] = rawSrc;
+        return r;
+      }
     }
     return null;
   }
@@ -217,7 +285,10 @@
     // self and icon_bot.svg for bots; we record the first coloured name we
     // see paired with icon_player.svg as `selfName`. Used by the "You stole
     // [resource] from X" handler below.
-    if (!state.selfName && player) {
+    // Skip "You stole … from <Victim>"-style lines: there the only coloured
+    // name is the victim, while the icon_player avatar belongs to the local
+    // human. Inferring selfName here would wrongly tag the victim as self.
+    if (!state.selfName && player && !text.startsWith('you ')) {
       const avatar = msgEl.querySelector('img[src*="icon_player"]');
       if (avatar) state.selfName = player.name;
     }
@@ -251,6 +322,26 @@
       if (sum != null && sum >= 2 && sum <= 12) {
         state.diceCounts[sum] += 1;
         state.totalRolls += 1;
+        renderSoon();
+        return;
+      }
+    }
+
+    // --- Executed player-to-player trade ---
+    // Real colonist format: "X gave [A] and got [B] from Y" (no "traded"/"with").
+    // The text contains " got ", so this MUST run before the generic "got" gain
+    // branch below — otherwise that branch would count BOTH the given-away and
+    // received cards as a net gain for X, double-counting the trade.
+    if (text.includes('gave') && text.includes('and got') && text.includes('from')) {
+      const refs = allPlayerRefs(msgEl);
+      if (refs.length >= 2) {
+        const actor = getPlayer(refs[0].name, refs[0].color);
+        const other = getPlayer(refs[1].name, refs[1].color);
+        const { give, recv } = splitTradeResources(msgEl);
+        for (const r of RESOURCES) {
+          if (give[r]) { takeResource(actor, r, give[r]); giveResource(other, r, give[r]); }
+          if (recv[r]) { giveResource(actor, r, recv[r]); takeResource(other, r, recv[r]); }
+        }
         renderSoon();
         return;
       }
@@ -314,32 +405,20 @@
         return;
       }
 
-      // Monopoly: "X stole N [resource]" — one player ref + visible resources.
+      // Monopoly: "X stole N [resource]" — one player ref + a single resource
+      // icon. The QUANTITY is the number in the text (the icon shows only one
+      // copy), so parse it rather than counting icons. The named resource is
+      // taken from every other player and handed to X.
       if (refs.length === 1 && total > 0 && player) {
+        const m = text.match(/stole\s+(\d+)/);
+        const stolenCount = m ? parseInt(m[1], 10) : 0;
         for (const r of RESOURCES) {
           if (counts[r] <= 0) continue;
-          giveResource(player, r, counts[r]);
+          giveResource(player, r, stolenCount || counts[r]);
           for (const other of state.players.values()) {
             if (other === player) continue;
             if (other.resources[r] > 0) other.resources[r] = 0;
           }
-        }
-        renderSoon();
-        return;
-      }
-    }
-
-    // --- Trade between players ---
-    // "X traded [A] for [B] with Y"
-    if (text.includes('traded') && text.includes('with')) {
-      const refs = allPlayerRefs(msgEl);
-      if (refs.length >= 2 && player) {
-        const other = getPlayer(refs[1].name, refs[1].color);
-        // Split images by the word "for" in the text flow.
-        const { give, recv } = splitTradeResources(msgEl);
-        for (const r of RESOURCES) {
-          if (give[r]) { takeResource(player, r, give[r]); giveResource(other,  r, give[r]); }
-          if (recv[r]) { giveResource(player,  r, recv[r]); takeResource(other, r, recv[r]); }
         }
         renderSoon();
         return;
@@ -372,7 +451,13 @@
       const node = walker.currentNode;
       if (node.nodeType === Node.TEXT_NODE) {
         const t = (node.textContent || '').toLowerCase();
-        if (t.includes(' for ') || t.includes(' and took ') || t.includes(' took ')) {
+        // The boundary word between "given away" and "received" differs by
+        // trade type: player trades say "… and got …", bank trades "… and took
+        // …", and the legacy "… for …" form is kept for safety.
+        if (
+          t.includes(' and got ') || t.includes(' and received ') ||
+          t.includes(' for ') || t.includes(' and took ') || t.includes(' took ')
+        ) {
           bucket = recv;
         }
       } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'IMG') {
@@ -467,59 +552,277 @@
     requestAnimationFrame(() => { renderScheduled = false; render(); });
   }
 
+  // ---- persisted UI prefs (position, size, font scale, minimized) ----
+  const UI_KEY = 'colonist-stats-tracker:ui';
+  function loadUI() {
+    try { return JSON.parse(localStorage.getItem(UI_KEY)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveUI(patch) {
+    try { localStorage.setItem(UI_KEY, JSON.stringify({ ...loadUI(), ...patch })); }
+    catch (e) { /* storage unavailable — non-fatal */ }
+  }
+
+  function ctrlBtn(id, label, title) {
+    return `<button id="${id}" title="${title}" style="background:transparent;` +
+      `border:1px solid ${THEME.border};color:${THEME.text};border-radius:4px;` +
+      `padding:1px 6px;cursor:pointer;font-size:0.85em;line-height:1.5;">${label}</button>`;
+  }
+
+  // An <img> of colonist's resource card, sized in EM so it scales with the
+  // panel font (which itself tracks the panel width). alt falls back to the
+  // emoji if the URL ever 404s, keeping us CSP-safe (no inline error handlers).
+  function iconImg(r, em) {
+    const w = (em * 0.7125).toFixed(3);
+    return `<img src="${escapeAttr(RESOURCE_ICON[r])}" alt="${RESOURCE_LABEL[r]}" title="${r}" ` +
+      `style="height:${em}em;width:${w}em;vertical-align:middle;">`;
+  }
+
+  // Zoom model (方案二): one font-size drives the whole panel and is derived from
+  // its width, so dragging the panel wider scales everything (font, em icons,
+  // bars) at once. No +/- buttons.
+  function fontFromWidth(w) {
+    return Math.max(10, Math.min(22, Math.round(w / 27)));
+  }
+
+  // Per-panel / per-section fold state (persisted).
+  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false };
+
+  // Animate a section body open/closed via max-height (height:auto can't
+  // transition, so we go to the measured scrollHeight then to 'none'/0).
+  function setSectionOpen(wrap, open, animate) {
+    if (!wrap) return;
+    if (!animate) { wrap.style.maxHeight = open ? 'none' : '0'; return; }
+    if (open) {
+      wrap.style.maxHeight = wrap.scrollHeight + 'px';
+      const done = () => { wrap.style.maxHeight = 'none'; wrap.removeEventListener('transitionend', done); };
+      wrap.addEventListener('transitionend', done);
+    } else {
+      wrap.style.maxHeight = wrap.scrollHeight + 'px';
+      void wrap.offsetHeight; // force reflow so the next change animates
+      wrap.style.maxHeight = '0';
+    }
+  }
+
+  function applySectionInit() {
+    setSectionOpen(panel.querySelector('#cst-dice-wrap'), !uiState.diceCollapsed, false);
+    setSectionOpen(panel.querySelector('#cst-res-wrap'), !uiState.resCollapsed, false);
+  }
+
+  // Collapse the whole panel down to a single spinning dice icon (no circle —
+  // just the dice) and back. The width/height transition is enabled ONLY for
+  // this toggle (the base style has none, so live drag-resizing stays instant).
+  function setPanelCollapsed(collapsed) {
+    uiState.panelCollapsed = collapsed;
+    saveUI({ panelCollapsed: collapsed });
+    const host = panel;
+    const body = host.querySelector('#cst-body');
+    const header = host.querySelector('#cst-header');
+    const title = host.querySelector('#cst-title');
+    const glyph = host.querySelector('#cst-glyph');
+    const controls = host.querySelector('#cst-controls');
+    host.style.overflow = 'hidden';
+    host.style.transition =
+      'width .25s ease, height .25s ease, background-color .25s ease, border-color .25s ease, box-shadow .25s ease';
+    // Pin the current size first so height can animate (auto can't transition).
+    host.style.width = host.offsetWidth + 'px';
+    host.style.height = host.offsetHeight + 'px';
+    void host.offsetHeight; // reflow
+    if (collapsed) {
+      host.style.resize = 'none';
+      host.style.minWidth = '0';
+      title.style.display = 'none';
+      if (controls) controls.style.display = 'none';
+      header.style.background = 'transparent';
+      header.style.borderBottom = 'none';
+      header.style.padding = '0';
+      header.style.justifyContent = 'center';
+      header.style.height = '100%';
+      host.style.background = 'transparent';
+      host.style.borderColor = 'transparent';
+      host.style.boxShadow = 'none';
+      host.style.width = '36px';
+      host.style.height = '36px';
+      glyph.style.fontSize = '1.7em';
+      glyph.style.transform = 'rotate(360deg)';
+      setTimeout(() => {
+        body.style.display = 'none';
+        host.style.overflow = 'visible'; // let the hover shadow show
+        host.style.transition = '';
+      }, 260);
+    } else {
+      const w = loadUI().width || 340;
+      body.style.display = 'block';
+      host.style.resize = 'both';
+      host.style.minWidth = '250px';
+      title.style.display = '';
+      if (controls) controls.style.display = 'flex';
+      header.style.background = THEME.bgAlt;
+      header.style.borderBottom = `1px solid ${THEME.border}`;
+      header.style.padding = '8px 11px';
+      header.style.justifyContent = 'space-between';
+      header.style.height = '';
+      host.style.background = THEME.bg;
+      host.style.borderColor = THEME.border;
+      host.style.boxShadow = '0 6px 20px rgba(40,30,10,0.30)';
+      host.style.fontSize = fontFromWidth(w) + 'px';
+      glyph.style.fontSize = '';
+      glyph.style.transform = 'rotate(0deg)';
+      host.style.width = w + 'px';
+      void host.offsetHeight;
+      host.style.height = host.scrollHeight + 'px';
+      setTimeout(() => {
+        host.style.height = 'auto';
+        host.style.overflow = 'auto';
+        host.style.transition = '';
+      }, 260);
+    }
+  }
+
+  // Reset the panel's SIZE, POSITION and appearance to defaults — WITHOUT
+  // touching the tracked stats (the old stats-wiping reset is gone for good).
+  function resetLayout() {
+    uiState.panelCollapsed = false;
+    uiState.diceCollapsed = false;
+    uiState.resCollapsed = false;
+    try { localStorage.removeItem(UI_KEY); } catch (e) {}
+    const host = panel;
+    const header = host.querySelector('#cst-header');
+    const title = host.querySelector('#cst-title');
+    const controls = host.querySelector('#cst-controls');
+    const glyph = host.querySelector('#cst-glyph');
+    host.style.transition = '';
+    host.style.resize = 'both';
+    host.style.minWidth = '250px';
+    host.style.overflow = 'auto';
+    host.style.background = THEME.bg;
+    host.style.borderColor = THEME.border;
+    host.style.boxShadow = '0 6px 20px rgba(40,30,10,0.30)';
+    host.style.borderRadius = '10px';
+    host.style.right = 'auto';
+    host.style.left = '16px';
+    host.style.top = '16px';
+    host.style.width = '340px';
+    host.style.height = 'auto';
+    host.style.fontSize = fontFromWidth(340) + 'px';
+    header.style.background = THEME.bgAlt;
+    header.style.borderBottom = `1px solid ${THEME.border}`;
+    header.style.padding = '8px 11px';
+    header.style.justifyContent = 'space-between';
+    header.style.height = '';
+    title.style.display = '';
+    if (controls) controls.style.display = 'flex';
+    glyph.style.fontSize = '';
+    glyph.style.transform = 'rotate(0deg)';
+    host.querySelector('#cst-body').style.display = 'block';
+    host.querySelectorAll('.cst-chev').forEach((c) => { c.textContent = '▾'; });
+    applySectionInit();
+    render();
+  }
+
   function createPanel() {
     if (panel) return;
+    const ui = loadUI();
+    uiState.panelCollapsed = !!ui.panelCollapsed;
+    uiState.diceCollapsed = !!ui.diceCollapsed;
+    uiState.resCollapsed = !!ui.resCollapsed;
     const host = document.createElement('div');
     host.id = 'colonist-stats-tracker';
+    const place = ui.left != null ? `left:${ui.left}px;top:${ui.top}px;` : 'top:16px;left:16px;';
+    const width = ui.width || 340;
+    // resize:both → drag any corner/edge. Width drives the font size, so a wider
+    // panel zooms everything; height adds vertical room. Height defaults to auto.
     host.style.cssText =
-      'position:fixed;top:80px;right:16px;z-index:2147483647;' +
-      'width:320px;max-height:80vh;overflow:auto;' +
-      'background:#1f1d18;color:#f4ecd8;border:1px solid #6b5b3b;' +
-      'border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.4);' +
-      'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;' +
-      'font-size:12px;user-select:none;';
+      `position:fixed;${place}width:${width}px;z-index:2147483647;` +
+      'height:auto;max-height:92vh;min-width:250px;overflow:auto;resize:both;' +
+      `background:${THEME.bg};color:${THEME.text};border:1px solid ${THEME.border};` +
+      'border-radius:10px;box-shadow:0 6px 20px rgba(40,30,10,0.30);' +
+      'font-family:"Open Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;' +
+      `font-size:${fontFromWidth(width)}px;user-select:none;` +
+      // Promote to a clean GPU layer so the overlay composites over colonist's
+      // WebGL board without leaving repaint "ghost trails".
+      'transform:translateZ(0);backface-visibility:hidden;';
+    const secHead = 'display:flex;justify-content:space-between;align-items:baseline;cursor:pointer;';
     host.innerHTML = `
-      <div id="cst-header" style="display:flex;align-items:center;justify-content:space-between;
-           padding:8px 10px;cursor:move;background:#2a271f;border-bottom:1px solid #6b5b3b;
-           border-radius:10px 10px 0 0;">
-        <strong style="font-size:13px;">🎲 Colonist Stats</strong>
-        <div>
-          <button id="cst-reset" title="Reset" style="background:transparent;border:1px solid #6b5b3b;
-            color:#f4ecd8;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;margin-right:4px;">↺</button>
-          <button id="cst-toggle" title="Minimize" style="background:transparent;border:1px solid #6b5b3b;
-            color:#f4ecd8;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;">–</button>
+      <div id="cst-header" style="display:flex;align-items:center;justify-content:space-between;gap:6px;
+           padding:8px 11px;cursor:move;background:${THEME.bgAlt};border-bottom:1px solid ${THEME.border};
+           border-radius:10px 10px 0 0;position:sticky;top:0;z-index:1;">
+        <strong style="font-size:1.05em;color:${THEME.accent};white-space:nowrap;display:flex;align-items:center;gap:6px;">
+          <span id="cst-glyph" title="Click to collapse / expand" style="cursor:pointer;display:inline-block;transition:transform .35s ease, font-size .25s ease, filter .15s ease;">🎲</span>
+          <span id="cst-title">Colonist Stats</span>
+        </strong>
+        <div id="cst-controls" style="display:flex;gap:4px;align-items:center;">
+          ${ctrlBtn('cst-refresh', '⟳', 'Reset size & position (keeps stats)')}
         </div>
       </div>
-      <div id="cst-body" style="padding:10px;">
-        <div id="cst-dice"></div>
-        <div id="cst-resources" style="margin-top:12px;"></div>
-        <div id="cst-status" style="margin-top:8px;color:#a89b78;font-size:10px;"></div>
+      <div id="cst-body" style="padding:12px 14px 13px;">
+        <div id="cst-dice-head" data-fold="diceCollapsed" style="${secHead}margin-bottom:7px;">
+          <strong style="color:${THEME.accent};"><span class="cst-chev">${uiState.diceCollapsed ? '▸' : '▾'}</span> Dice Rolls</strong>
+          <span id="cst-dice-rolls" style="color:${THEME.textDim};font-size:0.82em;"></span>
+        </div>
+        <div id="cst-dice-wrap" style="overflow:hidden;transition:max-height .28s ease;"><div id="cst-dice"></div></div>
+        <div id="cst-res-head" data-fold="resCollapsed" style="${secHead}margin-top:14px;">
+          <strong style="color:${THEME.accent};"><span class="cst-chev">${uiState.resCollapsed ? '▸' : '▾'}</span> Resources</strong>
+        </div>
+        <div id="cst-res-wrap" style="overflow:hidden;transition:max-height .28s ease;"><div id="cst-resources"></div></div>
       </div>`;
     document.body.appendChild(host);
     panel = host;
 
-    host.querySelector('#cst-reset').addEventListener('click', () => {
-      for (const k of Object.keys(state.diceCounts)) state.diceCounts[k] = 0;
-      state.totalRolls = 0;
-      state.players.clear();
-      state.seenIndices = new Set();
-      if (observedContainer) scanExisting(observedContainer);
-      render();
+    // Inject the :hover rule once (inline styles can't express :hover).
+    if (!document.getElementById('cst-style')) {
+      const st = document.createElement('style');
+      st.id = 'cst-style';
+      st.textContent = '#colonist-stats-tracker #cst-glyph:hover{filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}';
+      (document.head || document.documentElement).appendChild(st);
+    }
+
+    // Click a section header to fold/unfold it (animated). Delegated so it keeps
+    // working across content re-renders. Re-fit the panel height to content so
+    // folding actually shrinks the whole panel (no leftover empty space).
+    host.addEventListener('click', (e) => {
+      const head = e.target.closest && e.target.closest('[data-fold]');
+      if (!head || !host.contains(head)) return;
+      const key = head.getAttribute('data-fold');
+      uiState[key] = !uiState[key];
+      saveUI({ [key]: uiState[key] });
+      const open = !uiState[key];
+      setSectionOpen(head.nextElementSibling, open, true);
+      host.style.height = 'auto';
+      const c = head.querySelector('.cst-chev');
+      if (c) c.textContent = open ? '▾' : '▸';
     });
-    host.querySelector('#cst-toggle').addEventListener('click', (e) => {
-      const body = host.querySelector('#cst-body');
-      const hidden = body.style.display === 'none';
-      body.style.display = hidden ? 'block' : 'none';
-      e.currentTarget.textContent = hidden ? '–' : '+';
-    });
+
+    // Width drives font size. Update the font LIVE on every resize tick so the
+    // content tracks the drag instead of lagging; only the save is debounced.
+    if (typeof ResizeObserver !== 'undefined') {
+      let rT, lastW = 0;
+      new ResizeObserver(() => {
+        if (uiState.panelCollapsed) return;
+        const w = host.offsetWidth;
+        if (w === lastW) return;
+        lastW = w;
+        host.style.fontSize = fontFromWidth(w) + 'px';
+        clearTimeout(rT);
+        rT = setTimeout(() => saveUI({ width: w }), 250);
+      }).observe(host);
+    }
+
+    host.querySelector('#cst-refresh').addEventListener('click', resetLayout);
+
     makeDraggable(host, host.querySelector('#cst-header'));
+
+    render();
+    applySectionInit();
+    if (uiState.panelCollapsed) setPanelCollapsed(true);
   }
 
   function makeDraggable(el, handle) {
-    let dx = 0, dy = 0, sx = 0, sy = 0, dragging = false;
+    let dx = 0, dy = 0, sx = 0, sy = 0, dragging = false, moved = false, onGlyph = false;
     handle.addEventListener('mousedown', (e) => {
       if (e.target.tagName === 'BUTTON') return;
-      dragging = true;
+      dragging = true; moved = false;
+      onGlyph = !!(e.target.closest && e.target.closest('#cst-glyph'));
       const rect = el.getBoundingClientRect();
       sx = e.clientX; sy = e.clientY;
       dx = rect.left; dy = rect.top;
@@ -528,84 +831,144 @@
     });
     window.addEventListener('mousemove', (e) => {
       if (!dragging) return;
+      if (Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 3) moved = true;
       el.style.left = (dx + e.clientX - sx) + 'px';
       el.style.top  = (dy + e.clientY - sy) + 'px';
     });
-    window.addEventListener('mouseup', () => { dragging = false; });
+    window.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      if (!moved) {
+        // Click (no drag): the dice glyph toggles the whole-panel collapse;
+        // when already collapsed, a click anywhere on the icon expands it.
+        if (uiState.panelCollapsed) { setPanelCollapsed(false); return; }
+        if (onGlyph) { setPanelCollapsed(true); return; }
+        return;
+      }
+      saveUI({ left: parseInt(el.style.left, 10), top: parseInt(el.style.top, 10) });
+    });
   }
 
-  function renderDice() {
-    const rows = [];
+  // Dice histogram bars (the section header lives in the static skeleton).
+  function renderDiceBars() {
     let maxCount = 0;
     for (let n = 2; n <= 12; n++) maxCount = Math.max(maxCount, state.diceCounts[n]);
+    const cols = [];
     for (let n = 2; n <= 12; n++) {
       const c = state.diceCounts[n];
       const pct = state.totalRolls ? (c / state.totalRolls * 100) : 0;
       const expected = EXPECTED_PCT[n];
-      const barW = maxCount ? (c / maxCount * 100) : 0;
+      const barH = maxCount ? Math.round((c / maxCount) * 100) : 0;
       const delta = pct - expected;
-      const deltaColor = Math.abs(delta) < 2 ? '#a89b78' : (delta > 0 ? '#7fc67f' : '#e88b8b');
-      rows.push(`
-        <div style="display:grid;grid-template-columns:22px 1fr 44px 50px;align-items:center;gap:6px;margin:2px 0;">
-          <span style="text-align:right;font-variant-numeric:tabular-nums;">${n}</span>
-          <div style="background:#2a271f;height:12px;border-radius:2px;overflow:hidden;">
-            <div style="background:#c9a86a;height:100%;width:${barW}%;transition:width 0.2s;"></div>
+      const barColor = Math.abs(delta) < 2 ? THEME.bar : (delta > 0 ? THEME.good : THEME.bad);
+      cols.push(`
+        <div style="flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:0;">
+          <span style="font-size:0.72em;font-variant-numeric:tabular-nums;color:${THEME.textDim};">${c}</span>
+          <div style="width:100%;height:3.6em;display:flex;align-items:flex-end;justify-content:center;">
+            <div title="${n}: ${c} rolls · ${pct.toFixed(1)}% (expected ${expected}%)"
+                 style="width:74%;height:${barH}%;min-height:2px;background:${barColor};
+                 border-radius:3px 3px 0 0;transition:height .2s;"></div>
           </div>
-          <span style="text-align:right;font-variant-numeric:tabular-nums;">${c}</span>
-          <span style="text-align:right;color:${deltaColor};font-variant-numeric:tabular-nums;">
-            ${pct.toFixed(1)}%
-          </span>
+          <span style="font-size:0.92em;font-weight:700;font-variant-numeric:tabular-nums;
+                color:${n === 7 ? THEME.bad : THEME.text};">${n}</span>
+          <span style="font-size:0.66em;font-variant-numeric:tabular-nums;color:${barColor};">${Math.round(pct)}%</span>
         </div>`);
     }
-    return `
-      <div style="font-weight:600;margin-bottom:4px;">Dice Rolls (${state.totalRolls})</div>
-      ${rows.join('')}
-      <div style="margin-top:4px;color:#a89b78;font-size:10px;">
-        Colour = actual vs expected (green above, red below, grey ≈ on).
-      </div>`;
+    return `<div style="display:flex;align-items:flex-end;gap:3px;">${cols.join('')}</div>`;
   }
 
-  function renderResources() {
+  // Read colonist's own player panel for the authoritative turn order AND each
+  // player's avatar. Matched by stable data-attributes so it survives colonist's
+  // CSS-hash renames. Returns [{name, avatar}] top-to-bottom, or null if the
+  // panel isn't on the page (e.g. the lobby, or under jsdom in tests).
+  function readPlayerPanel() {
+    const seen = new Set();
+    const out = [];
+    document.querySelectorAll('[data-player-color]').forEach((row) => {
+      const nameEl = row.querySelector('[class*="username"]');
+      if (!nameEl) return;
+      const name = (nameEl.textContent || '').trim();
+      if (!name || seen.has(name)) return;
+      seen.add(name);
+      const av = row.querySelector('[class*="avatarImage"]');
+      out.push({ name, avatar: av ? av.getAttribute('src') : null });
+    });
+    return out.length ? out : null;
+  }
+
+  // Resources table. Each resource icon's header carries a top-right badge with
+  // the bank-remaining count (like colonist's supply row); the last column is
+  // the unknown/stolen-card count, headed by colonist's face-down "?" card. No
+  // separate Σ total — colonist's own dashboard already shows each hand size.
+  // Player rows follow colonist's panel order and show each player's avatar.
+  function renderResTable() {
+    const bank = bankRemaining();
+    const cols = `minmax(88px,1.7fr) repeat(${RESOURCES.length}, 1fr) 0.95fr`;
+
+    const iconCell = (r) => {
+      const low = bank[r] <= 2;
+      return `<span style="text-align:center;">
+        <span style="position:relative;display:inline-block;line-height:0;">
+          ${iconImg(r, 1.7)}
+          <span title="Bank: ${bank[r]} left"
+                style="position:absolute;top:-0.55em;right:-0.7em;min-width:1.2em;padding:0 0.25em;text-align:center;
+                background:#fbf9f4;color:${low ? THEME.bad : THEME.text};border:1px solid ${THEME.border};
+                border-radius:0.7em;font-size:0.6em;font-weight:700;line-height:1.5;
+                box-shadow:0 1px 2px rgba(0,0,0,.2);">${bank[r]}</span>
+        </span>
+      </span>`;
+    };
+
+    const head = `
+      <div style="display:grid;grid-template-columns:${cols};gap:4px;align-items:end;padding:0.9em 3px 0.7em;">
+        <span style="color:${THEME.textDim};font-size:0.8em;">Player</span>
+        ${RESOURCES.map(iconCell).join('')}
+        <span style="text-align:center;" title="Unknown (stolen) cards">${iconImg('unknown', 1.55)}</span>
+      </div>`;
+
     if (state.players.size === 0) {
-      return '<div style="font-weight:600;margin-bottom:4px;">Resources</div>' +
-             '<div style="color:#a89b78;">Waiting for first move…</div>';
+      return head + `<div style="color:${THEME.textDim};padding:5px 3px;">Waiting for first move…</div>`;
     }
-    const lines = [];
-    lines.push('<div style="font-weight:600;margin-bottom:4px;">Resources</div>');
-    lines.push(`
-      <div style="display:grid;grid-template-columns:1fr ${RESOURCES.map(() => '28px').join(' ')} 28px 32px;
-           gap:4px;color:#a89b78;font-size:10px;padding:0 2px 4px;">
-        <span>Player</span>
-        ${RESOURCES.map((r) => `<span style="text-align:center;">${RESOURCE_LABEL[r]}</span>`).join('')}
-        <span style="text-align:center;">?</span>
-        <span style="text-align:right;">Σ</span>
-      </div>`);
-    for (const p of state.players.values()) {
-      const total = playerTotal(p);
-      lines.push(`
-        <div style="display:grid;grid-template-columns:1fr ${RESOURCES.map(() => '28px').join(' ')} 28px 32px;
-             gap:4px;align-items:center;padding:3px 2px;border-top:1px solid #3a352a;">
-          <span style="color:${escapeAttr(p.color)};font-weight:600;overflow:hidden;text-overflow:ellipsis;">
-            ${escapeHtml(p.name)}
-          </span>
+
+    // Order + avatars from colonist's panel; fall back to first-seen order.
+    const profiles = readPlayerPanel();
+    const prof = profiles ? new Map(profiles.map((p, i) => [p.name, { avatar: p.avatar, order: i }])) : null;
+    const players = [...state.players.values()];
+    if (prof) {
+      players.sort((a, b) =>
+        (prof.has(a.name) ? prof.get(a.name).order : 1e9) -
+        (prof.has(b.name) ? prof.get(b.name).order : 1e9));
+    }
+
+    const rows = [];
+    for (const p of players) {
+      const av = prof && prof.get(p.name) && prof.get(p.name).avatar;
+      const avatar = av
+        ? `<span style="display:inline-flex;flex:0 0 auto;width:1.5em;height:1.5em;margin-right:5px;
+            border-radius:50%;overflow:hidden;background:${escapeAttr(p.color)};align-items:center;justify-content:center;">
+            <img src="${escapeAttr(av)}" alt="" style="width:100%;height:100%;object-fit:contain;"></span>`
+        : '';
+      rows.push(`
+        <div style="display:grid;grid-template-columns:${cols};gap:4px;align-items:center;
+             padding:5px 3px;border-top:1px solid ${THEME.rowLine};">
+          <span style="display:flex;align-items:center;color:${escapeAttr(p.color)};font-weight:700;overflow:hidden;white-space:nowrap;" title="${escapeHtml(p.name)}">${avatar}<span style="overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.name)}</span></span>
           ${RESOURCES.map((r) =>
-            `<span style="text-align:center;font-variant-numeric:tabular-nums;
-              ${p.resources[r] === 0 ? 'color:#555;' : ''}">${p.resources[r]}</span>`
+            `<span style="text-align:center;font-variant-numeric:tabular-nums;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}">${p.resources[r]}</span>`
           ).join('')}
-          <span style="text-align:center;color:${p.unknown ? '#e0b84a' : '#555'};
-            font-variant-numeric:tabular-nums;">${p.unknown}</span>
-          <span style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums;">${total}</span>
+          <span style="text-align:center;font-variant-numeric:tabular-nums;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? 'font-weight:700;' : 'opacity:.4;'}">${p.unknown}</span>
         </div>`);
     }
-    return lines.join('');
+    return head + rows.join('');
   }
 
   function render() {
     if (!panel) return;
-    panel.querySelector('#cst-dice').innerHTML = renderDice();
-    panel.querySelector('#cst-resources').innerHTML = renderResources();
-    const status = panel.querySelector('#cst-status');
-    status.textContent = observer ? 'Live.' : 'Waiting for game log…';
+    const d = panel.querySelector('#cst-dice');
+    if (d) d.innerHTML = renderDiceBars();
+    const r = panel.querySelector('#cst-resources');
+    if (r) r.innerHTML = renderResTable();
+    const rolls = panel.querySelector('#cst-dice-rolls');
+    if (rolls) rolls.textContent = `${state.totalRolls} rolls`;
   }
 
   function escapeHtml(s) {
@@ -636,20 +999,61 @@
     }, 500);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
+  // Reset all tracked stats. Shared by the panel's reset button and tests.
+  function resetState() {
+    for (const k of Object.keys(state.diceCounts)) state.diceCounts[k] = 0;
+    state.totalRolls = 0;
+    state.players.clear();
+    state.seenIndices = new Set();
+    state.selfName = null;
+    state.paused = false;
   }
 
-  // Re-attach on SPA navigation. `seen` is a WeakSet so removed log nodes
-  // are GC'd automatically; no need to clear it (clearing it would double-
-  // count any messages still in the DOM).
-  let lastPath = location.pathname;
-  new MutationObserver(() => {
-    if (location.pathname !== lastPath) {
-      lastPath = location.pathname;
-      attachObserver();
+  // In a browser (no CommonJS `module`) boot immediately and follow SPA
+  // navigation. Under Node (the synthetic-log test harness) we skip every
+  // DOM/observer side effect and instead export the pure parsing functions.
+  const isCommonJS = typeof module !== 'undefined' && module.exports;
+  if (isCommonJS) {
+    // Node test harness: export the pure functions, no DOM side effects.
+    module.exports = {
+      state,
+      resetState,
+      processMessage,
+      splitTradeResources,
+      countResources,
+      diceSum,
+      getPlayer,
+      giveResource,
+      takeResource,
+      bankRemaining,
+      hasUnknownCards,
+      // UI entry points (exposed so the jsdom smoke test can render the panel).
+      createPanel,
+      render,
+    };
+  } else if (typeof window !== 'undefined' && window.__CST_PREVIEW__) {
+    // Preview harness (preview.html): build the panel but DON'T attach to
+    // colonist. Expose internals so the page can seed mock data and re-render.
+    createPanel();
+    render();
+    window.__CST__ = {
+      state, getPlayer, giveResource, resetState, render, RESOURCE_ICON, THEME,
+    };
+  } else {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', boot);
+    } else {
+      boot();
     }
-  }).observe(document.documentElement, { childList: true, subtree: true });
+
+    // Re-attach on SPA navigation. seenIndices is reset per-container inside
+    // attachObserver(), so on a path change we only need to re-discover the log.
+    let lastPath = location.pathname;
+    new MutationObserver(() => {
+      if (location.pathname !== lastPath) {
+        lastPath = location.pathname;
+        attachObserver();
+      }
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
 })();

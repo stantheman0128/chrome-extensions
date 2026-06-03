@@ -1,0 +1,54 @@
+'use strict';
+
+// Smoke test for the render layer. The Node tests can't see a real browser, so
+// this drives createPanel()/render() inside jsdom to prove the UI builds without
+// a runtime error and has the expected structure. (localStorage/ResizeObserver
+// are absent under Node; content.js guards/try-catches both.)
+
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { cst, document } = require('./helpers/setup');
+
+test('UI renders the full panel: dice bars + %, merged resources/bank, player rows', () => {
+  cst.resetState();
+  const stan = cst.getPlayer('StanTheMan01', '#CF4449');
+  cst.giveResource(stan, 'grain', 3);
+  cst.giveResource(stan, 'lumber', 2);
+  const thant = cst.getPlayer('Thant', '#285FBD');
+  cst.giveResource(thant, 'brick', 4);
+  thant.unknown = 1; // forces the bank "(≈)" approximate note
+  Object.assign(cst.state.diceCounts, { 6: 5, 7: 3, 8: 4 });
+  cst.state.totalRolls = 12;
+
+  cst.createPanel(); // must not throw
+  cst.render(); // must not throw
+
+  const panel = document.querySelector('#colonist-stats-tracker');
+  assert.ok(panel, 'panel mounted to the document');
+
+  // Dice: one bar per sum 2..12, with percentages shown.
+  assert.equal(panel.querySelectorAll('#cst-dice div[title*="rolls"]').length, 11);
+  assert.match(panel.querySelector('#cst-dice').textContent, /%/);
+
+  // Resources: 5 resource icons (each with a bank badge) + 1 "?" unknown-card
+  // header icon = 6 imgs total. No Σ total column.
+  const resources = panel.querySelector('#cst-resources');
+  assert.equal(resources.querySelectorAll('img').length, 6);
+  assert.equal(resources.querySelectorAll('span[title^="Bank:"]').length, 5);
+  assert.ok(!resources.textContent.includes('Σ'));
+  assert.match(resources.textContent, /StanTheMan01/);
+  assert.match(resources.textContent, /Thant/);
+
+  // Foldable sections each expose a data-fold header (dice + resources).
+  assert.ok(panel.querySelector('[data-fold="diceCollapsed"]'));
+  assert.ok(panel.querySelector('[data-fold="resCollapsed"]'));
+
+  // Removed for good: the stats-wiping reset, status line, separate bank block,
+  // +/- scale buttons, and the dedicated collapse button (the glyph collapses).
+  for (const sel of ['#cst-reset', '#cst-status', '#cst-bank', '#cst-bigger', '#cst-smaller', '#cst-collapse']) {
+    assert.equal(panel.querySelector(sel), null, `${sel} should be gone`);
+  }
+  assert.ok(panel.querySelector('#cst-glyph'), 'dice glyph (collapse trigger) exists');
+  // The layout-reset button (size/position only — never touches stats) is back.
+  assert.ok(panel.querySelector('#cst-refresh'), 'layout reset button exists');
+});
