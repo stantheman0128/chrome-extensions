@@ -24,7 +24,7 @@
 | **Summary（≤132 字元）** | `Live dice-distribution and per-player resource overlay for colonist.io games. 100% local, no data collected.` |
 | **Category** | `Games`（或 `Just for Fun`） |
 | **Language** | English (United States)；可再加 Chinese (Traditional) |
-| **Store icon** | `icons/icon128.png`（128×128，已含於套件） |
+| **Store icon** | `icons/icon128.png`（128×128，已含於套件）。高解析備用：`tasks/store-assets/icon-512.png`、向量原始檔 `tasks/store-assets/icon.svg` |
 
 **Detailed description（英文）** — 取自 `colonist-stats-tracker/DESCRIPTION.en.md`
 **Detailed description（中文）** — 取自 `colonist-stats-tracker/DESCRIPTION.md`
@@ -32,8 +32,12 @@
 **Screenshots（1280×800 或 640×400，1–5 張，必填）**
 → 需要你從**實際對局**截圖（見 F）。建議拍：①面板擲骰直方圖、②玩家資源表（含 `?` 欄）、③面板疊在棋盤上的整體畫面。
 
-**Small promo tile（440×280，選填）**
-→ 已為你產生：`tasks/store-assets/promo-440x280.png`
+**Promo / Marquee tiles（選填，已超取樣產生，邊緣銳利）**
+- Small（440×280）：`tasks/store-assets/promo-440x280.png`（另附 2× `promo-880x560.png`）
+- Marquee（1400×560）：`tasks/store-assets/marquee-1400x560.png`
+
+> 注意：CWS 的 promo tile 尺寸固定（440×280 / 1400×560），上傳請用對應檔；2× 版僅供你自己行銷/高 DPI 用。
+> Chrome 的 icon 槽只吃 PNG（16/32/48/128，已含於套件）；`icon.svg` 是向量原始檔，給網頁/設計軟體用，非上傳 Chrome 用。
 
 ---
 
