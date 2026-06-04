@@ -83,6 +83,10 @@
 
 **備註**：資源計算為「盡可能」的推算。偷牌、看不見的發展卡效果等不確定資訊，會透過 `?` 欄位標示，協助判讀而非保證精準。
 
+---
+
+**免責聲明**：本工具為非官方的同好作品，與 Colonist／colonist.io **無隸屬關係**，亦未經其背書或贊助。「Colonist」及所有遊戲名稱與美術素材，版權均屬其各自所有者。本擴充功能不蒐集、不上傳任何資料（[隱私政策](https://github.com/stantheman0128/stan-chrome-extensions/blob/master/PRIVACY.md)）。
+
 **一鍵下載**
 
 [![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/colonist-stats-tracker.zip)
@@ -204,7 +208,9 @@ stan-chrome-extensions/
 │   ├── DESCRIPTION.en.md
 │   ├── DESCRIPTION.md
 │   ├── content.js
-│   └── manifest.json
+│   ├── manifest.json
+│   ├── popup.html
+│   └── popup.js
 ├── dcard-article-formatter/
 │   ├── DESCRIPTION.en.md
 │   ├── DESCRIPTION.md

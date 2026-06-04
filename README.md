@@ -86,6 +86,10 @@ A floating in-game overlay for [colonist.io](https://colonist.io/) that tracks d
 
 **Note**: resource counts are a best-effort estimate. Stealing and hidden dev-card effects leave genuine uncertainty, which the `?` column surfaces rather than hides.
 
+---
+
+**Disclaimer**: This is an unofficial, fan-made tool. It is **not affiliated with, endorsed by, or sponsored by** Colonist or colonist.io. "Colonist" and all game names and assets are the property of their respective owners. This extension collects and transmits no data ([privacy policy](https://github.com/stantheman0128/stan-chrome-extensions/blob/master/PRIVACY.md)).
+
 **Download**
 
 [![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/colonist-stats-tracker.zip)
@@ -208,7 +212,9 @@ stan-chrome-extensions/
 │   ├── DESCRIPTION.en.md
 │   ├── DESCRIPTION.md
 │   ├── content.js
-│   └── manifest.json
+│   ├── manifest.json
+│   ├── popup.html
+│   └── popup.js
 ├── dcard-article-formatter/
 │   ├── DESCRIPTION.en.md
 │   ├── DESCRIPTION.md
