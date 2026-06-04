@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Colonist.io Stats Tracker</title>
+  <style>
+    :root {
+      --bg: #ece9e1; --bg-alt: #ddd8ca; --text: #2d2a24;
+      --dim: #6b675d; --accent: #2f6f9f; --line: #cdc7b8;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      width: 280px;
+      font-family: -apple-system, "Segoe UI", "Noto Sans TC", sans-serif;
+      background: var(--bg); color: var(--text);
+      font-size: 13px; line-height: 1.5;
+    }
+    header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 14px; background: var(--bg-alt);
+      border-bottom: 1px solid var(--line);
+    }
+    .mark { font-size: 20px; line-height: 1; }
+    .title { font-weight: 700; font-size: 13.5px; }
+    .ver { color: var(--dim); font-size: 11px; margin-left: auto; }
+    main { padding: 12px 14px; }
+    p { margin: 0 0 9px; }
+    .hint { color: var(--dim); }
+    .ok { color: var(--accent); font-weight: 600; }
+    .links { display: flex; gap: 10px; margin-top: 4px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .legal {
+      margin-top: 11px; padding-top: 9px; border-top: 1px solid var(--line);
+      color: var(--dim); font-size: 10.5px; line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="mark">🎲</span>
+    <span class="title">Colonist.io Stats Tracker</span>
+    <span class="ver" id="ver"></span>
+  </header>
+  <main>
+    <p>開啟一局 <a href="https://colonist.io/" target="_blank" rel="noopener">colonist.io</a> 對局，統計面板會<span class="ok">自動出現</span>在畫面上。</p>
+    <p class="hint">即時追蹤擲骰分佈與各玩家手牌；資料只存在你這台裝置，斷線重整也會記得當前這局。</p>
+    <div class="links">
+      <a href="https://github.com/stantheman0128/stan-chrome-extensions" target="_blank" rel="noopener">原始碼</a>
+      <a href="https://github.com/stantheman0128/stan-chrome-extensions/blob/master/PRIVACY.md" target="_blank" rel="noopener">隱私政策</a>
+    </div>
+    <p class="legal">
+      非官方工具，與 Colonist／colonist.io 無隸屬、未經其背書或贊助。
+      遊戲名稱與美術素材版權均屬其各自所有者。
+    </p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

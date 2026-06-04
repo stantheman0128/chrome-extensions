@@ -15,3 +15,7 @@ A floating in-game overlay for [colonist.io](https://colonist.io/) that tracks d
 - When a player spends more of a resource than their known pool holds, the shortfall is pulled from the unknown pool, retroactively identifying stolen cards
 
 **Note**: resource counts are a best-effort estimate. Stealing and hidden dev-card effects leave genuine uncertainty, which the `?` column surfaces rather than hides.
+
+---
+
+**Disclaimer**: This is an unofficial, fan-made tool. It is **not affiliated with, endorsed by, or sponsored by** Colonist or colonist.io. "Colonist" and all game names and assets are the property of their respective owners. This extension collects and transmits no data ([privacy policy](https://github.com/stantheman0128/stan-chrome-extensions/blob/master/PRIVACY.md)).

@@ -4,6 +4,11 @@ All notable changes in this repository are documented in this file.
 
 ## [Unreleased]
 
+## [2026-06-04]
+
+### Added
+- colonist-stats-tracker (1.7.0): **Chrome Web Store 上架前置（第一批，與 icon 無關的部分）.** (1) Added a Manifest V3 `action` (toolbar button) with a small info popup (`popup.html` / `popup.js`) — it shows the live version (read from the manifest, so it never drifts), a one-line "the panel appears automatically on colonist.io" hint, links to the source and privacy policy, and a non-affiliation disclaimer. (2) Added `homepage_url`. (3) Added a repo-root `PRIVACY.md` (bilingual EN/繁中) documenting the extension's zero-collection model — no servers, no analytics, no remote code, everything in the page-scoped `localStorage` on the user's own device — to satisfy the store's privacy-disclosure requirement. (4) Added an unofficial/non-affiliation + attribution disclaimer (and a privacy-policy link) to both `DESCRIPTION.md` and `DESCRIPTION.en.md`, as required when a listing references the "Colonist" name and displays its card art. (5) Added brand icons at 16/32/48/128 px (`icons/`) wired into both `icons` (extension/store) and `action.default_icon` (toolbar): a resource-coloured hexagon tile (the colonist board) with two dice in the centre and a face-down "?" badge in the corner — i.e. board + dice-rolls + unknown-cards, the three things the panel tracks. Generated programmatically (PIL, 4× supersampled then downscaled) so each size stays crisp; the design and a multi-size/multi-background comparison were iterated in a throwaway `tasks/` preview, not shipped.
+
 ## [2026-06-03]
 
 ### Added
