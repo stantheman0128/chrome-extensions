@@ -222,6 +222,7 @@ stan-chrome-extensions/
 │   ├── DESCRIPTION.en.md
 │   ├── DESCRIPTION.md
 │   ├── PRIVACY.md
+│   ├── ROADMAP.md
 │   ├── STORE_LISTING.md
 │   ├── content.js
 │   ├── manifest.json
