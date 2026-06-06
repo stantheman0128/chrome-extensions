@@ -29,6 +29,13 @@
     p { margin: 0 0 9px; }
     .hint { color: var(--dim); }
     .ok { color: var(--accent); font-weight: 600; }
+    .btn {
+      width: 100%; padding: 8px 10px; margin-top: 2px;
+      font-size: 12.5px; font-weight: 600; color: #fff;
+      background: var(--accent); border: 0; border-radius: 7px; cursor: pointer;
+    }
+    .btn:hover { filter: brightness(1.06); }
+    .btn:disabled { opacity: .5; cursor: default; }
     .links { display: flex; gap: 10px; margin-top: 4px; }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
@@ -47,9 +54,11 @@
   <main>
     <p>開啟一局 <a href="https://colonist.io/" target="_blank" rel="noopener">colonist.io</a> 對局，統計面板會<span class="ok">自動出現</span>在畫面上。</p>
     <p class="hint">即時追蹤擲骰分佈與各玩家手牌；資料只存在你這台裝置，斷線重整也會記得當前這局。</p>
+    <button id="newgame" class="btn" type="button">強制重新抓取這局</button>
+    <p class="hint" id="status" style="margin-top:6px;font-size:11px;">換局通常會自動偵測；若面板還停在上一局，按這個強制重抓。</p>
     <div class="links">
       <a href="https://github.com/stantheman0128/stan-chrome-extensions" target="_blank" rel="noopener">原始碼</a>
-      <a href="https://github.com/stantheman0128/stan-chrome-extensions/blob/master/PRIVACY.md" target="_blank" rel="noopener">隱私政策</a>
+      <a href="https://github.com/stantheman0128/stan-chrome-extensions/blob/master/colonist-stats-tracker/PRIVACY.md" target="_blank" rel="noopener">隱私政策</a>
     </div>
     <p class="legal">
       非官方工具，與 Colonist／colonist.io 無隸屬、未經其背書或贊助。

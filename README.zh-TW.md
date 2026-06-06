@@ -11,13 +11,13 @@
 
 ## 快速下載
 
-| # | 擴充功能 | 下載 |
-|---|---------|------|
-| 1 | [Claude 服務狀態監控](#ext-claude-status-monitor) | [![下載 claude-status-monitor](https://img.shields.io/badge/下載-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
-| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | [![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
-| 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | [![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
-| 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | [![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
-| 5 | [YouTube 絕對精確日期 (完美客製版)](#ext-youtube-video-upload-time) | [![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
+| # | 擴充功能 | 版本 | 下載 |
+|---|---------|------|------|
+| 1 | [Claude 服務狀態監控](#ext-claude-status-monitor) | `1.0.1` | [![下載 claude-status-monitor](https://img.shields.io/badge/下載-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
+| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.9.0` | [![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
+| 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | `1.0` | [![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
+| 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | `1.0` | [![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
+| 5 | [YouTube 絕對精確日期 (完美客製版)](#ext-youtube-video-upload-time) | `9.1` | [![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
 
 ---
 
@@ -28,6 +28,8 @@
 ### 1. Claude 服務狀態監控
 
 **資料夾：** `claude-status-monitor/`
+
+**版本:** `1.0.1`
 
 在 Claude.ai 網頁版（含 Claude Code 網頁版）即時顯示 Claude 服務狀態，資料來源為 [status.claude.com](https://status.claude.com)。
 
@@ -66,6 +68,8 @@
 
 **資料夾：** `colonist-stats-tracker/`
 
+**版本:** `1.9.0`
+
 在 [colonist.io](https://colonist.io/) 對局中即時統計擲骰分佈與各玩家持有資源的浮動面板。
 
 **功能**
@@ -85,7 +89,7 @@
 
 ---
 
-**免責聲明**：本工具為非官方的同好作品，與 Colonist／colonist.io **無隸屬關係**，亦未經其背書或贊助。「Colonist」及所有遊戲名稱與美術素材，版權均屬其各自所有者。本擴充功能不蒐集、不上傳任何資料（[隱私政策](https://github.com/stantheman0128/stan-chrome-extensions/blob/master/PRIVACY.md)）。
+**免責聲明**：本工具為非官方的同好作品，與 Colonist／colonist.io **無隸屬關係**，亦未經其背書或贊助。「Colonist」及所有遊戲名稱與美術素材，版權均屬其各自所有者。本擴充功能不蒐集、不上傳任何資料（[隱私政策](https://github.com/stantheman0128/stan-chrome-extensions/blob/master/colonist-stats-tracker/PRIVACY.md)）。
 
 **一鍵下載**
 
@@ -104,6 +108,8 @@
 ### 3. Dcard 文章排版優化
 
 **資料夾：** `dcard-article-formatter/`
+
+**版本:** `1.0`
 
 一鍵優化 Dcard 文章排版，讓閱讀體驗大幅提升。
 
@@ -133,6 +139,8 @@
 
 **資料夾：** `glasp-remnants-remover/`
 
+**版本:** `1.0`
+
 自動移除 Glasp 擴充功能在每個網頁上留下的多餘 UI 元素。如果你已經解除安裝 Glasp，卻仍在各網站看到它的側邊欄或螢光標記，這個擴充功能會靜默地將其清除乾淨。
 
 **功能特色**
@@ -157,6 +165,8 @@
 ### 5. YouTube 絕對精確日期 (完美客製版)
 
 **資料夾：** `youtube-video-upload-time/`
+
+**版本:** `9.1`
 
 將 YouTube 模糊的相對時間戳記（例如：*「2 年前」*）替換為精確到秒的本地上傳日期與時間。
 
@@ -207,10 +217,13 @@ stan-chrome-extensions/
 ├── colonist-stats-tracker/
 │   ├── DESCRIPTION.en.md
 │   ├── DESCRIPTION.md
+│   ├── PRIVACY.md
+│   ├── STORE_LISTING.md
 │   ├── content.js
 │   ├── manifest.json
 │   ├── popup.html
-│   └── popup.js
+│   ├── popup.js
+│   └── preview.html
 ├── dcard-article-formatter/
 │   ├── DESCRIPTION.en.md
 │   ├── DESCRIPTION.md

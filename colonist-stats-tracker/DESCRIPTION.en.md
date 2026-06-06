@@ -18,4 +18,4 @@ A floating in-game overlay for [colonist.io](https://colonist.io/) that tracks d
 
 ---
 
-**Disclaimer**: This is an unofficial, fan-made tool. It is **not affiliated with, endorsed by, or sponsored by** Colonist or colonist.io. "Colonist" and all game names and assets are the property of their respective owners. This extension collects and transmits no data ([privacy policy](https://github.com/stantheman0128/stan-chrome-extensions/blob/master/PRIVACY.md)).
+**Disclaimer**: This is an unofficial, fan-made tool. It is **not affiliated with, endorsed by, or sponsored by** Colonist or colonist.io. "Colonist" and all game names and assets are the property of their respective owners. This extension collects and transmits no data ([privacy policy](https://github.com/stantheman0128/stan-chrome-extensions/blob/master/colonist-stats-tracker/PRIVACY.md)).

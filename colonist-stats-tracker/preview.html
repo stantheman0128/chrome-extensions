@@ -48,7 +48,7 @@
     // each reopen shows the new design exactly as a fresh install would.
     try { localStorage.removeItem('colonist-stats-tracker:ui'); } catch (e) {}
   </script>
-  <script src="./colonist-stats-tracker/content.js"></script>
+  <script src="./content.js"></script>
 
   <script>
     (function () {
@@ -56,7 +56,7 @@
       if (!cst) {
         const err = document.createElement('p');
         err.style.padding = '1em';
-        err.textContent = 'Failed to load content.js (open this file from the repo root).';
+        err.textContent = 'Failed to load content.js (open this preview.html directly — it loads content.js from the same folder).';
         document.body.appendChild(err);
         return;
       }
@@ -78,6 +78,10 @@
         2: 1, 3: 3, 4: 4, 5: 6, 6: 9, 7: 7, 8: 8, 9: 5, 10: 4, 11: 2, 12: 1,
       });
       cst.state.totalRolls = Object.values(cst.state.diceCounts).reduce((a, b) => a + b, 0);
+      // Roll order, so hovering a column shows "N rolls since last X" (here 7 is
+      // overdue). And mark whose turn it is → that player's row lights up.
+      cst.state.rollHistory = [8, 6, 5, 9, 7, 6, 10, 4, 8, 6, 11, 5, 9, 6, 8, 3, 6, 10, 5, 8];
+      cst.state.currentTurn = 'Richia';
 
       // --- mock colonist player panel so the preview can show avatars + the
       //     panel-driven ordering (Thant, Richia, Tearle, StanTheMan01). ---

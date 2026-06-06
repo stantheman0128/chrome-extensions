@@ -26,8 +26,8 @@ test('UI renders the full panel: dice bars + %, merged resources/bank, player ro
   const panel = document.querySelector('#colonist-stats-tracker');
   assert.ok(panel, 'panel mounted to the document');
 
-  // Dice: one bar per sum 2..12, with percentages shown.
-  assert.equal(panel.querySelectorAll('#cst-dice div[title*="rolls"]').length, 11);
+  // Dice: one column per sum 2..12, with percentages shown.
+  assert.equal(panel.querySelectorAll('#cst-dice div[data-die]').length, 11);
   assert.match(panel.querySelector('#cst-dice').textContent, /%/);
 
   // Resources: 5 resource icons (each with a bank badge) + 1 "?" unknown-card
@@ -50,6 +50,12 @@ test('UI renders the full panel: dice bars + %, merged resources/bank, player ro
     assert.equal(panel.querySelector(sel), null, `${sel} should be gone`);
   }
   assert.ok(panel.querySelector('#cst-glyph'), 'dice glyph (collapse trigger) exists');
-  // The layout-reset button (size/position only — never touches stats) is back.
-  assert.ok(panel.querySelector('#cst-refresh'), 'layout reset button exists');
+  // Header controls: re-sync, large/small toggle, and the presets (⋮) menu.
+  assert.ok(panel.querySelector('#cst-resync'), 're-sync button exists');
+  assert.ok(panel.querySelector('#cst-size'), 'large/small toggle exists');
+  assert.ok(panel.querySelector('#cst-prefs'), 'presets menu button exists');
+  assert.ok(panel.querySelector('#cst-menu [data-act="save-large"]'), 'save-large menu item exists');
+  assert.ok(panel.querySelector('#cst-menu [data-act="reset"]'), 'reset-presets menu item exists');
+  // The manual new-game button moved to the popup; it's gone from the panel.
+  assert.equal(panel.querySelector('#cst-newgame'), null, 'new-game button removed from panel');
 });

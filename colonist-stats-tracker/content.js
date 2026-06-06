@@ -78,6 +78,8 @@
       Array.from({ length: 11 }, (_, i) => [i + 2, 0])
     ),
     totalRolls: 0,
+    rollHistory: [],     // ordered dice sums — powers "rolls since last N"
+    currentTurn: null,   // last player to roll = whose turn it (probably) is
     players: new Map(), // name -> { color, resources:{}, unknown:number }
     seenIndices: new Set(), // log message data-index values already processed
     selfName: null, // local human player; messages with avatar=icon_player.svg
@@ -322,6 +324,8 @@
       if (sum != null && sum >= 2 && sum <= 12) {
         state.diceCounts[sum] += 1;
         state.totalRolls += 1;
+        state.rollHistory.push(sum);
+        if (player) state.currentTurn = player.name;
         renderSoon();
         return;
       }
@@ -570,9 +574,39 @@
   }
 
   function ctrlBtn(id, label, title) {
-    return `<button id="${id}" title="${title}" style="background:transparent;` +
-      `border:1px solid ${THEME.border};color:${THEME.text};border-radius:4px;` +
-      `padding:1px 6px;cursor:pointer;font-size:0.85em;line-height:1.5;">${label}</button>`;
+    return `<button id="${id}" title="${title}" aria-label="${title}" style="display:inline-flex;` +
+      `align-items:center;justify-content:center;background:transparent;` +
+      `border:1px solid ${THEME.border};color:${THEME.text};border-radius:5px;` +
+      `padding:3px 5px;cursor:pointer;line-height:0;` +
+      `transition:background .12s ease,border-color .12s ease;">${label}</button>`;
+  }
+
+  // Inline SVG control icons (Lucide-style). Monochrome via currentColor so they
+  // follow the button colour — including the armed red state — and scale in em
+  // with the panel zoom. No external assets, so still CSP-clean.
+  function svgIcon(inner) {
+    return `<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" ` +
+      `stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ` +
+      `style="display:block;">${inner}</svg>`;
+  }
+  const ICON_SYNC = svgIcon('<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>' +
+    '<path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>' +
+    '<path d="M3 21v-5h5"/>');                                                   // refresh / sync
+  // Horizontal chevrons — direction reads clearly even at 16px (no competing
+  // diagonal line). Apart = enlarge (‹ ›), together = shrink (› ‹).
+  const ICON_ENLARGE = svgIcon('<polyline points="9 8 5 12 9 16"/>' +
+    '<polyline points="15 8 19 12 15 16"/>');                                    // ‹ › → go large
+  const ICON_SHRINK = svgIcon('<polyline points="5 8 9 12 5 16"/>' +
+    '<polyline points="19 8 15 12 19 16"/>');                                    // › ‹ → go small
+  const ICON_MORE = '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" ' +
+    'aria-hidden="true" style="display:block;"><circle cx="12" cy="5" r="1.7"/>' +
+    '<circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>';  // more → presets menu
+
+  function menuBtn(act, label) {
+    return `<button data-act="${act}" class="cst-menu-item" style="display:block;width:100%;` +
+      `text-align:left;background:transparent;border:0;color:${THEME.text};border-radius:5px;` +
+      `padding:6px 8px;cursor:pointer;font-size:0.82em;white-space:nowrap;` +
+      `transition:background .12s ease;">${label}</button>`;
   }
 
   // An <img> of colonist's resource card, sized in EM so it scales with the
@@ -590,9 +624,46 @@
   function fontFromWidth(w) {
     return Math.max(10, Math.min(22, Math.round(w / 27)));
   }
+  // Width drives the base font; the ⋮ menu's text-size controls nudge it via
+  // uiState.fontScale. One place computes the final px so every caller agrees.
+  function fpx(w) {
+    return (fontFromWidth(w) * uiState.fontScale) + 'px';
+  }
+  function refreshFont() {
+    if (panel && !uiState.panelCollapsed) panel.style.fontSize = fpx(panel.offsetWidth);
+  }
 
   // Per-panel / per-section fold state (persisted).
-  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false };
+  // diceMode: 'auto' shows physical dice only when the panel is wide enough for a
+  // pair to breathe (else digits); 'faces'/'digits' are sticky manual overrides.
+  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, mode: 'large', fontScale: 1, diceMode: 'auto' };
+  // At/above this panel width, auto-mode renders the bottom value as dice (vs a digit).
+  const DICE_AUTO_W = 372;
+  function diceFacesActive() {
+    if (uiState.diceMode === 'faces') return true;
+    if (uiState.diceMode === 'digits') return false;
+    return !!panel && panel.offsetWidth >= DICE_AUTO_W;   // 'auto'
+  }
+
+  // Two saved layouts the panel toggles between — each a position + width (height
+  // is auto, font tracks width). DEFAULT_PRESETS are the built-ins; dragging or
+  // resizing updates the *active* one, and the ⋮ menu can overwrite or reset them.
+  const DEFAULT_PRESETS = {
+    large: { left: 16, top: 16, width: 400 },
+    small: { left: 16, top: 16, width: 252 },
+  };
+  function getPresets() {
+    const p = (loadUI().presets) || {};
+    return {
+      large: { ...DEFAULT_PRESETS.large, ...(p.large || {}) },
+      small: { ...DEFAULT_PRESETS.small, ...(p.small || {}) },
+    };
+  }
+  function updateActivePreset(patch) {
+    const presets = getPresets();
+    presets[uiState.mode] = { ...presets[uiState.mode], ...patch };
+    saveUI({ presets });
+  }
 
   // Animate a section body open/closed via max-height (height:auto can't
   // transition, so we go to the measured scrollHeight then to 'none'/0).
@@ -657,8 +728,8 @@
         host.style.transition = '';
       }, 260);
     } else {
-      const w = loadUI().width || 340;
-      body.style.display = 'block';
+      const w = getPresets()[uiState.mode].width;   // restore to the active preset, not a stale default
+      body.style.display = 'flex';
       host.style.resize = 'both';
       host.style.minWidth = '250px';
       title.style.display = '';
@@ -671,7 +742,7 @@
       host.style.background = THEME.bg;
       host.style.borderColor = THEME.border;
       host.style.boxShadow = '0 6px 20px rgba(40,30,10,0.30)';
-      host.style.fontSize = fontFromWidth(w) + 'px';
+      host.style.fontSize = fpx(w);
       glyph.style.fontSize = '';
       glyph.style.transform = 'rotate(0deg)';
       host.style.width = w + 'px';
@@ -679,51 +750,70 @@
       host.style.height = host.scrollHeight + 'px';
       setTimeout(() => {
         host.style.height = 'auto';
-        host.style.overflow = 'auto';
+        host.style.overflow = 'hidden';   // host clips; the flex body scrolls
         host.style.transition = '';
       }, 260);
     }
   }
 
-  // Reset the panel's SIZE, POSITION and appearance to defaults — WITHOUT
-  // touching the tracked stats (the old stats-wiping reset is gone for good).
-  function resetLayout() {
-    uiState.panelCollapsed = false;
+  // ---- Large / Small layout presets ----
+  function sizeToggleIcon() {
+    const btn = panel && panel.querySelector('#cst-size');
+    if (btn) btn.innerHTML = uiState.mode === 'large' ? ICON_SHRINK : ICON_ENLARGE;
+  }
+
+  // Apply a saved preset (position + width) and remember it as the active mode.
+  // The toggle icon then shows the *opposite* action (large → shrink, small → grow).
+  function applyPreset(name) {
+    uiState.mode = name === 'small' ? 'small' : 'large';
+    const p = getPresets()[uiState.mode];
+    if (uiState.panelCollapsed) setPanelCollapsed(false);
+    panel.style.transition = '';
+    panel.style.right = 'auto';
+    panel.style.left = p.left + 'px';
+    panel.style.top = p.top + 'px';
+    panel.style.width = p.width + 'px';
+    panel.style.height = 'auto';
+    panel.style.fontSize = fpx(p.width);
+    sizeToggleIcon();
+  }
+
+  function toggleSize() {
+    applyPreset(uiState.mode === 'large' ? 'small' : 'large');
+  }
+
+  // Overwrite a preset slot with the panel's CURRENT position + width.
+  function saveCurrentAs(name) {
+    const slot = name === 'small' ? 'small' : 'large';
+    const r = panel.getBoundingClientRect();
+    const presets = getPresets();
+    presets[slot] = {
+      left: Math.round(parseFloat(panel.style.left) || r.left),
+      top: Math.round(parseFloat(panel.style.top) || r.top),
+      width: Math.round(r.width) || DEFAULT_PRESETS[slot].width,
+    };
+    saveUI({ presets });
+  }
+
+  // Restore both presets (and the fold/appearance) to the built-in defaults.
+  function resetPresets() {
     uiState.diceCollapsed = false;
     uiState.resCollapsed = false;
-    try { localStorage.removeItem(UI_KEY); } catch (e) {}
-    const host = panel;
-    const header = host.querySelector('#cst-header');
-    const title = host.querySelector('#cst-title');
-    const controls = host.querySelector('#cst-controls');
-    const glyph = host.querySelector('#cst-glyph');
-    host.style.transition = '';
-    host.style.resize = 'both';
-    host.style.minWidth = '250px';
-    host.style.overflow = 'auto';
-    host.style.background = THEME.bg;
-    host.style.borderColor = THEME.border;
-    host.style.boxShadow = '0 6px 20px rgba(40,30,10,0.30)';
-    host.style.borderRadius = '10px';
-    host.style.right = 'auto';
-    host.style.left = '16px';
-    host.style.top = '16px';
-    host.style.width = '340px';
-    host.style.height = 'auto';
-    host.style.fontSize = fontFromWidth(340) + 'px';
-    header.style.background = THEME.bgAlt;
-    header.style.borderBottom = `1px solid ${THEME.border}`;
-    header.style.padding = '8px 11px';
-    header.style.justifyContent = 'space-between';
-    header.style.height = '';
-    title.style.display = '';
-    if (controls) controls.style.display = 'flex';
-    glyph.style.fontSize = '';
-    glyph.style.transform = 'rotate(0deg)';
-    host.querySelector('#cst-body').style.display = 'block';
-    host.querySelectorAll('.cst-chev').forEach((c) => { c.textContent = '▾'; });
+    uiState.fontScale = 1;
+    uiState.diceMode = 'auto';
+    saveUI({ presets: DEFAULT_PRESETS, diceCollapsed: false, resCollapsed: false, fontScale: 1, diceMode: 'auto' });
+    panel.querySelector('#cst-body').style.display = 'flex';
+    panel.querySelectorAll('.cst-chev').forEach((c) => { c.textContent = '▾'; });
     applySectionInit();
+    applyPreset(uiState.mode);
     render();
+  }
+
+  // Independent text-size nudge (on top of the width-driven zoom), via the ⋮ menu.
+  function changeFont(dir) {
+    uiState.fontScale = Math.max(0.7, Math.min(1.6, Math.round((uiState.fontScale + dir * 0.1) * 10) / 10));
+    saveUI({ fontScale: uiState.fontScale });
+    refreshFont();
   }
 
   function createPanel() {
@@ -732,19 +822,26 @@
     uiState.panelCollapsed = !!ui.panelCollapsed;
     uiState.diceCollapsed = !!ui.diceCollapsed;
     uiState.resCollapsed = !!ui.resCollapsed;
+    uiState.fontScale = ui.fontScale || 1;
+    uiState.diceMode = ui.diceMode || 'auto';
+    uiState.mode = 'large';                       // auto-enlarge to the large preset on appear
     const host = document.createElement('div');
     host.id = 'colonist-stats-tracker';
-    const place = ui.left != null ? `left:${ui.left}px;top:${ui.top}px;` : 'top:16px;left:16px;';
-    const width = ui.width || 340;
+    const startP = getPresets().large;
+    const place = `left:${startP.left}px;top:${startP.top}px;`;
+    const width = startP.width;
     // resize:both → drag any corner/edge. Width drives the font size, so a wider
     // panel zooms everything; height adds vertical room. Height defaults to auto.
     host.style.cssText =
       `position:fixed;${place}width:${width}px;z-index:2147483647;` +
-      'height:auto;max-height:92vh;min-width:250px;overflow:auto;resize:both;' +
+      'height:auto;min-width:250px;overflow:hidden;resize:both;' +
+      // Flex column so the body can absorb extra drag-height as even spacing
+      // (see #cst-body) instead of leaving blank space at the bottom.
+      'display:flex;flex-direction:column;' +
       `background:${THEME.bg};color:${THEME.text};border:1px solid ${THEME.border};` +
       'border-radius:10px;box-shadow:0 6px 20px rgba(40,30,10,0.30);' +
       'font-family:"Open Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;' +
-      `font-size:${fontFromWidth(width)}px;user-select:none;` +
+      `font-size:${fpx(width)};user-select:none;` +
       // Promote to a clean GPU layer so the overlay composites over colonist's
       // WebGL board without leaving repaint "ghost trails".
       'transform:translateZ(0);backface-visibility:hidden;';
@@ -758,20 +855,34 @@
           <span id="cst-title">Colonist Stats</span>
         </strong>
         <div id="cst-controls" style="display:flex;gap:4px;align-items:center;">
-          ${ctrlBtn('cst-resync', '🔄', 'Re-sync card counts from the game')}
-          ${ctrlBtn('cst-refresh', '⟳', 'Reset size & position (keeps stats)')}
+          ${ctrlBtn('cst-resync', ICON_SYNC, 'Re-sync card counts from the live game')}
+          ${ctrlBtn('cst-size', ICON_SHRINK, 'Toggle large / small layout')}
+          ${ctrlBtn('cst-prefs', ICON_MORE, 'Layout presets')}
+        </div>
+        <div id="cst-menu" style="display:none;position:absolute;top:40px;right:10px;z-index:6;
+             background:${THEME.bg};border:1px solid ${THEME.border};border-radius:8px;
+             box-shadow:0 6px 18px rgba(40,30,10,.28);padding:5px;min-width:178px;">
+          ${menuBtn('save-large', 'Save current as Large')}
+          ${menuBtn('save-small', 'Save current as Small')}
+          ${menuBtn('reset', 'Reset to defaults')}
+          <div style="display:flex;align-items:center;gap:6px;padding:6px 8px 3px;margin-top:3px;border-top:1px solid ${THEME.border};">
+            <span style="flex:1 1 auto;font-size:0.82em;color:${THEME.textDim};">Text size</span>
+            <button data-act="font-down" title="Smaller text" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A−</button>
+            <button data-act="font-up" title="Larger text" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A+</button>
+          </div>
         </div>
       </div>
-      <div id="cst-body" style="padding:12px 14px 13px;">
-        <div id="cst-dice-head" data-fold="diceCollapsed" style="${secHead}margin-bottom:7px;">
+      <div id="cst-body" style="display:flex;flex-direction:column;flex:1 1 auto;min-height:0;
+           overflow:auto;padding:12px 14px 13px;">
+        <div id="cst-dice-head" data-fold="diceCollapsed" style="${secHead}flex:0 0 auto;margin-bottom:7px;">
           <strong style="color:${THEME.accent};"><span class="cst-chev">${uiState.diceCollapsed ? '▸' : '▾'}</span> Dice Rolls</strong>
           <span id="cst-dice-rolls" style="color:${THEME.textDim};font-size:0.82em;"></span>
         </div>
-        <div id="cst-dice-wrap" style="overflow:hidden;transition:max-height .28s ease;"><div id="cst-dice"></div></div>
-        <div id="cst-res-head" data-fold="resCollapsed" style="${secHead}margin-top:14px;">
+        <div id="cst-dice-wrap" style="flex:1 0 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;transition:max-height .28s ease;"><div id="cst-dice" style="flex:1 1 auto;display:flex;flex-direction:column;"></div></div>
+        <div id="cst-res-head" data-fold="resCollapsed" style="${secHead}flex:0 0 auto;margin-top:14px;">
           <strong style="color:${THEME.accent};"><span class="cst-chev">${uiState.resCollapsed ? '▸' : '▾'}</span> Resources</strong>
         </div>
-        <div id="cst-res-wrap" style="overflow:hidden;transition:max-height .28s ease;"><div id="cst-resources"></div></div>
+        <div id="cst-res-wrap" style="flex:1 0 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;transition:max-height .28s ease;"><div id="cst-resources" style="flex:1 1 auto;display:flex;flex-direction:column;"></div></div>
       </div>`;
     document.body.appendChild(host);
     panel = host;
@@ -780,8 +891,25 @@
     if (!document.getElementById('cst-style')) {
       const st = document.createElement('style');
       st.id = 'cst-style';
-      st.textContent = '#colonist-stats-tracker #cst-glyph:hover{filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}';
+      st.textContent = '#colonist-stats-tracker #cst-glyph:hover{filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}' +
+        '#colonist-stats-tracker #cst-controls button:hover{background:rgba(0,0,0,.10)!important;border-color:' + THEME.accent + '!important;}' +
+        '#colonist-stats-tracker #cst-menu button:hover{background:rgba(0,0,0,.08)!important;}' +
+        '#colonist-stats-tracker .cst-active-cell{font-weight:700;}';
       (document.head || document.documentElement).appendChild(st);
+    }
+
+    // A zero-size SVG holding the shared gradient used by the physical dice faces
+    // (dieFaceSVG). Defined once so every die can reference url(#cstDieGrad).
+    if (!document.getElementById('cst-die-defs')) {
+      const sv = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      sv.id = 'cst-die-defs';
+      sv.setAttribute('width', '0');
+      sv.setAttribute('height', '0');
+      sv.style.position = 'absolute';
+      sv.innerHTML = '<defs><linearGradient id="cstDieGrad" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e7dfc9"/>' +
+        '</linearGradient></defs>';
+      (document.body || document.documentElement).appendChild(sv);
     }
 
     // Click a section header to fold/unfold it (animated). Delegated so it keeps
@@ -803,15 +931,18 @@
     // Width drives font size. Update the font LIVE on every resize tick so the
     // content tracks the drag instead of lagging; only the save is debounced.
     if (typeof ResizeObserver !== 'undefined') {
-      let rT, lastW = 0;
+      let rT, lastW = 0, lastFaces = null;
       new ResizeObserver(() => {
         if (uiState.panelCollapsed) return;
         const w = host.offsetWidth;
         if (w === lastW) return;
         lastW = w;
-        host.style.fontSize = fontFromWidth(w) + 'px';
+        host.style.fontSize = fpx(w);
+        // In auto-mode, crossing the width threshold flips digits ⇄ dice live.
+        const nowFaces = diceFacesActive();
+        if (nowFaces !== lastFaces) { lastFaces = nowFaces; render(); }
         clearTimeout(rT);
-        rT = setTimeout(() => saveUI({ width: w }), 250);
+        rT = setTimeout(() => updateActivePreset({ width: w }), 250);
       }).observe(host);
     }
 
@@ -820,7 +951,152 @@
       syncFromPanel();
       render();
     });
-    host.querySelector('#cst-refresh').addEventListener('click', resetLayout);
+
+    // Large / small layout toggle.
+    host.querySelector('#cst-size').addEventListener('click', toggleSize);
+
+    // Presets menu (⋮): save the current geometry as the large/small preset, or reset.
+    const prefsBtn = host.querySelector('#cst-prefs');
+    const menu = host.querySelector('#cst-menu');
+    const closeMenu = () => { menu.style.display = 'none'; };
+    prefsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    });
+    menu.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-act]');
+      if (!b) return;
+      const act = b.getAttribute('data-act');
+      if (act === 'font-down') { changeFont(-1); return; }   // keep the menu open to step
+      if (act === 'font-up') { changeFont(1); return; }
+      if (act === 'save-large') saveCurrentAs('large');
+      else if (act === 'save-small') saveCurrentAs('small');
+      else if (act === 'reset') resetPresets();
+      closeMenu();
+    });
+    document.addEventListener('click', (e) => {
+      if (menu.style.display !== 'none' && !menu.contains(e.target) && !prefsBtn.contains(e.target)) closeMenu();
+    });
+
+    // Hover a resource COLUMN → highlight it with an overlay tinted in THAT
+    // resource's own colour (soft fill + bright neon side bars + a fluorescent
+    // glow), and bold its numbers (extra-bold where a player holds it). Detection
+    // is by pointer-x against the header cells, so the WHOLE column strip is hot —
+    // gaps between cells and rows included. The overlay lives in the stable
+    // #cst-res-wrap so it survives render()'s innerHTML swaps.
+    const RES_HL = {
+      lumber: '66,170,45', brick: '203,90,68', wool: '146,196,74',
+      grain: '238,194,60', ore: '143,179,166', unknown: '47,111,159',
+    };
+    const wrap = host.querySelector('#cst-res-wrap');
+    wrap.style.position = 'relative';
+    const resEl = host.querySelector('#cst-resources');
+    resEl.style.position = 'relative';
+    resEl.style.zIndex = '1';
+    // The overlay sits ON TOP of the rows (z-index 2) with pointer-events:none, so
+    // row separators and the active-row tint can't slice the neon bars. It's built
+    // from three layers: a soft fill + two side bars, each a vertical gradient that
+    // fades to transparent at the very top & bottom — no hard edge cutting the
+    // colour block, and the bars read as one continuous (if soft-ended) line.
+    const colHL = document.createElement('div');
+    colHL.style.cssText = 'position:absolute;top:0;display:none;pointer-events:none;z-index:2;';
+    const colFill = document.createElement('div');
+    colFill.style.cssText = 'position:absolute;inset:0;';
+    const colBarL = document.createElement('div');
+    colBarL.style.cssText = 'position:absolute;left:0;top:0;bottom:0;width:2.5px;';
+    const colBarR = document.createElement('div');
+    colBarR.style.cssText = 'position:absolute;right:0;top:0;bottom:0;width:2.5px;';
+    colHL.append(colFill, colBarL, colBarR);
+    wrap.appendChild(colHL);
+    const clearColHL = () => {
+      colHL.style.display = 'none';
+      resEl.querySelectorAll('[data-res]').forEach((el) => { el.style.fontWeight = ''; });
+    };
+    // Which resource column is under this x? Boundaries are the midpoints between
+    // neighbouring header cells, so there are no dead gaps; x left of the first
+    // resource column = the player-name column = no highlight.
+    const columnAt = (clientX) => {
+      const headRow = resEl.firstElementChild;
+      if (!headRow) return null;
+      const cells = [...headRow.querySelectorAll('[data-res]')];
+      for (let i = 0; i < cells.length; i++) {
+        const r = cells[i].getBoundingClientRect();
+        const lb = i === 0 ? r.left - 4 : (cells[i - 1].getBoundingClientRect().right + r.left) / 2;
+        const rb = i === cells.length - 1 ? r.right + 4 : (r.right + cells[i + 1].getBoundingClientRect().left) / 2;
+        if (clientX >= lb && clientX <= rb) return { res: cells[i].getAttribute('data-res'), rect: r };
+      }
+      return null;
+    };
+    wrap.addEventListener('mousemove', (e) => {
+      const hit = columnAt(e.clientX);
+      if (!hit) { clearColHL(); return; }
+      const rgb = RES_HL[hit.res] || '47,111,159';
+      const wr = wrap.getBoundingClientRect();
+      colHL.style.left = (hit.rect.left - wr.left) + 'px';
+      colHL.style.width = hit.rect.width + 'px';
+      colHL.style.height = resEl.offsetHeight + 'px';
+      // Soft fill, fading to transparent at the very top & bottom (no abrupt cut).
+      colFill.style.background =
+        `linear-gradient(to bottom, rgba(${rgb},0) 0%, rgba(${rgb},.24) 13%, rgba(${rgb},.14) 87%, rgba(${rgb},0) 100%)`;
+      // Neon side bars: bright through the middle, fading at the ends to match.
+      const barGrad =
+        `linear-gradient(to bottom, rgba(${rgb},0) 0%, rgb(${rgb}) 14%, rgb(${rgb}) 86%, rgba(${rgb},0) 100%)`;
+      colBarL.style.background = barGrad;
+      colBarR.style.background = barGrad;
+      colHL.style.boxShadow = `0 0 12px 1px rgba(${rgb},.5)`;   // outer fluorescent bloom
+      colHL.style.display = 'block';
+      resEl.querySelectorAll('[data-res]').forEach((el) => {
+        if (el.getAttribute('data-res') !== hit.res || el.querySelector('img')) { el.style.fontWeight = ''; return; }
+        const v = parseInt(el.textContent, 10);
+        el.style.fontWeight = (Number.isFinite(v) && v > 0) ? '800' : '700';
+      });
+    });
+    wrap.addEventListener('mouseleave', clearColHL);
+
+    // Custom dialog tooltip for the dice columns (replaces the native title). Lives on
+    // <body> so the panel's translateZ layer doesn't trap its fixed positioning.
+    const diceEl = host.querySelector('#cst-dice');
+    let tip = document.getElementById('cst-tip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'cst-tip';
+      // White "data" dialog (like a stock-chart tooltip) — dark text on light.
+      tip.style.cssText = 'position:fixed;display:none;z-index:2147483647;pointer-events:none;' +
+        `background:#ffffff;color:${THEME.text};padding:7px 11px;border-radius:8px;font-size:12px;line-height:1.5;` +
+        `border:1px solid ${THEME.border};box-shadow:0 6px 18px rgba(40,30,10,.28);max-width:240px;text-align:left;` +
+        'transform:translate(14px,16px);font-family:-apple-system,"Segoe UI",sans-serif;';
+      document.body.appendChild(tip);
+    }
+    // Follow the cursor (mousemove, not a one-shot mouseover): wherever the mouse
+    // is, the dialog trails just below-right — flipping to the left near the screen
+    // edge so it never runs off-screen.
+    // Only the count + bar zone (data-dietip) shows the dialog — NOT the % or the
+    // value below it (that area is for the digit/dice toggle, not stats).
+    diceEl.addEventListener('mousemove', (e) => {
+      const zone = e.target.closest('[data-dietip]');
+      if (!zone) { tip.style.display = 'none'; return; }
+      tip.innerHTML = diceTipHTML(+zone.getAttribute('data-dietip'));
+      // Trail below-right of the cursor, but flip horizontally near the right edge
+      // and vertically near the bottom edge so it never runs off-screen.
+      const tx = e.clientX > window.innerWidth - 260 ? 'calc(-100% - 14px)' : '14px';
+      const ty = e.clientY > window.innerHeight - 90 ? 'calc(-100% - 14px)' : '16px';
+      tip.style.transform = `translate(${tx},${ty})`;
+      tip.style.left = e.clientX + 'px';
+      tip.style.top = e.clientY + 'px';
+      tip.style.display = 'block';
+    });
+    diceEl.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+
+    // Click the bottom value → flip digits ⇄ dice (a sticky manual override of the
+    // auto-by-width default), with a springy fade swap. Only the value spans are
+    // touched (no full re-render) so the bars/spacing never jump.
+    diceEl.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-dietoggle]');
+      if (!t) return;
+      uiState.diceMode = diceFacesActive() ? 'digits' : 'faces';
+      saveUI({ diceMode: uiState.diceMode });
+      animateDiceSwap();
+    });
 
     makeDraggable(host, host.querySelector('#cst-header'));
 
@@ -857,14 +1133,101 @@
         if (onGlyph) { setPanelCollapsed(true); return; }
         return;
       }
-      saveUI({ left: parseInt(el.style.left, 10), top: parseInt(el.style.top, 10) });
+      // Dragging updates the active preset, so your position sticks to large/small.
+      updateActivePreset({ left: parseInt(el.style.left, 10), top: parseInt(el.style.top, 10) });
     });
   }
 
+  // "Rolls since the last N" — the drought for a given sum (0 if N was just rolled,
+  // or the whole history length if N has never come up).
+  function rollsSince(n) {
+    const h = state.rollHistory;
+    for (let i = h.length - 1, k = 0; i >= 0; i--, k++) if (h[i] === n) return k;
+    return h.length;
+  }
+
+  // The "natural" two-dice pairing for each sum, used by the dice-faces view.
+  const DICE_PAIR = {
+    2: [1, 1], 3: [1, 2], 4: [2, 2], 5: [2, 3], 6: [3, 3], 7: [3, 4],
+    8: [4, 4], 9: [4, 5], 10: [5, 5], 11: [5, 6], 12: [6, 6],
+  };
+  // A single die face drawn as a small rounded-square SVG with real pips — richer
+  // and more "physical" than a flat glyph, echoing the brand dice icon and the
+  // resource cards. Uses the shared #cstDieGrad gradient (injected once) for the
+  // light face sheen, a warm stroke, and a soft drop shadow.
+  const DIE_PIPS = {
+    1: [[1, 1]],
+    2: [[0, 0], [2, 2]],
+    3: [[0, 0], [1, 1], [2, 2]],
+    4: [[0, 0], [2, 0], [0, 2], [2, 2]],
+    5: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]],
+    6: [[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]],
+  };
+  function dieFaceSVG(v, em) {
+    const pos = [6, 11, 16]; // pip centres on the 22-unit face (3×3 grid)
+    // Asian-style dice: the 1 and 4 pips are red — gives adjacent faces a strong,
+    // glanceable colour difference (and the lone 1-pip is enlarged like real dice).
+    const red = (v === 1 || v === 4);
+    const fill = red ? '#cf2f2f' : '#33301f';
+    const r = v === 1 ? 2.7 : 2.1;
+    const pips = (DIE_PIPS[v] || []).map(
+      ([gx, gy]) => `<circle cx="${pos[gx]}" cy="${pos[gy]}" r="${r}" fill="${fill}"/>`
+    ).join('');
+    return `<svg viewBox="0 0 22 22" width="${em}em" height="${em}em" aria-hidden="true" ` +
+      `style="display:block;filter:drop-shadow(0 1px 1.5px rgba(40,30,10,.3));">` +
+      `<rect x="1.5" y="1.5" width="19" height="19" rx="4.5" fill="url(#cstDieGrad)" ` +
+      `stroke="#c9b079" stroke-width="1"/>${pips}</svg>`;
+  }
+  // The bottom-row value: a small, de-emphasised digit (the COUNT above is the
+  // headline), or — when `faces` is on — the two physical dice that sum to it
+  // (sized to sit comfortably inside a narrow column).
+  function dieValueHTML(n, faces) {
+    if (!faces) {
+      return `<span style="font-size:0.82em;font-weight:600;font-variant-numeric:tabular-nums;color:${n === 7 ? THEME.bad : THEME.textDim};">${n}</span>`;
+    }
+    const [a, b] = DICE_PAIR[n];
+    return `<span style="display:inline-flex;gap:0.16em;align-items:center;justify-content:center;">${dieFaceSVG(a, 0.84)}${dieFaceSVG(b, 0.84)}</span>`;
+  }
+  // Flip the bottom value (digit ⇄ dice) in place with a springy fade — updating
+  // ONLY the value spans (not a full render) so the bars/spacing never reflow.
+  function animateDiceSwap() {
+    if (!panel) return;
+    const faces = diceFacesActive();
+    panel.querySelectorAll('#cst-dice [data-dietoggle]').forEach((sp) => {
+      const n = +sp.getAttribute('data-dietoggle');
+      sp.style.transition = 'opacity .12s ease, transform .12s ease';
+      sp.style.opacity = '0';
+      sp.style.transform = 'scale(.55)';                       // fade + shrink out
+      setTimeout(() => {
+        // A render() (a roll / resize) during the swap window replaces #cst-dice,
+        // orphaning this span — skip it; the fresh render already shows the right
+        // mode (diceMode was set before the animation started).
+        if (!sp.isConnected) return;
+        sp.innerHTML = dieValueHTML(n, faces);
+        sp.style.transition = 'opacity .18s ease, transform .28s cubic-bezier(.34,1.7,.5,1)';
+        sp.style.opacity = '1';
+        sp.style.transform = 'scale(1)';                       // springy pop in
+      }, 130);
+    });
+  }
+  // Content for the dialog over a dice column's count/bar. Deliberately omits the
+  // sum, its tally and current % — those are already on screen (count above the
+  // bar, % below it). It surfaces only what ISN'T visible: the drought (rolls
+  // since this sum last came up) and the fair-dice expected %.
+  function diceTipHTML(n) {
+    if (!state.totalRolls) return `Expected <b>${EXPECTED_PCT[n]}%</b>`;
+    return `<span style="color:#b5730a;font-weight:700;">${rollsSince(n)} rolls</span> since last <b>${n}</b>` +
+      `<br><span style="color:${THEME.textDim};">Expected ${EXPECTED_PCT[n]}%</span>`;
+  }
+
   // Dice histogram bars (the section header lives in the static skeleton).
+  // Top→bottom per column: the roll count, the bar, the %, then the sum (2–12,
+  // shown as a digit or — toggled by clicking it — the two dice faces). Hovering a
+  // column shows its tally + how many rolls since that sum last came up.
   function renderDiceBars() {
     let maxCount = 0;
     for (let n = 2; n <= 12; n++) maxCount = Math.max(maxCount, state.diceCounts[n]);
+    const faces = diceFacesActive();
     const cols = [];
     for (let n = 2; n <= 12; n++) {
       const c = state.diceCounts[n];
@@ -873,20 +1236,24 @@
       const barH = maxCount ? Math.round((c / maxCount) * 100) : 0;
       const delta = pct - expected;
       const barColor = Math.abs(delta) < 2 ? THEME.bar : (delta > 0 ? THEME.good : THEME.bad);
+      // The column is a flex stack with justify:space-evenly, so as the panel is
+      // dragged taller the extra height flows into the gaps (bar ↔ % ↔ value),
+      // i.e. the whole column "breathes" rather than parking blank space below.
       cols.push(`
-        <div style="flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:0;">
-          <span style="font-size:0.72em;font-variant-numeric:tabular-nums;color:${THEME.textDim};">${c}</span>
-          <div style="width:100%;height:3.6em;display:flex;align-items:flex-end;justify-content:center;">
-            <div title="${n}: ${c} rolls · ${pct.toFixed(1)}% (expected ${expected}%)"
-                 style="width:74%;height:${barH}%;min-height:2px;background:${barColor};
-                 border-radius:3px 3px 0 0;transition:height .2s;"></div>
+        <div data-die="${n}"
+             style="flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;gap:0.6em;min-width:0;">
+          <div data-dietip="${n}" style="display:flex;flex-direction:column;align-items:center;gap:0.6em;width:100%;flex:0 0 auto;cursor:default;">
+            <span style="font-size:0.96em;font-weight:700;font-variant-numeric:tabular-nums;color:${THEME.text};">${c}</span>
+            <div style="width:100%;height:3.9em;display:flex;align-items:flex-end;justify-content:center;">
+              <div style="width:74%;height:${barH}%;min-height:2px;background:${barColor};border-radius:3px 3px 0 0;transition:height .2s;"></div>
+            </div>
           </div>
-          <span style="font-size:0.92em;font-weight:700;font-variant-numeric:tabular-nums;
-                color:${n === 7 ? THEME.bad : THEME.text};">${n}</span>
-          <span style="font-size:0.66em;font-variant-numeric:tabular-nums;color:${barColor};">${Math.round(pct)}%</span>
+          <span style="font-size:0.7em;font-weight:600;font-variant-numeric:tabular-nums;color:${barColor};flex:0 0 auto;">${Math.round(pct)}%</span>
+          <span data-dietoggle="${n}" title="Click to switch digits / dice"
+                style="display:inline-flex;align-items:center;justify-content:center;height:1.7em;line-height:1;flex:0 0 auto;cursor:pointer;transform-origin:center;">${dieValueHTML(n, faces)}</span>
         </div>`);
     }
-    return `<div style="display:flex;align-items:flex-end;gap:3px;">${cols.join('')}</div>`;
+    return `<div style="display:flex;align-items:stretch;gap:3px;flex:1 1 auto;">${cols.join('')}</div>`;
   }
 
   // Read colonist's own player panel for the authoritative turn order AND each
@@ -921,7 +1288,7 @@
 
     const iconCell = (r) => {
       const low = bank[r] <= 2;
-      return `<span style="text-align:center;">
+      return `<span data-res="${r}" style="text-align:center;border-radius:5px;padding:2px 0;">
         <span style="position:relative;display:inline-block;line-height:0;">
           ${iconImg(r, 1.7)}
           <span title="Bank: ${bank[r]} left"
@@ -934,14 +1301,14 @@
     };
 
     const head = `
-      <div style="display:grid;grid-template-columns:${cols};gap:4px;align-items:end;padding:0.9em 3px 0.7em;">
+      <div style="display:grid;grid-template-columns:${cols};gap:4px;align-items:end;padding:0.9em 3px 0.7em 11px;flex:0 0 auto;">
         <span style="color:${THEME.textDim};font-size:0.8em;">Player</span>
         ${RESOURCES.map(iconCell).join('')}
-        <span style="text-align:center;" title="Unknown (stolen) cards">${iconImg('unknown', 1.55)}</span>
+        <span data-res="unknown" style="text-align:center;border-radius:5px;padding:2px 0;" title="Unknown (stolen) cards">${iconImg('unknown', 1.55)}</span>
       </div>`;
 
     if (state.players.size === 0) {
-      return head + `<div style="color:${THEME.textDim};padding:5px 3px;">Waiting for first move…</div>`;
+      return head + `<div style="color:${THEME.textDim};padding:5px 3px;flex:0 0 auto;">Waiting for first move…</div>`;
     }
 
     // Order + avatars from colonist's panel; fall back to first-seen order.
@@ -962,14 +1329,16 @@
             border-radius:50%;overflow:hidden;background:${escapeAttr(p.color)};align-items:center;justify-content:center;">
             <img src="${escapeAttr(av)}" alt="" style="width:100%;height:100%;object-fit:contain;"></span>`
         : '';
+      const active = p.name === state.currentTurn;
+      const actCls = active ? 'cst-active-cell' : '';
       rows.push(`
-        <div style="display:grid;grid-template-columns:${cols};gap:4px;align-items:center;
-             padding:5px 3px;border-top:1px solid ${THEME.rowLine};">
-          <span style="display:flex;align-items:center;gap:4px;min-width:0;color:${escapeAttr(p.color)};font-weight:700;" title="${escapeHtml(p.name)}">${avatar}<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span><span title="Total cards in hand" style="flex:0 0 auto;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;color:${THEME.text};background:#fbf9f4;border:1px solid ${THEME.border};border-radius:0.6em;padding:0 0.4em;">${playerTotal(p)}</span></span>
+        <div style="display:grid;grid-template-columns:${cols};gap:4px;align-items:center;flex:1 1 auto;
+             padding:5px 3px 5px 11px;border-top:1px solid ${THEME.rowLine};${active ? `background:rgba(47,111,159,.12);box-shadow:inset 3px 0 0 ${THEME.accent};` : ''}">
+          <span style="display:flex;align-items:center;gap:4px;min-width:0;color:${escapeAttr(p.color)};font-weight:700;" title="${escapeHtml(p.name)}${active ? ' — current turn' : ''}">${avatar}<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span><span title="Total cards in hand" style="flex:0 0 auto;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;color:${THEME.text};background:#fbf9f4;border:1px solid ${THEME.border};border-radius:0.6em;padding:0 0.4em;">${playerTotal(p)}</span></span>
           ${RESOURCES.map((r) =>
-            `<span style="text-align:center;font-variant-numeric:tabular-nums;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}">${p.resources[r]}</span>`
+            `<span data-res="${r}" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}">${p.resources[r]}</span>`
           ).join('')}
-          <span style="text-align:center;font-variant-numeric:tabular-nums;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? 'font-weight:700;' : 'opacity:.4;'}">${p.unknown}</span>
+          <span data-res="unknown" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? '' : 'opacity:.4;'}">${p.unknown}</span>
         </div>`);
     }
     return head + rows.join('');
@@ -1025,9 +1394,23 @@
       if (observedContainer) scanExisting(observedContainer);
       if (syncFromPanel()) renderSoon();
     }, 1000);
+
+    // Let the toolbar popup drive a hard reset of the current game.
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+      chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+        if (!msg) return;
+        if (msg.cmd === 'cst-ping') { reply({ ok: true }); return; }
+        if (msg.cmd === 'cst-new-game') { newGameReset(); reply({ ok: true }); return; }
+      });
+    }
   }
 
-  // Reset all tracked stats. Shared by the panel's reset button and tests.
+  // New-game detection state: the live-roster signature of the game we're tracking,
+  // and the previous tick's live roster (so a roster change must settle before we act).
+  let gameSig = '';
+  let lastLiveSig = '';
+
+  // Reset all tracked stats. Shared by new-game detection, the panel, and tests.
   function resetState() {
     for (const k of Object.keys(state.diceCounts)) state.diceCounts[k] = 0;
     state.totalRolls = 0;
@@ -1035,11 +1418,14 @@
     state.seenIndices = new Set();
     state.selfName = null;
     state.paused = false;
+    state.rollHistory = [];
+    state.currentTurn = null;
+    gameSig = '';
+    lastLiveSig = '';
   }
 
   // ---- persistence of the live game (survives page reloads / reconnects) ----
   const STATE_KEY = 'colonist-stats-tracker:game';
-  let restoredSig = '';     // roster of the restored game, for new-game detection
   let justRestored = false; // skip the first attach's seenIndices reset after a restore
   let persistTimer = null;
 
@@ -1049,6 +1435,8 @@
         sig: [...state.players.keys()].sort().join('|'),
         diceCounts: state.diceCounts,
         totalRolls: state.totalRolls,
+        rollHistory: state.rollHistory,
+        currentTurn: state.currentTurn,
         selfName: state.selfName,
         seenIndices: [...state.seenIndices],
         players: [...state.players.values()].map((p) => ({
@@ -1069,6 +1457,8 @@
     if (!d || !Array.isArray(d.players)) return;
     state.totalRolls = d.totalRolls || 0;
     for (let n = 2; n <= 12; n++) state.diceCounts[n] = (d.diceCounts && d.diceCounts[n]) || 0;
+    state.rollHistory = Array.isArray(d.rollHistory) ? d.rollHistory : [];
+    state.currentTurn = d.currentTurn || null;
     state.selfName = d.selfName || null;
     state.seenIndices = new Set(d.seenIndices || []);
     state.players = new Map();
@@ -1084,20 +1474,52 @@
         },
       });
     }
-    restoredSig = d.sig || '';
     justRestored = state.players.size > 0;
   }
 
-  // If the page now shows a DIFFERENT game than the one we restored (no players
-  // in common with colonist's live panel), start fresh.
+  function rosterSig(list) {
+    return list.map((p) => p.name).sort().join('|');
+  }
+
+  // Drop stale data when the page is a DIFFERENT game. The local player is in
+  // every game, so "no players in common" never fires — instead we reset when a
+  // tracked player is no longer on colonist's live panel, or when the live roster
+  // settles on a new set (a new game started in the same tab).
   function maybeNewGame() {
-    if (!restoredSig) return;
     const live = readPlayerPanel();
     if (!live || !live.length) return;        // panel not ready yet — re-check later
-    const liveNames = new Set(live.map((p) => p.name));
-    const common = [...state.players.keys()].filter((n) => liveNames.has(n));
-    if (state.players.size && common.length === 0) resetState();
-    restoredSig = '';
+    const liveSig = rosterSig(live);
+
+    if (!gameSig) {
+      // First live roster this session. If we restored players who aren't in THIS
+      // game's panel, that data belongs to a previous game — drop it.
+      const liveNames = new Set(live.map((p) => p.name));
+      if (state.players.size && [...state.players.keys()].some((n) => !liveNames.has(n))) {
+        resetState();
+      }
+      gameSig = liveSig;
+      lastLiveSig = liveSig;
+      return;
+    }
+
+    // A different roster, stable for one tick, means a new game.
+    if (liveSig !== gameSig && liveSig === lastLiveSig) {
+      resetState();
+      gameSig = liveSig;
+    }
+    lastLiveSig = liveSig;
+  }
+
+  // Manual "this is a new game": clear tracking and re-read the current game.
+  function newGameReset() {
+    resetState();
+    const live = readPlayerPanel();
+    gameSig = live ? rosterSig(live) : '';
+    lastLiveSig = gameSig;
+    if (observedContainer) scanExisting(observedContainer);
+    syncFromPanel();
+    persistState();
+    if (panel) render();
   }
 
   // ---- reconcile our counts against colonist's authoritative panel totals ----
@@ -1166,6 +1588,8 @@
       hasUnknownCards,
       reconcileTotal,
       syncFromPanel,
+      maybeNewGame,
+      newGameReset,
       persistState,
       restoreState,
       // UI entry points (exposed so the jsdom smoke test can render the panel).

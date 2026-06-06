@@ -11,13 +11,13 @@ A lightweight collection of Chrome extensions built on Manifest V3.
 
 ## Quick Download
 
-| # | Extension | Download |
-|---|---------|------|
-| 1 | [Claude Status Monitor](#ext-claude-status-monitor) | [![Download claude-status-monitor](https://img.shields.io/badge/Download-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
-| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | [![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
-| 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | [![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
-| 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | [![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
-| 5 | [YouTube Upload Time](#ext-youtube-video-upload-time) | [![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
+| # | Extension | Version | Download |
+|---|---------|------|------|
+| 1 | [Claude Status Monitor](#ext-claude-status-monitor) | `1.0.1` | [![Download claude-status-monitor](https://img.shields.io/badge/Download-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
+| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.9.0` | [![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
+| 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | `1.0` | [![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
+| 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | `1.0` | [![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
+| 5 | [YouTube Upload Time](#ext-youtube-video-upload-time) | `9.1` | [![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
 
 ---
 
@@ -28,6 +28,8 @@ A lightweight collection of Chrome extensions built on Manifest V3.
 ### 1. Claude Status Monitor
 
 **Folder:** `claude-status-monitor/`
+
+**Version:** `1.0.1`
 
 Real-time Claude service status widget on Claude.ai (including Claude Code web), powered by [status.claude.com](https://status.claude.com).
 
@@ -68,6 +70,8 @@ Real-time Claude service status widget on Claude.ai (including Claude Code web),
 
 **Folder:** `colonist-stats-tracker/`
 
+**Version:** `1.9.0`
+
 A floating in-game overlay for [colonist.io](https://colonist.io/) that tracks dice-roll distribution and per-player resource holdings in real time.
 
 **Features**
@@ -88,7 +92,7 @@ A floating in-game overlay for [colonist.io](https://colonist.io/) that tracks d
 
 ---
 
-**Disclaimer**: This is an unofficial, fan-made tool. It is **not affiliated with, endorsed by, or sponsored by** Colonist or colonist.io. "Colonist" and all game names and assets are the property of their respective owners. This extension collects and transmits no data ([privacy policy](https://github.com/stantheman0128/stan-chrome-extensions/blob/master/PRIVACY.md)).
+**Disclaimer**: This is an unofficial, fan-made tool. It is **not affiliated with, endorsed by, or sponsored by** Colonist or colonist.io. "Colonist" and all game names and assets are the property of their respective owners. This extension collects and transmits no data ([privacy policy](https://github.com/stantheman0128/stan-chrome-extensions/blob/master/colonist-stats-tracker/PRIVACY.md)).
 
 **Download**
 
@@ -107,6 +111,8 @@ A floating in-game overlay for [colonist.io](https://colonist.io/) that tracks d
 ### 3. Dcard 文章排版優化
 
 **Folder:** `dcard-article-formatter/`
+
+**Version:** `1.0`
 
 One-click formatting optimization for Dcard articles, dramatically improving readability.
 
@@ -137,6 +143,8 @@ One-click formatting optimization for Dcard articles, dramatically improving rea
 
 **Folder:** `glasp-remnants-remover/`
 
+**Version:** `1.0`
+
 Automatically removes leftover UI elements that the Glasp extension injects into every web page. If you've uninstalled Glasp but still see its sidebar or highlights on websites, this extension silently cleans them up.
 
 **Features**
@@ -161,6 +169,8 @@ Automatically removes leftover UI elements that the Glasp extension injects into
 ### 5. YouTube Upload Time
 
 **Folder:** `youtube-video-upload-time/`
+
+**Version:** `9.1`
 
 Replaces YouTube's vague relative timestamps (e.g., *"2 years ago"*) with precise local upload dates and times, accurate to the second.
 
@@ -211,10 +221,13 @@ stan-chrome-extensions/
 ├── colonist-stats-tracker/
 │   ├── DESCRIPTION.en.md
 │   ├── DESCRIPTION.md
+│   ├── PRIVACY.md
+│   ├── STORE_LISTING.md
 │   ├── content.js
 │   ├── manifest.json
 │   ├── popup.html
-│   └── popup.js
+│   ├── popup.js
+│   └── preview.html
 ├── dcard-article-formatter/
 │   ├── DESCRIPTION.en.md
 │   ├── DESCRIPTION.md

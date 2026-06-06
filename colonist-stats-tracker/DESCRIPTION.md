@@ -17,4 +17,4 @@
 
 ---
 
-**免責聲明**：本工具為非官方的同好作品，與 Colonist／colonist.io **無隸屬關係**，亦未經其背書或贊助。「Colonist」及所有遊戲名稱與美術素材，版權均屬其各自所有者。本擴充功能不蒐集、不上傳任何資料（[隱私政策](https://github.com/stantheman0128/stan-chrome-extensions/blob/master/PRIVACY.md)）。
+**免責聲明**：本工具為非官方的同好作品，與 Colonist／colonist.io **無隸屬關係**，亦未經其背書或贊助。「Colonist」及所有遊戲名稱與美術素材，版權均屬其各自所有者。本擴充功能不蒐集、不上傳任何資料（[隱私政策](https://github.com/stantheman0128/stan-chrome-extensions/blob/master/colonist-stats-tracker/PRIVACY.md)）。

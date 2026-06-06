@@ -42,6 +42,7 @@ LABELS = {
         "table_download": "Download",
         "ext_list": "Extensions",
         "folder": "Folder:",
+        "version": "Version",
         "download_btn": "Download",
         "badge_label": "Download",
         "install": "Installation",
@@ -71,6 +72,7 @@ LABELS = {
         "table_download": "\u4E0B\u8F09",
         "ext_list": "\u64F4\u5145\u529F\u80FD\u5217\u8868",
         "folder": "\u8CC7\u6599\u593E\uFF1A",
+        "version": "\u7248\u672C",
         "download_btn": "\u4E00\u9375\u4E0B\u8F09",
         "badge_label": "\u4E0B\u8F09",
         "install": "\u5B89\u88DD\u65B9\u5F0F",
@@ -178,8 +180,8 @@ def generate_readme(extensions, lang="en"):
         "",
         f"## {L['quick_download']}",
         "",
-        f"| # | {L['table_ext']} | {L['table_download']} |",
-        "|---|---------|------|",
+        f"| # | {L['table_ext']} | {L['version']} | {L['table_download']} |",
+        "|---|---------|------|------|",
     ]
 
     for i, ext in enumerate(extensions):
@@ -188,7 +190,8 @@ def generate_readme(extensions, lang="en"):
         color = BADGE_COLORS[i % len(BADGE_COLORS)]
         badge = make_badge(dir_name, color, badge_text)
         anchor = f"ext-{dir_name}"
-        lines.append(f"| {i + 1} | [{ext_name}](#{anchor}) | {badge} |")
+        ver = ext["manifest"].get("version", "")
+        lines.append(f"| {i + 1} | [{ext_name}](#{anchor}) | `{ver}` | {badge} |")
 
     lines += ["", "---", "", f"## {L['ext_list']}", ""]
 
@@ -204,6 +207,10 @@ def generate_readme(extensions, lang="en"):
         lines.append("")
         lines.append(f"**{L['folder']}** `{dir_name}/`")
         lines.append("")
+        ver = ext["manifest"].get("version")
+        if ver:
+            lines.append(f"**{L['version']}:** `{ver}`")
+            lines.append("")
 
         detail = get_description(dir_name, lang)
         if not detail:
