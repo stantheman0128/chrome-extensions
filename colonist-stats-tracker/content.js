@@ -1682,14 +1682,6 @@
       if (syncFromPanel()) renderSoon();
     }, 1000);
 
-    // Let the toolbar popup drive a hard reset of the current game.
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
-      chrome.runtime.onMessage.addListener((msg, sender, reply) => {
-        if (!msg) return;
-        if (msg.cmd === 'cst-ping') { reply({ ok: true }); return; }
-        if (msg.cmd === 'cst-new-game') { newGameReset(); reply({ ok: true }); return; }
-      });
-    }
   }
 
   // New-game detection state: the live-roster signature of the game we're tracking,
@@ -1939,24 +1931,32 @@
   // =============================================================
   // Ghost mode — get out of the way of colonist's own dialogs
   //
-  // When a full-screen colonist dialog (Settings, etc.) opens, the panel fades
-  // to a faint ghost and stops catching the mouse, so the dialog is readable
-  // and clickable without dragging the panel away. Heuristic: any visible
-  // fixed/absolute element covering ≥half the viewport that isn't ours.
-  // Restored the moment the dialog closes.
+  // When a colonist dialog/menu (Settings, etc.) opens, the panel fades to a
+  // faint ghost and stops catching the mouse, so the dialog is readable and
+  // clickable without dragging the panel away. Triggers on EITHER a large
+  // overlay (≥35% of the viewport) OR any dialog-ish element that actually
+  // overlaps the panel — so a corner Settings menu sliding under the panel
+  // ghosts it too, not just full-screen modals. Restored the moment it closes.
   // =============================================================
   let ghosted = false;
 
   function bigOverlayOpen() {
     if (typeof getComputedStyle !== 'function' || typeof window === 'undefined') return false;
     const cands = document.querySelectorAll(
-      '[class*="modal"], [class*="dialog"], [class*="overlay"], [class*="settings"], [role="dialog"]');
+      '[class*="modal"], [class*="dialog"], [class*="overlay"], [class*="settings"], ' +
+      '[class*="menu"], [class*="popover"], [class*="drawer"], [role="dialog"], [role="menu"]');
     const vw = window.innerWidth, vh = window.innerHeight;
-    if (!vw || !vh) return false;
+    if (!vw || !vh || !panel) return false;
+    const pr = panel.getBoundingClientRect();
     for (const el of cands) {
-      if (!panel || el === panel || panel.contains(el) || el.contains(panel)) continue;
+      if (el === panel || panel.contains(el) || el.contains(panel)) continue;
       const r = el.getBoundingClientRect();
-      if (r.width * r.height < vw * vh * 0.5) continue;   // settings is full-screen-ish
+      const area = r.width * r.height;
+      if (area < 24000) continue;                       // ignore chips / tooltips
+      const big = area >= vw * vh * 0.35;
+      const overlapsPanel = !(r.right < pr.left || r.left > pr.right ||
+                              r.bottom < pr.top || r.top > pr.bottom);
+      if (!big && !overlapsPanel) continue;
       const cs = getComputedStyle(el);
       if (cs.position !== 'fixed' && cs.position !== 'absolute') continue;
       if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity || '1') < 0.1) continue;
