@@ -85,6 +85,9 @@ biggest nemesis (who steals from you the most). Viewer: popup or a dedicated
 page. To brainstorm when enough games have accumulated.
 
 ### Deferred refinements from shipped features
+- Ghost mode (v1.15.0) uses a size+class heuristic to spot colonist dialogs; if
+  a dialog ever fails to trigger it (or something triggers it falsely), capture
+  that element's DOM so the selector can be pinned exactly.
 - Expand-on-first-roll for spectators (lifecycle currently expands on game
   detection).
 - Automatic gap-detection trigger for the deep re-sync (currently manual via 🔄).

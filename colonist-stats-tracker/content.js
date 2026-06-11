@@ -1677,6 +1677,7 @@
       evalLifecycle();
       maybeNewGame();
       updateTimer();
+      updateGhost();
       if (observedContainer) scanExisting(observedContainer);
       if (syncFromPanel()) renderSoon();
     }, 1000);
@@ -1935,6 +1936,46 @@
     renderSoon();
   }
 
+  // =============================================================
+  // Ghost mode — get out of the way of colonist's own dialogs
+  //
+  // When a full-screen colonist dialog (Settings, etc.) opens, the panel fades
+  // to a faint ghost and stops catching the mouse, so the dialog is readable
+  // and clickable without dragging the panel away. Heuristic: any visible
+  // fixed/absolute element covering ≥half the viewport that isn't ours.
+  // Restored the moment the dialog closes.
+  // =============================================================
+  let ghosted = false;
+
+  function bigOverlayOpen() {
+    if (typeof getComputedStyle !== 'function' || typeof window === 'undefined') return false;
+    const cands = document.querySelectorAll(
+      '[class*="modal"], [class*="dialog"], [class*="overlay"], [class*="settings"], [role="dialog"]');
+    const vw = window.innerWidth, vh = window.innerHeight;
+    if (!vw || !vh) return false;
+    for (const el of cands) {
+      if (!panel || el === panel || panel.contains(el) || el.contains(panel)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width * r.height < vw * vh * 0.5) continue;   // settings is full-screen-ish
+      const cs = getComputedStyle(el);
+      if (cs.position !== 'fixed' && cs.position !== 'absolute') continue;
+      if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity || '1') < 0.1) continue;
+      return true;
+    }
+    return false;
+  }
+
+  function updateGhost() {
+    if (!panel) return;
+    const g = bigOverlayOpen();
+    if (g === ghosted) return;
+    ghosted = g;
+    panel.style.transition = 'opacity .2s ease';
+    panel.style.opacity = g ? '0.12' : '';
+    panel.style.pointerEvents = g ? 'none' : '';
+    setTimeout(() => { if (panel && ghosted === g) panel.style.transition = ''; }, 220);
+  }
+
   // ---- game clock ----
   function timerText() {
     if (!state.gameStartTs) return '';
@@ -2123,12 +2164,20 @@
 
     // Re-attach on SPA navigation. seenIndices is reset per-container inside
     // attachObserver(), so on a path change we only need to re-discover the log.
+    // The same observer also drives ghost mode (throttled): a Settings dialog
+    // mounting should fade the panel within ~250 ms, not after the next tick.
     let lastPath = location.pathname;
+    let lastGhostCheck = 0;
     new MutationObserver(() => {
       if (location.pathname !== lastPath) {
         lastPath = location.pathname;
         attachObserver();
         evalLifecycle();   // URL changed — re-evaluate the lobby/game posture now
+      }
+      const now = Date.now();
+      if (now - lastGhostCheck > 250) {
+        lastGhostCheck = now;
+        updateGhost();
       }
     }).observe(document.documentElement, { childList: true, subtree: true });
   }
