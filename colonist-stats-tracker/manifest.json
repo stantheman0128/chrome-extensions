@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Colonist.io Stats Tracker",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "description": "在 colonist.io 對局中即時追蹤擲骰分佈與各玩家資源持有狀況。Live dice distribution and per-player resource tracker for colonist.io.",
   "homepage_url": "https://github.com/stantheman0128/stan-chrome-extensions",
   "icons": {
@@ -20,6 +20,7 @@
       "128": "icons/icon128.png"
     }
   },
+  "permissions": ["storage"],
   "content_scripts": [
     {
       "matches": ["*://colonist.io/*", "*://*.colonist.io/*"],

@@ -319,7 +319,7 @@
     // Handled before any player bookkeeping: the winner line must not create a
     // player entry or disturb counts, it only drives the lifecycle.
     if (text.includes('won the game') || text.includes('贏得')) {
-      onGameWon();
+      onGameWon(firstPlayerRef(msgEl).name);   // "Bradly won the game!" — the name is the coloured span
       return;
     }
 
@@ -1879,15 +1879,51 @@
     }
   }
 
-  // The winner line ("X won the game!") was seen: freeze the clock and get out
-  // of the way so the end-of-game screen is fully clickable.
-  function onGameWon() {
+  // The winner line ("X won the game!") was seen: freeze the clock, archive the
+  // finished game, and get out of the way so the end screen is fully clickable.
+  function onGameWon(winnerName) {
     if (lifecycle === LIFE.ENDED) return;   // idempotent (re-scrape re-reads it)
     lifecycle = LIFE.ENDED;
     state.gameEndTs = Date.now();
+    saveGameRecord(buildGameRecord(winnerName || null));
     autoSetCollapsed(true);
     schedulePersist();
     renderSoon();
+  }
+
+  // ---- per-game history (chrome.storage.local; viewed from the popup) ----
+  const HISTORY_KEY = 'cst-history';
+  const HISTORY_MAX = 50;
+
+  // A self-contained snapshot of the finished game — everything the popup's
+  // history list needs, with no references back into live state.
+  function buildGameRecord(winnerName) {
+    return {
+      date: state.gameStartTs || Date.now(),
+      duration: (state.gameEndTs && state.gameStartTs)
+        ? state.gameEndTs - state.gameStartTs : null,
+      winner: winnerName || null,
+      selfName: state.selfName,
+      totalRolls: state.totalRolls,
+      diceCounts: { ...state.diceCounts },
+      players: [...state.players.values()].map((p) => ({
+        name: p.name, color: p.color, hand: { ...p.resources }, unknown: p.unknown,
+      })),
+      tally: JSON.parse(JSON.stringify(state.tally)),
+      blocked: JSON.parse(JSON.stringify(state.blocked)),
+    };
+  }
+
+  function saveGameRecord(record) {
+    try {
+      if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
+      chrome.storage.local.get([HISTORY_KEY], (data) => {
+        const list = Array.isArray(data && data[HISTORY_KEY]) ? data[HISTORY_KEY] : [];
+        list.push(record);
+        while (list.length > HISTORY_MAX) list.shift();
+        chrome.storage.local.set({ [HISTORY_KEY]: list });
+      });
+    } catch (e) { /* storage unavailable — history is best-effort */ }
   }
 
   // A new game is starting (next-game flow / roster change): wipe the previous
@@ -2065,6 +2101,7 @@
       startNextGame,
       getLifecycle: () => lifecycle,
       timerText,
+      buildGameRecord,
       // UI entry points (exposed so the jsdom smoke test can render the panel).
       createPanel,
       render,

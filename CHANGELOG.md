@@ -5,6 +5,16 @@ All notable changes in this repository are documented in this file.
 ## [Unreleased]
 
 ### Added
+- colonist-stats-tracker (1.14.0): **per-game history.** When someone wins, the finished game is archived to `chrome.storage.local` (last 50 games; new `storage` permission, no new host permissions): date, duration, winner, total rolls, dice distribution, each player's final hand, and the live-stats tally. The toolbar popup gains a **對局紀錄** list (newest first; click a game to fold out the per-player summary) and a **匯出 JSON** link.
+- colonist-stats-tracker (1.13.0): **live in-game stats.** A new collapsible **Stats** section surfaces, mid-game, what colonist only shows on the end screen: per player — cards stolen from others ⚔️ / lost to thieves 💔 (hover for the per-opponent breakdown), discards on 7s 🗑️, cards gained 📥, dev cards bought 🎴. A footer line totals **robber-blocked yields** parsed from the "[6] brick tile is blocked by the Robber. No resources produced" log line (count + per-tile breakdown, also shown next to the section header).
+- colonist-stats-tracker (1.12.0): **recent-roll sequence.** The last 12 rolls as a left→right strip above the histogram (newest ringed, 7s in red) — the *run* of rolls, not just the frequency.
+- colonist-stats-tracker (1.11.0): **floating ±N effect.** A game-style `+N`/`−N` drifts up and fades over any resource cell whose count changes. Lives in the stable overlay layer so re-renders can't kill it mid-flight; suppressed after reset/restore/deep-rescrape (no "+8 shower" when counts are rebuilt).
+
+### Fixed
+- colonist-stats-tracker (1.13.0): **"Itin stole Brick from you" no longer zeroes other players' piles.** The victim-side steal message (one coloured name + one revealed card) used to fall into the Monopoly branch, crediting the thief but wiping that resource for every OTHER player. It now credits the thief, debits the local player, and feeds the steal matrix.
+- colonist-stats-tracker (1.11.0): **expand-from-collapsed no longer looks two-stage.** The expand animation measured `scrollHeight` while the width was still animating from 36 px, so it first opened to an in-between height and then visibly snapped. The true target height is now pre-measured with transitions off (within one JS turn, so nothing intermediate paints). The **large ⇄ small toggle** also animates now (a one-shot transition, cleared afterwards so live drag-resize stays instant).
+
+### Added
 - colonist-stats-tracker (1.10.0): **game-lifecycle automation.** A three-state lifecycle (lobby / playing / ended) now drives the panel automatically:
   - **Auto-collapse / auto-expand by page context.** The panel collapses to the dice icon on the home page / lobby and expands when a live game is detected (URL changes trigger an immediate re-check; the game DOM is the authoritative signal). All automatic actions fire **only on state transitions**, so a manual expand in the lobby or a manual collapse mid-game sticks until the next transition — no "pin" setting needed.
   - **Game clock.** A `⏱ m:ss` timer (h:mm:ss past an hour) in the panel header counts from when the game was detected (initial placement included). It persists across page reloads and freezes at the final time when someone wins.
