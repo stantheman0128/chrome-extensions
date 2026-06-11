@@ -84,6 +84,11 @@
     seenIndices: new Set(), // log message data-index values already processed
     selfName: null, // local human player; messages with avatar=icon_player.svg
     paused: false,
+    // Live per-player event tally (steals / discards / income / dev cards) and
+    // the global robber-blocked-yield counter — colonist only shows these on
+    // the end-of-game summary; we surface them live in the Stats section.
+    tally: {},   // name -> { stole, lost, stoleFrom:{}, lostTo:{}, discards, discardCards, gained, devCards }
+    blocked: { count: 0, byKey: {} }, // byKey: "6 brick" -> times blocked
     gameStartTs: null, // ms epoch — when the current game's clock started
     gameEndTs: null,   // set when the winner line is seen; freezes the clock
   };
@@ -110,6 +115,34 @@
 
   function playerTotal(p) {
     return RESOURCES.reduce((s, r) => s + p.resources[r], 0) + p.unknown;
+  }
+
+  // ---- live event tally (Stats section) ----
+  function tallyOf(name) {
+    if (!state.tally[name]) {
+      state.tally[name] = {
+        stole: 0, lost: 0,       // cards taken from others / lost to thieves
+        stoleFrom: {}, lostTo: {}, // per-opponent breakdown (name -> cards)
+        discards: 0, discardCards: 0,
+        gained: 0,               // cards gained from rolls / placements / YoP
+        devCards: 0,
+      };
+    }
+    return state.tally[name];
+  }
+
+  function recordSteal(thiefName, victimName, n) {
+    if (!n) return;
+    if (thiefName) {
+      const t = tallyOf(thiefName);
+      t.stole += n;
+      if (victimName) t.stoleFrom[victimName] = (t.stoleFrom[victimName] || 0) + n;
+    }
+    if (victimName) {
+      const v = tallyOf(victimName);
+      v.lost += n;
+      if (thiefName) v.lostTo[thiefName] = (v.lostTo[thiefName] || 0) + n;
+    }
   }
 
   // Cards still sitting in the bank for each resource: 19 minus what every
@@ -290,6 +323,31 @@
       return;
     }
 
+    // --- Robber-blocked yield ---
+    // Live format: "[prob_6] brick tile is blocked by the Robber. No resources
+    // produced" — the tile's number is the prob_N token IMAGE, the resource is a
+    // plain word. No player is named, so this is a global counter only.
+    if (text.includes('blocked by the robber') || text.includes('no resources produced')) {
+      let num = null;
+      getMessagePart(msgEl).querySelectorAll('img').forEach((img) => {
+        const blob = (img.getAttribute('src') || '') + ' ' + (img.getAttribute('alt') || '') +
+          ' ' + (img.className || '');
+        const m = blob.match(/prob[_-]?(\d+)/i);
+        if (m) num = parseInt(m[1], 10);
+      });
+      if (num == null) {
+        const m = text.match(/prob[_ -]?(\d+)/);   // fallback: token rendered as text
+        if (m) num = parseInt(m[1], 10);
+      }
+      let res = null;
+      for (const r of RESOURCES) if (text.includes(r)) { res = r; break; }
+      state.blocked.count += 1;
+      const key = `${num != null ? num + ' ' : ''}${res || 'tile'}`;
+      state.blocked.byKey[key] = (state.blocked.byKey[key] || 0) + 1;
+      renderSoon();
+      return;
+    }
+
     const primary = firstPlayerRef(msgEl);
     const player = getPlayer(primary.name, primary.color);
 
@@ -321,6 +379,7 @@
             takeResource(victim, r, counts[r]);
           }
         }
+        recordSteal(thief.name, victim.name, total);
         renderSoon();
       }
       // Always claim the message — falling through would let the generic
@@ -370,6 +429,7 @@
       const { counts, total } = countResources(msgEl);
       if (total > 0 && player) {
         for (const r of RESOURCES) giveResource(player, r, counts[r]);
+        tallyOf(player.name).gained += total;
         renderSoon();
         return;
       }
@@ -390,7 +450,10 @@
     // image alt, not in textContent), so don't gate on substring matches —
     // dev cards are the only "buy" action in Catan.
     if (text.includes('bought') || text.includes('購買')) {
-      if (player) spend(player, BUILD_COST.devcard);
+      if (player) {
+        spend(player, BUILD_COST.devcard);
+        tallyOf(player.name).devCards += 1;
+      }
       renderSoon();
       return;
     }
@@ -400,6 +463,9 @@
       const { counts, total } = countResources(msgEl);
       if (total > 0 && player) {
         for (const r of RESOURCES) takeResource(player, r, counts[r]);
+        const t = tallyOf(player.name);
+        t.discards += 1;
+        t.discardCards += total;
         renderSoon();
         return;
       }
@@ -410,11 +476,30 @@
       const refs = allPlayerRefs(msgEl);
       const { counts, total } = countResources(msgEl);
 
+      // "Itin stole [brick] from you" — the LOCAL player is the victim, and the
+      // stolen card is revealed to the victim, so a real card img is present.
+      // Without this branch the message falls into the Monopoly handler below
+      // (one ref + one icon) and wrongly zeroes every OTHER player's pile.
+      if (text.includes('from you') && refs.length === 1 && total > 0) {
+        const thief = getPlayer(refs[0].name, refs[0].color);
+        const victim = state.selfName ? getPlayer(state.selfName) : null;
+        for (const r of RESOURCES) {
+          if (counts[r] > 0) {
+            giveResource(thief, r, counts[r]);
+            if (victim) takeResource(victim, r, counts[r]);
+          }
+        }
+        recordSteal(thief && thief.name, victim && victim.name, total);
+        renderSoon();
+        return;
+      }
+
       // Knight/robber steal: "X stole from Y" (two players, no visible card type)
       if (refs.length >= 2) {
         const thief  = getPlayer(refs[0].name, refs[0].color);
         const victim = getPlayer(refs[1].name, refs[1].color);
         transferUnknown(victim, thief);
+        recordSteal(thief.name, victim.name, 1);
         renderSoon();
         return;
       }
@@ -431,7 +516,11 @@
           giveResource(player, r, stolenCount || counts[r]);
           for (const other of state.players.values()) {
             if (other === player) continue;
-            if (other.resources[r] > 0) other.resources[r] = 0;
+            const lostN = other.resources[r];
+            if (lostN > 0) {
+              other.resources[r] = 0;
+              recordSteal(player.name, other.name, lostN);
+            }
           }
         }
         renderSoon();
@@ -651,7 +740,7 @@
   // Per-panel / per-section fold state (persisted).
   // diceMode: 'auto' shows physical dice only when the panel is wide enough for a
   // pair to breathe (else digits); 'faces'/'digits' are sticky manual overrides.
-  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, mode: 'large', fontScale: 1, diceMode: 'auto' };
+  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, statsCollapsed: false, mode: 'large', fontScale: 1, diceMode: 'auto' };
   // At/above this panel width, auto-mode renders the bottom value as dice (vs a digit).
   const DICE_AUTO_W = 372;
   function diceFacesActive() {
@@ -699,6 +788,7 @@
   function applySectionInit() {
     setSectionOpen(panel.querySelector('#cst-dice-wrap'), !uiState.diceCollapsed, false);
     setSectionOpen(panel.querySelector('#cst-res-wrap'), !uiState.resCollapsed, false);
+    setSectionOpen(panel.querySelector('#cst-stats-wrap'), !uiState.statsCollapsed, false);
   }
 
   // Collapse the whole panel down to a single spinning dice icon (no circle —
@@ -843,9 +933,10 @@
   function resetPresets() {
     uiState.diceCollapsed = false;
     uiState.resCollapsed = false;
+    uiState.statsCollapsed = false;
     uiState.fontScale = 1;
     uiState.diceMode = 'auto';
-    saveUI({ presets: DEFAULT_PRESETS, diceCollapsed: false, resCollapsed: false, fontScale: 1, diceMode: 'auto' });
+    saveUI({ presets: DEFAULT_PRESETS, diceCollapsed: false, resCollapsed: false, statsCollapsed: false, fontScale: 1, diceMode: 'auto' });
     panel.querySelector('#cst-body').style.display = 'flex';
     panel.querySelectorAll('.cst-chev').forEach((c) => { c.textContent = '▾'; });
     applySectionInit();
@@ -866,6 +957,7 @@
     uiState.panelCollapsed = !!ui.panelCollapsed;
     uiState.diceCollapsed = !!ui.diceCollapsed;
     uiState.resCollapsed = !!ui.resCollapsed;
+    uiState.statsCollapsed = !!ui.statsCollapsed;
     uiState.fontScale = ui.fontScale || 1;
     uiState.diceMode = ui.diceMode || 'auto';
     uiState.mode = 'large';                       // auto-enlarge to the large preset on appear
@@ -929,6 +1021,11 @@
           <strong style="color:${THEME.accent};"><span class="cst-chev">${uiState.resCollapsed ? '▸' : '▾'}</span> Resources</strong>
         </div>
         <div id="cst-res-wrap" style="flex:1 0 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;transition:max-height .28s ease;"><div id="cst-resources" style="flex:1 1 auto;display:flex;flex-direction:column;"></div></div>
+        <div id="cst-stats-head" data-fold="statsCollapsed" style="${secHead}flex:0 0 auto;margin-top:14px;">
+          <strong style="color:${THEME.accent};"><span class="cst-chev">${uiState.statsCollapsed ? '▸' : '▾'}</span> Stats</strong>
+          <span id="cst-blocked" style="color:${THEME.textDim};font-size:0.82em;"></span>
+        </div>
+        <div id="cst-stats-wrap" style="flex:1 0 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;transition:max-height .28s ease;"><div id="cst-stats" style="flex:1 1 auto;display:flex;flex-direction:column;"></div></div>
       </div>`;
     document.body.appendChild(host);
     panel = host;
@@ -1343,6 +1440,20 @@
     return out.length ? out : null;
   }
 
+  // Order + avatars from colonist's panel; fall back to first-seen order.
+  // Shared by the Resources and Stats tables so their rows always line up.
+  function panelOrderedPlayers() {
+    const profiles = readPlayerPanel();
+    const prof = profiles ? new Map(profiles.map((p, i) => [p.name, { avatar: p.avatar, order: i }])) : null;
+    const players = [...state.players.values()];
+    if (prof) {
+      players.sort((a, b) =>
+        (prof.has(a.name) ? prof.get(a.name).order : 1e9) -
+        (prof.has(b.name) ? prof.get(b.name).order : 1e9));
+    }
+    return { players, prof };
+  }
+
   // Resources table. Each resource icon's header carries a top-right badge with
   // the bank-remaining count (like colonist's supply row); the last column is
   // the unknown/stolen-card count, headed by colonist's face-down "?" card. No
@@ -1379,15 +1490,7 @@
       return head + `<div style="color:${THEME.textDim};padding:5px 3px;flex:0 0 auto;">Waiting for first move…</div>`;
     }
 
-    // Order + avatars from colonist's panel; fall back to first-seen order.
-    const profiles = readPlayerPanel();
-    const prof = profiles ? new Map(profiles.map((p, i) => [p.name, { avatar: p.avatar, order: i }])) : null;
-    const players = [...state.players.values()];
-    if (prof) {
-      players.sort((a, b) =>
-        (prof.has(a.name) ? prof.get(a.name).order : 1e9) -
-        (prof.has(b.name) ? prof.get(b.name).order : 1e9));
-    }
+    const { players, prof } = panelOrderedPlayers();
 
     const rows = [];
     for (const p of players) {
@@ -1410,6 +1513,58 @@
         </div>`);
     }
     return head + rows.join('');
+  }
+
+  // Live stats table: what colonist only shows on the end-of-game summary,
+  // surfaced mid-game. Columns: stolen-from-others / lost-to-thieves (hover for
+  // the per-opponent breakdown), discarded on 7s, cards gained, dev cards.
+  // A footer line totals the robber-blocked yields ("6 🧱 ×2 …").
+  function statTip(map, word) {
+    return Object.entries(map).map(([n, c]) => `${word} ${n} ×${c}`).join(', ');
+  }
+  function renderStatsTable() {
+    if (state.players.size === 0) {
+      return `<div style="color:${THEME.textDim};padding:5px 3px;flex:0 0 auto;">Waiting for first move…</div>`;
+    }
+    const cols = 'minmax(110px,2.4fr) repeat(5, 0.95fr)';
+    const headCell = (label, tip) =>
+      `<span title="${tip}" style="text-align:center;color:${THEME.textDim};font-size:0.78em;white-space:nowrap;cursor:default;">${label}</span>`;
+    const head = `
+      <div style="display:grid;grid-template-columns:${cols};gap:4px;align-items:end;padding:0.7em 3px 0.5em 11px;flex:0 0 auto;">
+        <span style="color:${THEME.textDim};font-size:0.8em;">Player</span>
+        ${headCell('⚔️', 'Cards stolen from others')}
+        ${headCell('💔', 'Cards lost to thieves')}
+        ${headCell('🗑️', 'Cards discarded on 7s')}
+        ${headCell('📥', 'Cards gained (rolls / placements / Year of Plenty)')}
+        ${headCell('🎴', 'Dev cards bought')}
+      </div>`;
+    const { players } = panelOrderedPlayers();
+    const cell = (v, tip) =>
+      `<span ${tip ? `title="${escapeHtml(tip)}" ` : ''}style="text-align:center;font-variant-numeric:tabular-nums;` +
+      `${v ? '' : `color:${THEME.textDim};opacity:.4;`}">${v || 0}</span>`;
+    const rows = players.map((p) => {
+      const t = state.tally[p.name] || {};
+      return `
+        <div style="display:grid;grid-template-columns:${cols};gap:4px;align-items:center;flex:1 1 auto;
+             padding:4px 3px 4px 11px;border-top:1px solid ${THEME.rowLine};">
+          <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${escapeAttr(p.color)};font-weight:700;">${escapeHtml(p.name)}</span>
+          ${cell(t.stole, t.stoleFrom && Object.keys(t.stoleFrom).length ? statTip(t.stoleFrom, 'from') : '')}
+          ${cell(t.lost, t.lostTo && Object.keys(t.lostTo).length ? statTip(t.lostTo, 'to') : '')}
+          ${cell(t.discardCards, t.discards ? `${t.discards} discard event${t.discards > 1 ? 's' : ''}` : '')}
+          ${cell(t.gained, '')}
+          ${cell(t.devCards, '')}
+        </div>`;
+    }).join('');
+    let blockedLine = '';
+    if (state.blocked.count) {
+      const parts = Object.entries(state.blocked.byKey).map(([k, c]) => {
+        const disp = k.replace(/(lumber|brick|wool|grain|ore)/, (m) => RESOURCE_LABEL[m]);
+        return `${disp} ×${c}`;
+      }).join(' · ');
+      blockedLine = `<div style="padding:6px 3px 2px 11px;color:${THEME.textDim};font-size:0.78em;` +
+        `border-top:1px solid ${THEME.rowLine};">🚫 Robber blocked ${state.blocked.count}× — ${escapeHtml(parts)}</div>`;
+    }
+    return head + rows + blockedLine;
   }
 
   // ---- game-style floating "+N" / "−N" over changed resource cells ----
@@ -1474,6 +1629,10 @@
     const r = panel.querySelector('#cst-resources');
     if (r) r.innerHTML = renderResTable();
     spawnGainFloats();
+    const s = panel.querySelector('#cst-stats');
+    if (s) s.innerHTML = renderStatsTable();
+    const blocked = panel.querySelector('#cst-blocked');
+    if (blocked) blocked.textContent = state.blocked.count ? `🚫 ${state.blocked.count} blocked` : '';
     const rolls = panel.querySelector('#cst-dice-rolls');
     if (rolls) rolls.textContent = `${state.totalRolls} rolls`;
     updateTimer();
@@ -1549,6 +1708,8 @@
     state.currentTurn = null;
     state.gameStartTs = Date.now(); // a reset = a new game begins now
     state.gameEndTs = null;
+    state.tally = {};
+    state.blocked = { count: 0, byKey: {} };
     gameSig = '';
     lastLiveSig = '';
     lastCounts = null;  // don't shower "+N" floats diffing against the old game
@@ -1569,6 +1730,8 @@
         currentTurn: state.currentTurn,
         gameStartTs: state.gameStartTs,
         gameEndTs: state.gameEndTs,
+        tally: state.tally,
+        blocked: state.blocked,
         selfName: state.selfName,
         seenIndices: [...state.seenIndices],
         players: [...state.players.values()].map((p) => ({
@@ -1593,6 +1756,10 @@
     state.currentTurn = d.currentTurn || null;
     state.gameStartTs = Number.isFinite(d.gameStartTs) ? d.gameStartTs : null;
     state.gameEndTs = Number.isFinite(d.gameEndTs) ? d.gameEndTs : null;
+    state.tally = (d.tally && typeof d.tally === 'object') ? d.tally : {};
+    state.blocked = (d.blocked && typeof d.blocked === 'object')
+      ? { count: d.blocked.count || 0, byKey: d.blocked.byKey || {} }
+      : { count: 0, byKey: {} };
     state.selfName = d.selfName || null;
     state.seenIndices = new Set(d.seenIndices || []);
     state.players = new Map();
