@@ -760,12 +760,26 @@
       host.style.background = THEME.bg;
       host.style.borderColor = THEME.border;
       host.style.boxShadow = '0 6px 20px rgba(40,30,10,0.30)';
-      host.style.fontSize = fpx(w);
       glyph.style.fontSize = '';
       glyph.style.transform = 'rotate(0deg)';
+      // Measure the TRUE final height first, with the transition off: jump to
+      // the final width, read scrollHeight, jump back. (Measuring while the
+      // width was still animating from 36px read an in-between layout, which
+      // made the expand look two-stage — open small, then stretch again.)
+      // All within one JS turn, so nothing intermediate ever paints.
+      host.style.transition = 'none';
+      host.style.fontSize = fpx(w);
       host.style.width = w + 'px';
+      host.style.height = 'auto';
       void host.offsetHeight;
-      host.style.height = host.scrollHeight + 'px';
+      const targetH = host.scrollHeight;
+      host.style.width = '36px';
+      host.style.height = '36px';
+      void host.offsetHeight;
+      host.style.transition =
+        'width .25s ease, height .25s ease, background-color .25s ease, border-color .25s ease, box-shadow .25s ease';
+      host.style.width = w + 'px';
+      host.style.height = targetH + 'px';
       setTimeout(() => {
         host.style.height = 'auto';
         host.style.overflow = 'hidden';   // host clips; the flex body scrolls
@@ -782,22 +796,34 @@
 
   // Apply a saved preset (position + width) and remember it as the active mode.
   // The toggle icon then shows the *opposite* action (large → shrink, small → grow).
-  function applyPreset(name) {
+  // `animate` slides the panel to the preset with a one-shot transition, cleared
+  // afterwards so live drag-resizing stays instant (the base style has none).
+  let presetAnimTimer = null;
+  function applyPreset(name, animate) {
     uiState.mode = name === 'small' ? 'small' : 'large';
     const p = getPresets()[uiState.mode];
-    if (uiState.panelCollapsed) setPanelCollapsed(false);
-    panel.style.transition = '';
+    if (uiState.panelCollapsed) {
+      // Expanding already animates to the (just-updated) active preset.
+      setPanelCollapsed(false);
+      sizeToggleIcon();
+      return;
+    }
+    clearTimeout(presetAnimTimer);
+    panel.style.transition = animate
+      ? 'left .25s ease, top .25s ease, width .25s ease, font-size .25s ease'
+      : '';
     panel.style.right = 'auto';
     panel.style.left = p.left + 'px';
     panel.style.top = p.top + 'px';
     panel.style.width = p.width + 'px';
     panel.style.height = 'auto';
     panel.style.fontSize = fpx(p.width);
+    if (animate) presetAnimTimer = setTimeout(() => { panel.style.transition = ''; }, 260);
     sizeToggleIcon();
   }
 
   function toggleSize() {
-    applyPreset(uiState.mode === 'large' ? 'small' : 'large');
+    applyPreset(uiState.mode === 'large' ? 'small' : 'large', true);
   }
 
   // Overwrite a preset slot with the panel's CURRENT position + width.
@@ -1350,7 +1376,7 @@
       const active = p.name === state.currentTurn;
       const actCls = active ? 'cst-active-cell' : '';
       rows.push(`
-        <div style="display:grid;grid-template-columns:${cols};gap:4px;align-items:center;flex:1 1 auto;
+        <div data-prow="${escapeHtml(p.name)}" style="display:grid;grid-template-columns:${cols};gap:4px;align-items:center;flex:1 1 auto;
              padding:5px 3px 5px 11px;border-top:1px solid ${THEME.rowLine};${active ? `background:rgba(47,111,159,.12);box-shadow:inset 3px 0 0 ${THEME.accent};` : ''}">
           <span style="display:flex;align-items:center;gap:4px;min-width:0;color:${escapeAttr(p.color)};font-weight:700;" title="${escapeHtml(p.name)}${active ? ' — current turn' : ''}">${avatar}<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span><span title="Total cards in hand" style="flex:0 0 auto;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;color:${THEME.text};background:#fbf9f4;border:1px solid ${THEME.border};border-radius:0.6em;padding:0 0.4em;">${playerTotal(p)}</span></span>
           ${RESOURCES.map((r) =>
@@ -1362,12 +1388,68 @@
     return head + rows.join('');
   }
 
+  // ---- game-style floating "+N" / "−N" over changed resource cells ----
+  // lastCounts is the per-player snapshot from the previous render; null means
+  // "don't float on the next render" (set after reset/restore/deep re-scrape,
+  // where diffing from scratch would shower the panel in floats).
+  let lastCounts = null;
+  function countsSnapshot() {
+    const snap = {};
+    for (const p of state.players.values()) {
+      snap[p.name] = {
+        lumber: p.resources.lumber, brick: p.resources.brick, wool: p.resources.wool,
+        grain: p.resources.grain, ore: p.resources.ore, unknown: p.unknown,
+      };
+    }
+    return snap;
+  }
+
+  // Floats live in the stable #cst-res-wrap layer (the same home as the column
+  // highlight) so render()'s innerHTML swaps can't kill them mid-flight.
+  function spawnGainFloats() {
+    if (!panel || uiState.panelCollapsed || uiState.resCollapsed) { lastCounts = countsSnapshot(); return; }
+    const wrap = panel.querySelector('#cst-res-wrap');
+    const resEl = panel.querySelector('#cst-resources');
+    if (!wrap || !resEl) return;
+    const prev = lastCounts;
+    lastCounts = countsSnapshot();
+    if (!prev) return;
+    const rows = [...resEl.querySelectorAll('[data-prow]')];
+    const wr = wrap.getBoundingClientRect();
+    for (const [name, cur] of Object.entries(lastCounts)) {
+      const old = prev[name];
+      if (!old) continue;                       // brand-new player row — no float
+      const row = rows.find((el) => el.getAttribute('data-prow') === name);
+      if (!row) continue;
+      for (const k of [...RESOURCES, 'unknown']) {
+        const d = cur[k] - old[k];
+        if (!d) continue;
+        const cell = row.querySelector(`[data-res="${k}"]`);
+        if (!cell) continue;
+        const cr = cell.getBoundingClientRect();
+        const f = document.createElement('span');
+        f.textContent = (d > 0 ? '+' : '−') + Math.abs(d);
+        f.style.cssText = 'position:absolute;z-index:3;pointer-events:none;' +
+          `left:${cr.left - wr.left + cr.width / 2}px;top:${cr.top - wr.top}px;` +
+          'transform:translate(-50%,0);font-size:0.85em;font-weight:800;line-height:1;' +
+          `color:${d > 0 ? THEME.good : THEME.bad};text-shadow:0 1px 2px rgba(255,255,255,.85);` +
+          'opacity:1;transition:transform .7s ease-out, opacity .7s ease-out;';
+        wrap.appendChild(f);
+        void f.offsetHeight;                    // start the drift-up + fade
+        f.style.transform = 'translate(-50%,-1.15em)';
+        f.style.opacity = '0';
+        setTimeout(() => f.remove(), 750);
+      }
+    }
+  }
+
   function render() {
     if (!panel) return;
     const d = panel.querySelector('#cst-dice');
     if (d) d.innerHTML = renderDiceBars();
     const r = panel.querySelector('#cst-resources');
     if (r) r.innerHTML = renderResTable();
+    spawnGainFloats();
     const rolls = panel.querySelector('#cst-dice-rolls');
     if (rolls) rolls.textContent = `${state.totalRolls} rolls`;
     updateTimer();
@@ -1445,6 +1527,7 @@
     state.gameEndTs = null;
     gameSig = '';
     lastLiveSig = '';
+    lastCounts = null;  // don't shower "+N" floats diffing against the old game
   }
 
   // ---- persistence of the live game (survives page reloads / reconnects) ----
@@ -1502,6 +1585,7 @@
       });
     }
     justRestored = state.players.size > 0;
+    lastCounts = null;  // restored counts are not "gains" — no floats
   }
 
   function rosterSig(list) {
