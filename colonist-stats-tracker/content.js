@@ -84,6 +84,8 @@
     seenIndices: new Set(), // log message data-index values already processed
     selfName: null, // local human player; messages with avatar=icon_player.svg
     paused: false,
+    gameStartTs: null, // ms epoch — when the current game's clock started
+    gameEndTs: null,   // set when the winner line is seen; freezes the clock
   };
 
   // =============================================================
@@ -279,6 +281,14 @@
     // executed trades, so skip them — otherwise the " for " in the text
     // would confuse splitTradeResources downstream.
     if (text.includes('wants to give') || text.includes('wants to trade')) return;
+
+    // --- Game over: "Bradly won the game!" ---
+    // Handled before any player bookkeeping: the winner line must not create a
+    // player entry or disturb counts, it only drives the lifecycle.
+    if (text.includes('won the game') || text.includes('贏得')) {
+      onGameWon();
+      return;
+    }
 
     const primary = firstPlayerRef(msgEl);
     const player = getPlayer(primary.name, primary.color);
@@ -521,13 +531,18 @@
     if (!container) return false;
     if (container === observedContainer && observer) return true;
     if (observer) observer.disconnect();
-    // New container = new game; reset transient log dedup but keep stats
-    // unless the user explicitly hits the reset button.
     // New container = new game; reset the per-game dedup — EXCEPT on the first
     // attach right after a restore, where we keep the restored seenIndices so the
     // already-counted messages aren't double-processed.
     if (container !== observedContainer) {
-      if (!justRestored) state.seenIndices = new Set();
+      if (lifecycle === LIFE.ENDED && observedContainer) {
+        // A brand-new log right after a finished game = the "play again" flow.
+        // The roster check alone can't catch a same-players rematch, so the
+        // fresh container is the new-game signal here.
+        startNextGame();
+      } else if (!justRestored) {
+        state.seenIndices = new Set();
+      }
       justRestored = false;
     }
     observedContainer = container;
@@ -696,6 +711,7 @@
     const body = host.querySelector('#cst-body');
     const header = host.querySelector('#cst-header');
     const title = host.querySelector('#cst-title');
+    const timerEl = host.querySelector('#cst-timer');
     const glyph = host.querySelector('#cst-glyph');
     const controls = host.querySelector('#cst-controls');
     host.style.overflow = 'hidden';
@@ -709,6 +725,7 @@
       host.style.resize = 'none';
       host.style.minWidth = '0';
       title.style.display = 'none';
+      if (timerEl) timerEl.style.display = 'none';
       if (controls) controls.style.display = 'none';
       header.style.background = 'transparent';
       header.style.borderBottom = 'none';
@@ -733,6 +750,7 @@
       host.style.resize = 'both';
       host.style.minWidth = '250px';
       title.style.display = '';
+      if (timerEl) timerEl.style.display = '';
       if (controls) controls.style.display = 'flex';
       header.style.background = THEME.bgAlt;
       header.style.borderBottom = `1px solid ${THEME.border}`;
@@ -853,9 +871,11 @@
         <strong style="font-size:1.05em;color:${THEME.accent};white-space:nowrap;display:flex;align-items:center;gap:6px;">
           <span id="cst-glyph" title="Click to collapse / expand" style="cursor:pointer;display:inline-block;transition:transform .35s ease, font-size .25s ease, filter .15s ease;">🎲</span>
           <span id="cst-title">Colonist Stats</span>
+          <span id="cst-timer" title="Time since this game started"
+                style="color:${THEME.textDim};font-size:0.74em;font-weight:600;font-variant-numeric:tabular-nums;"></span>
         </strong>
         <div id="cst-controls" style="display:flex;gap:4px;align-items:center;">
-          ${ctrlBtn('cst-resync', ICON_SYNC, 'Re-sync card counts from the live game')}
+          ${ctrlBtn('cst-resync', ICON_SYNC, 'Deep re-sync: re-read the whole game log from the top')}
           ${ctrlBtn('cst-size', ICON_SHRINK, 'Toggle large / small layout')}
           ${ctrlBtn('cst-prefs', ICON_MORE, 'Layout presets')}
         </div>
@@ -947,9 +967,7 @@
     }
 
     host.querySelector('#cst-resync').addEventListener('click', () => {
-      if (observedContainer) scanExisting(observedContainer);
-      syncFromPanel();
-      render();
+      deepRescrape();   // async; guards against concurrent runs internally
     });
 
     // Large / small layout toggle.
@@ -1352,6 +1370,7 @@
     if (r) r.innerHTML = renderResTable();
     const rolls = panel.querySelector('#cst-dice-rolls');
     if (rolls) rolls.textContent = `${state.totalRolls} rolls`;
+    updateTimer();
   }
 
   function escapeHtml(s) {
@@ -1390,7 +1409,9 @@
     //  3. reconcile each player's total against colonist's authoritative panel.
     setInterval(() => {
       if (state.paused) return;
+      evalLifecycle();
       maybeNewGame();
+      updateTimer();
       if (observedContainer) scanExisting(observedContainer);
       if (syncFromPanel()) renderSoon();
     }, 1000);
@@ -1420,6 +1441,8 @@
     state.paused = false;
     state.rollHistory = [];
     state.currentTurn = null;
+    state.gameStartTs = Date.now(); // a reset = a new game begins now
+    state.gameEndTs = null;
     gameSig = '';
     lastLiveSig = '';
   }
@@ -1437,6 +1460,8 @@
         totalRolls: state.totalRolls,
         rollHistory: state.rollHistory,
         currentTurn: state.currentTurn,
+        gameStartTs: state.gameStartTs,
+        gameEndTs: state.gameEndTs,
         selfName: state.selfName,
         seenIndices: [...state.seenIndices],
         players: [...state.players.values()].map((p) => ({
@@ -1459,6 +1484,8 @@
     for (let n = 2; n <= 12; n++) state.diceCounts[n] = (d.diceCounts && d.diceCounts[n]) || 0;
     state.rollHistory = Array.isArray(d.rollHistory) ? d.rollHistory : [];
     state.currentTurn = d.currentTurn || null;
+    state.gameStartTs = Number.isFinite(d.gameStartTs) ? d.gameStartTs : null;
+    state.gameEndTs = Number.isFinite(d.gameEndTs) ? d.gameEndTs : null;
     state.selfName = d.selfName || null;
     state.seenIndices = new Set(d.seenIndices || []);
     state.players = new Map();
@@ -1495,7 +1522,7 @@
       // game's panel, that data belongs to a previous game — drop it.
       const liveNames = new Set(live.map((p) => p.name));
       if (state.players.size && [...state.players.keys()].some((n) => !liveNames.has(n))) {
-        resetState();
+        startNextGame();
       }
       gameSig = liveSig;
       lastLiveSig = liveSig;
@@ -1504,7 +1531,7 @@
 
     // A different roster, stable for one tick, means a new game.
     if (liveSig !== gameSig && liveSig === lastLiveSig) {
-      resetState();
+      startNextGame();
       gameSig = liveSig;
     }
     lastLiveSig = liveSig;
@@ -1513,6 +1540,7 @@
   // Manual "this is a new game": clear tracking and re-read the current game.
   function newGameReset() {
     resetState();
+    lifecycle = inGameNow() ? LIFE.PLAYING : LIFE.LOBBY;
     const live = readPlayerPanel();
     gameSig = live ? rosterSig(live) : '';
     lastLiveSig = gameSig;
@@ -1520,6 +1548,169 @@
     syncFromPanel();
     persistState();
     if (panel) render();
+  }
+
+  // =============================================================
+  // Game lifecycle (LOBBY / PLAYING / ENDED)
+  //
+  // Drives the automatic panel posture + the game clock. All automatic
+  // actions fire ONCE, on a state transition edge — never re-asserted per
+  // tick — so a manual expand in the lobby or a manual collapse mid-game
+  // sticks until the next transition.
+  // =============================================================
+  const LIFE = { LOBBY: 'lobby', PLAYING: 'playing', ENDED: 'ended' };
+  let lifecycle = null;     // null until the first evaluation adopts the page state
+  let notInGameTicks = 0;   // SPA remounts flicker; require 2 settled ticks to leave
+
+  function inGameNow() {
+    return !!(findLogContainer() || readPlayerPanel());
+  }
+
+  // Collapse/expand only when it would change something (idempotent, panel-safe).
+  function autoSetCollapsed(collapsed) {
+    if (panel && uiState.panelCollapsed !== collapsed) setPanelCollapsed(collapsed);
+  }
+
+  function evalLifecycle() {
+    const inGame = inGameNow();
+    if (lifecycle === null) {
+      // First evaluation (boot): adopt the page's state without transition
+      // actions — EXCEPT the panel posture (lobby/end-screen collapsed, live
+      // game expanded). A restored gameEndTs means we re-booted on a finished
+      // game's end screen.
+      lifecycle = inGame ? (state.gameEndTs ? LIFE.ENDED : LIFE.PLAYING) : LIFE.LOBBY;
+      autoSetCollapsed(lifecycle !== LIFE.PLAYING);
+      if (lifecycle === LIFE.PLAYING && !state.gameStartTs) state.gameStartTs = Date.now();
+      return;
+    }
+    if (inGame) {
+      notInGameTicks = 0;
+      if (lifecycle === LIFE.LOBBY) {
+        // Entered a game. Stats resets stay owned by maybeNewGame (roster-based)
+        // so a mid-game refresh keeps its restored data; here we just open the
+        // panel and start the clock if this game doesn't have one yet.
+        lifecycle = LIFE.PLAYING;
+        if (!state.gameStartTs) { state.gameStartTs = Date.now(); state.gameEndTs = null; }
+        autoSetCollapsed(false);
+      }
+      return;
+    }
+    if (lifecycle === LIFE.LOBBY) return;
+    notInGameTicks += 1;
+    if (notInGameTicks >= 2) {        // left the game (back to lobby / home)
+      lifecycle = LIFE.LOBBY;
+      notInGameTicks = 0;
+      autoSetCollapsed(true);
+    }
+  }
+
+  // The winner line ("X won the game!") was seen: freeze the clock and get out
+  // of the way so the end-of-game screen is fully clickable.
+  function onGameWon() {
+    if (lifecycle === LIFE.ENDED) return;   // idempotent (re-scrape re-reads it)
+    lifecycle = LIFE.ENDED;
+    state.gameEndTs = Date.now();
+    autoSetCollapsed(true);
+    schedulePersist();
+    renderSoon();
+  }
+
+  // A new game is starting (next-game flow / roster change): wipe the previous
+  // game's stats, restart the clock (inside resetState) and re-open the panel.
+  function startNextGame() {
+    resetState();
+    lifecycle = LIFE.PLAYING;
+    autoSetCollapsed(false);
+    renderSoon();
+  }
+
+  // ---- game clock ----
+  function timerText() {
+    if (!state.gameStartTs) return '';
+    const end = state.gameEndTs || Date.now();
+    const total = Math.floor((end - state.gameStartTs) / 1000);
+    if (!Number.isFinite(total) || total < 0) return '';
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+  }
+
+  function updateTimer() {
+    if (!panel) return;
+    const el = panel.querySelector('#cst-timer');
+    if (!el) return;
+    const t = timerText();
+    el.textContent = t ? `⏱ ${t}` : '';
+  }
+
+  // =============================================================
+  // Deep re-scrape (the 🔄 button)
+  //
+  // colonist's log is a virtual list — only mounted rows are readable. To
+  // recover from a disconnect/refresh gap we wipe the stats (keeping the game
+  // identity + clock), scroll the log to the top, and step back down so every
+  // row mounts once and is processed top-to-bottom in data-index order.
+  // =============================================================
+  function sleep(ms) { return new Promise((res) => setTimeout(res, ms)); }
+
+  // The element that actually scrolls the log: usually the virtualScroller
+  // itself, otherwise the nearest scrollable ancestor.
+  function scrollableOf(el) {
+    let cur = el;
+    while (cur && cur !== document.body) {
+      if (cur.scrollHeight > cur.clientHeight + 4) return cur;
+      cur = cur.parentElement;
+    }
+    return el;
+  }
+
+  let rescraping = false;
+  async function deepRescrape() {
+    if (rescraping) return;
+    const container = findLogContainer();
+    if (!container) {                 // no log (lobby): just reconcile totals
+      syncFromPanel();
+      render();
+      return;
+    }
+    rescraping = true;
+    try {
+      // This is a re-read of the SAME game: keep its identity and clock
+      // (resetState would start a fresh clock + clear the roster signature).
+      const keep = {
+        start: state.gameStartTs, end: state.gameEndTs,
+        sig: gameSig, life: lifecycle,
+      };
+      resetState();
+      state.gameStartTs = keep.start;
+      state.gameEndTs = keep.end;
+      gameSig = keep.sig;
+      lastLiveSig = keep.sig;
+      lifecycle = keep.life;
+
+      const sc = scrollableOf(container);
+      const prevTop = sc.scrollTop;
+      sc.scrollTop = 0;
+      await sleep(160);
+      let guard = 0;
+      while (container.isConnected && guard++ < 400) {
+        scanExisting(container);
+        if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 2) break;
+        const before = sc.scrollTop;
+        sc.scrollTop = before + Math.max(40, sc.clientHeight * 0.8);
+        await sleep(160);
+        if (sc.scrollTop === before) break;   // can't scroll further
+      }
+      if (container.isConnected) scanExisting(container);
+      sc.scrollTop = prevTop;
+    } finally {
+      rescraping = false;
+    }
+    syncFromPanel();
+    persistState();
+    render();
   }
 
   // ---- reconcile our counts against colonist's authoritative panel totals ----
@@ -1592,6 +1783,13 @@
       newGameReset,
       persistState,
       restoreState,
+      // Lifecycle / timer (auto collapse-expand state machine).
+      LIFE,
+      evalLifecycle,
+      onGameWon,
+      startNextGame,
+      getLifecycle: () => lifecycle,
+      timerText,
       // UI entry points (exposed so the jsdom smoke test can render the panel).
       createPanel,
       render,
@@ -1618,6 +1816,7 @@
       if (location.pathname !== lastPath) {
         lastPath = location.pathname;
         attachObserver();
+        evalLifecycle();   // URL changed — re-evaluate the lobby/game posture now
       }
     }).observe(document.documentElement, { childList: true, subtree: true });
   }

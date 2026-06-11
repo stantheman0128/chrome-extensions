@@ -4,6 +4,13 @@ All notable changes in this repository are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- colonist-stats-tracker (1.10.0): **game-lifecycle automation.** A three-state lifecycle (lobby / playing / ended) now drives the panel automatically:
+  - **Auto-collapse / auto-expand by page context.** The panel collapses to the dice icon on the home page / lobby and expands when a live game is detected (URL changes trigger an immediate re-check; the game DOM is the authoritative signal). All automatic actions fire **only on state transitions**, so a manual expand in the lobby or a manual collapse mid-game sticks until the next transition — no "pin" setting needed.
+  - **Game clock.** A `⏱ m:ss` timer (h:mm:ss past an hour) in the panel header counts from when the game was detected (initial placement included). It persists across page reloads and freezes at the final time when someone wins.
+  - **End-of-game flow.** The "X won the game!" log line collapses the panel so the end screen is fully clickable; starting the next game (fresh log container or roster change — the rematch-with-the-same-players case included) auto-expands it, wipes the previous game's stats, and restarts the clock.
+  - **Deep re-sync.** The 🔄 button now wipes the stats (keeping the game identity + clock), scrolls the virtual log to the top, and steps back down so every message mounts once and is re-processed in order — a user-controlled recovery from disconnect/refresh drift, on top of the automatic localStorage persistence. Added 8 lifecycle tests (50 total).
+
 ## [2026-06-06]
 
 ### Changed

@@ -44,79 +44,29 @@ revisited here later.
   on the correct mode; only the in-between frame can flicker. A generation token would
   make it bullet-proof if it ever becomes noticeable.
 
+## Shipped from this roadmap
+
+### Game-lifecycle automation (v1.10.0, 2026-06-12)
+Three former candidates shipped together as one lifecycle state machine
+(lobby / playing / ended) — design in
+`docs/superpowers/specs/2026-06-12-colonist-game-lifecycle-design.md`:
+
+- **Auto-collapse / auto-expand by page context** — collapsed on home/lobby,
+  expands on game detection. Edge-triggered only, so manual overrides stick
+  until the next transition (no "pin" toggle needed).
+- **Game state reset + game clock** — stats wipe + `⏱ m:ss` header timer on new
+  game (rematch with the same players included); winner line ("X won the
+  game!") collapses the panel and freezes the clock.
+- **Disconnect & refresh accuracy** — localStorage persistence (Strategy A) was
+  already live; the 🔄 button is now a **deep re-sync** that scrolls the virtual
+  log to the top and re-reads every message in order (Strategy B, manual).
+
+Deferred refinements, if ever wanted: expand-on-first-roll for spectators; an
+automatic gap-detection trigger for the deep re-sync.
+
 ## Candidate features (to brainstorm)
 
 Ideas raised but not yet designed — each needs its own brainstorm → design pass.
-
-### Auto-collapse / auto-expand by page context
-Keep the panel **collapsed by default** when the user is on the Home page or any
-non-game URL (lobby, profile, leaderboard, etc.), and **auto-expand** once a live game
-is detected.
-
-Approach:
-- Inspect `location.href` on each navigation; colonist.io is a SPA so listen to
-  `popstate` / `pushstate` interception plus `MutationObserver` on the game container
-  as a fallback.
-- A URL pattern like `/game/` (or the presence of the game board DOM node) is the
-  reliable signal that a game is active.
-- Persist the last explicit user override (manually expanded on lobby, or manually
-  collapsed mid-game) so the auto-behaviour doesn't fight user intent.
-
-Open questions:
-- Should the auto-expand fire immediately on game-load or only after the first roll is
-  detected (so a spectator who just wants to watch isn't surprised)?
-- Does the panel need a "stay pinned" toggle to permanently opt out of auto-collapse?
-
-### Game state reset + elapsed-time timer
-Three linked behaviours that require reliable new-game detection (ties into P2):
-
-**(a) Auto-clear on new game.** When a new game is detected (new game ID or lobby
-re-entry), wipe all accumulated roll / resource data so stale numbers from the previous
-game never leak in.
-
-**(b) Game timer.** Display a `HH:MM` counter from the moment the current game started.
-Requires storing `gameStartTimestamp` in `chrome.storage.session` so it survives
-`content.js` re-injection on soft navigations but resets cleanly between games.
-
-**(c) Auto-collapse on game-end → auto-expand + auto-clear on next game start.** When
-a winner is announced (the victory banner DOM node appears), collapse the panel so the
-user can interact with the end-of-game screen without the overlay blocking it. When the
-user starts the next game the panel re-expands and fresh data begins accumulating.
-
-Open questions:
-- What is the reliable "game over" signal? Candidate: CSS class / text on the winner
-  banner, or a specific log message type in the event stream.
-- Timer display location: inside the panel header, or a subtle badge on the extension
-  icon?
-- Should the timer persist across a page refresh (store start time) or reset on any
-  reload?
-
-### Disconnect & refresh data accuracy (log re-scrape / state persistence)
-Ensure roll and resource counts stay accurate after a network disconnect, browser
-refresh, or extension reload.
-
-Two complementary strategies to brainstorm:
-
-**Strategy A — Persist parsed state.** After every event, write the full parsed state
-(`rollHistory`, resource totals, player list, etc.) to `chrome.storage.session`. On
-(re)load, restore from storage before attaching the live log observer — so a refresh
-only needs to catch up with events *after* the last checkpoint, not replay everything.
-
-**Strategy B — Full log re-scrape on reconnect.** If a gap is detected (e.g. a
-disconnect marker appears in the log), programmatically scroll the game log container
-to the top and re-parse all visible entries from scratch. This is more expensive but
-self-healing against any checkpoint corruption.
-- Open question: can a `content.js` script programmatically scroll the colonist log
-  panel? The DOM node is likely a `<div>` with `overflow: auto`, so `element.scrollTop
-  = 0` should work — needs live verification.
-
-Open questions:
-- How do we detect that a gap exists? Watch for the colonist reconnect message in the
-  log, or compare the local event count against a server-side sequence number if one is
-  exposed?
-- Which strategy should be primary? Strategy A is cheaper; Strategy B is more correct
-  after a long disconnect. Could use A as the default and fall back to B when the gap
-  is too large.
 
 ### Recent-roll sequence ("see the roll order")
 A left→right strip of the last ~12 dice rolls (newest on the right; 7s flagged), so
