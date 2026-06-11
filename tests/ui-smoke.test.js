@@ -30,15 +30,27 @@ test('UI renders the full panel: dice bars + %, merged resources/bank, player ro
   assert.equal(panel.querySelectorAll('#cst-dice div[data-die]').length, 11);
   assert.match(panel.querySelector('#cst-dice').textContent, /%/);
 
-  // Resources: 5 resource icons (each with a bank badge) + 1 "?" unknown-card
-  // header icon = 6 imgs total. No Σ total column.
+  // Resources: 5 resource icons (each cell carrying a Bank data-tip) + 1 "?"
+  // unknown-card header icon = 6 imgs total. No Σ total column.
   const resources = panel.querySelector('#cst-resources');
   assert.equal(resources.querySelectorAll('img').length, 6);
-  assert.equal(resources.querySelectorAll('span[title^="Bank:"]').length, 5);
+  assert.equal(resources.querySelectorAll('span[data-res][data-tip^="Bank:"]').length, 5);
   // A hand-total badge sits next to each player's name (2 players seeded).
-  assert.equal(resources.querySelectorAll('span[title="Total cards in hand"]').length, 2);
+  assert.equal(resources.querySelectorAll('span[data-tip="Total cards in hand"]').length, 2);
   assert.match(resources.textContent, /StanTheMan01/);
   assert.match(resources.textContent, /Thant/);
+
+  // Resources · Stats view tabs: both exist; clicking Stats swaps the table to
+  // the six event columns (⚔️ 💔 🗑️ 📥 🎴 🏗️) for the same player rows.
+  const tabs = panel.querySelectorAll('.cst-vtab');
+  assert.equal(tabs.length, 2);
+  panel.querySelector('[data-resview="stats"]').click();
+  assert.equal(resources.querySelectorAll('span[data-res="s-stole"]').length, 3,
+    'stats header + one cell per player');
+  assert.match(resources.textContent, /StanTheMan01/);
+  panel.querySelector('[data-resview="cards"]').click();
+  assert.equal(resources.querySelectorAll('span[data-res="s-stole"]').length, 0,
+    'back to the resource columns');
 
   // Foldable sections each expose a data-fold header (dice + resources).
   assert.ok(panel.querySelector('[data-fold="diceCollapsed"]'));

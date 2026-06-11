@@ -126,6 +126,7 @@
         discards: 0, discardCards: 0,
         gained: 0,               // cards gained from rolls / placements / YoP
         devCards: 0,
+        builds: 0,               // roads + settlements + cities built
       };
     }
     return state.tally[name];
@@ -441,6 +442,7 @@
       if (text.includes('road')        || text.includes('道路'))  spend(player, BUILD_COST.road);
       else if (text.includes('settlement') || text.includes('聚落')) spend(player, BUILD_COST.settlement);
       else if (text.includes('city')       || text.includes('城市')) spend(player, BUILD_COST.city);
+      tallyOf(player.name).builds += 1;
       renderSoon();
       return;
     }
@@ -678,7 +680,7 @@
   }
 
   function ctrlBtn(id, label, title) {
-    return `<button id="${id}" title="${title}" aria-label="${title}" style="display:inline-flex;` +
+    return `<button id="${id}" data-tip="${title}" aria-label="${title}" style="display:inline-flex;` +
       `align-items:center;justify-content:center;background:transparent;` +
       `border:1px solid ${THEME.border};color:${THEME.text};border-radius:5px;` +
       `padding:3px 5px;cursor:pointer;line-height:0;` +
@@ -718,7 +720,7 @@
   // emoji if the URL ever 404s, keeping us CSP-safe (no inline error handlers).
   function iconImg(r, em) {
     const w = (em * 0.7125).toFixed(3);
-    return `<img src="${escapeAttr(RESOURCE_ICON[r])}" alt="${RESOURCE_LABEL[r]}" title="${r}" ` +
+    return `<img src="${escapeAttr(RESOURCE_ICON[r])}" alt="${RESOURCE_LABEL[r]}" ` +
       `style="height:${em}em;width:${w}em;vertical-align:middle;">`;
   }
 
@@ -740,7 +742,9 @@
   // Per-panel / per-section fold state (persisted).
   // diceMode: 'auto' shows physical dice only when the panel is wide enough for a
   // pair to breathe (else digits); 'faces'/'digits' are sticky manual overrides.
-  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, statsCollapsed: false, mode: 'large', fontScale: 1, diceMode: 'auto' };
+  // resView: the player table shows resource columns ('cards') or the live
+  // event stats ('stats') — same players, same rows, switched via header tabs.
+  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, resView: 'cards', mode: 'large', fontScale: 1, diceMode: 'auto' };
   // At/above this panel width, auto-mode renders the bottom value as dice (vs a digit).
   const DICE_AUTO_W = 372;
   function diceFacesActive() {
@@ -788,7 +792,16 @@
   function applySectionInit() {
     setSectionOpen(panel.querySelector('#cst-dice-wrap'), !uiState.diceCollapsed, false);
     setSectionOpen(panel.querySelector('#cst-res-wrap'), !uiState.resCollapsed, false);
-    setSectionOpen(panel.querySelector('#cst-stats-wrap'), !uiState.statsCollapsed, false);
+  }
+
+  // Highlight the active Resources · Stats tab (accent + underline).
+  function updateViewTabs() {
+    if (!panel) return;
+    panel.querySelectorAll('.cst-vtab').forEach((el) => {
+      const active = el.getAttribute('data-resview') === uiState.resView;
+      el.style.color = active ? THEME.accent : THEME.textDim;
+      el.style.borderBottomColor = active ? THEME.accent : 'transparent';
+    });
   }
 
   // Collapse the whole panel down to a single spinning dice icon (no circle —
@@ -933,10 +946,9 @@
   function resetPresets() {
     uiState.diceCollapsed = false;
     uiState.resCollapsed = false;
-    uiState.statsCollapsed = false;
     uiState.fontScale = 1;
     uiState.diceMode = 'auto';
-    saveUI({ presets: DEFAULT_PRESETS, diceCollapsed: false, resCollapsed: false, statsCollapsed: false, fontScale: 1, diceMode: 'auto' });
+    saveUI({ presets: DEFAULT_PRESETS, diceCollapsed: false, resCollapsed: false, fontScale: 1, diceMode: 'auto' });
     panel.querySelector('#cst-body').style.display = 'flex';
     panel.querySelectorAll('.cst-chev').forEach((c) => { c.textContent = '▾'; });
     applySectionInit();
@@ -957,7 +969,7 @@
     uiState.panelCollapsed = !!ui.panelCollapsed;
     uiState.diceCollapsed = !!ui.diceCollapsed;
     uiState.resCollapsed = !!ui.resCollapsed;
-    uiState.statsCollapsed = !!ui.statsCollapsed;
+    uiState.resView = ui.resView === 'stats' ? 'stats' : 'cards';
     uiState.fontScale = ui.fontScale || 1;
     uiState.diceMode = ui.diceMode || 'auto';
     uiState.mode = 'large';                       // auto-enlarge to the large preset on appear
@@ -987,9 +999,9 @@
            padding:8px 11px;cursor:move;background:${THEME.bgAlt};border-bottom:1px solid ${THEME.border};
            border-radius:10px 10px 0 0;position:sticky;top:0;z-index:1;">
         <strong style="font-size:1.05em;color:${THEME.accent};white-space:nowrap;display:flex;align-items:center;gap:6px;">
-          <span id="cst-glyph" title="Click to collapse / expand" style="cursor:pointer;display:inline-block;transition:transform .35s ease, font-size .25s ease, filter .15s ease;">🎲</span>
+          <span id="cst-glyph" data-tip="Click to collapse / expand" style="cursor:pointer;display:inline-block;transition:transform .35s ease, font-size .25s ease, filter .15s ease;">🎲</span>
           <span id="cst-title">Colonist Stats</span>
-          <span id="cst-timer" title="Time since this game started"
+          <span id="cst-timer" data-tip="Time since this game started"
                 style="color:${THEME.textDim};font-size:0.74em;font-weight:600;font-variant-numeric:tabular-nums;"></span>
         </strong>
         <div id="cst-controls" style="display:flex;gap:4px;align-items:center;">
@@ -1005,8 +1017,8 @@
           ${menuBtn('reset', 'Reset to defaults')}
           <div style="display:flex;align-items:center;gap:6px;padding:6px 8px 3px;margin-top:3px;border-top:1px solid ${THEME.border};">
             <span style="flex:1 1 auto;font-size:0.82em;color:${THEME.textDim};">Text size</span>
-            <button data-act="font-down" title="Smaller text" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A−</button>
-            <button data-act="font-up" title="Larger text" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A+</button>
+            <button data-act="font-down" data-tip="Smaller text" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A−</button>
+            <button data-act="font-up" data-tip="Larger text" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A+</button>
           </div>
         </div>
       </div>
@@ -1018,14 +1030,15 @@
         </div>
         <div id="cst-dice-wrap" style="flex:1 0 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;transition:max-height .28s ease;"><div id="cst-dice" style="flex:1 1 auto;display:flex;flex-direction:column;"></div></div>
         <div id="cst-res-head" data-fold="resCollapsed" style="${secHead}flex:0 0 auto;margin-top:14px;">
-          <strong style="color:${THEME.accent};"><span class="cst-chev">${uiState.resCollapsed ? '▸' : '▾'}</span> Resources</strong>
-        </div>
-        <div id="cst-res-wrap" style="flex:1 0 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;transition:max-height .28s ease;"><div id="cst-resources" style="flex:1 1 auto;display:flex;flex-direction:column;"></div></div>
-        <div id="cst-stats-head" data-fold="statsCollapsed" style="${secHead}flex:0 0 auto;margin-top:14px;">
-          <strong style="color:${THEME.accent};"><span class="cst-chev">${uiState.statsCollapsed ? '▸' : '▾'}</span> Stats</strong>
+          <strong style="color:${THEME.accent};display:flex;align-items:baseline;gap:6px;">
+            <span class="cst-chev">${uiState.resCollapsed ? '▸' : '▾'}</span>
+            <span class="cst-vtab" data-resview="cards">Resources</span>
+            <span style="color:${THEME.textDim};font-weight:400;">·</span>
+            <span class="cst-vtab" data-resview="stats">Stats</span>
+          </strong>
           <span id="cst-blocked" style="color:${THEME.textDim};font-size:0.82em;"></span>
         </div>
-        <div id="cst-stats-wrap" style="flex:1 0 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;transition:max-height .28s ease;"><div id="cst-stats" style="flex:1 1 auto;display:flex;flex-direction:column;"></div></div>
+        <div id="cst-res-wrap" style="flex:1 0 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;transition:max-height .28s ease;"><div id="cst-resources" style="flex:1 1 auto;display:flex;flex-direction:column;"></div></div>
       </div>`;
     document.body.appendChild(host);
     panel = host;
@@ -1037,7 +1050,9 @@
       st.textContent = '#colonist-stats-tracker #cst-glyph:hover{filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}' +
         '#colonist-stats-tracker #cst-controls button:hover{background:rgba(0,0,0,.10)!important;border-color:' + THEME.accent + '!important;}' +
         '#colonist-stats-tracker #cst-menu button:hover{background:rgba(0,0,0,.08)!important;}' +
-        '#colonist-stats-tracker .cst-active-cell{font-weight:700;}';
+        '#colonist-stats-tracker .cst-active-cell{font-weight:700;}' +
+        '#colonist-stats-tracker .cst-vtab{cursor:pointer;border-bottom:2px solid transparent;padding-bottom:1px;transition:color .15s ease,border-color .15s ease;}' +
+        '#colonist-stats-tracker .cst-vtab:hover{color:' + THEME.accent + '!important;}';
       (document.head || document.documentElement).appendChild(st);
     }
 
@@ -1059,6 +1074,21 @@
     // working across content re-renders. Re-fit the panel height to content so
     // folding actually shrinks the whole panel (no leftover empty space).
     host.addEventListener('click', (e) => {
+      // Resources · Stats view tabs (inside the foldable header, so they must
+      // claim the click before the fold logic below sees it).
+      const vt = e.target.closest && e.target.closest('[data-resview]');
+      if (vt && host.contains(vt)) {
+        const v = vt.getAttribute('data-resview') === 'stats' ? 'stats' : 'cards';
+        if (v !== uiState.resView) {
+          uiState.resView = v;
+          saveUI({ resView: v });
+          lastCounts = null;            // a view switch is not a "gain" — no floats
+          updateViewTabs();
+          render();
+          host.style.height = 'auto';
+        }
+        return;
+      }
       const head = e.target.closest && e.target.closest('[data-fold]');
       if (!head || !host.contains(head)) return;
       const key = head.getAttribute('data-fold');
@@ -1202,31 +1232,44 @@
       tip = document.createElement('div');
       tip.id = 'cst-tip';
       // White "data" dialog (like a stock-chart tooltip) — dark text on light.
+      // This single styled dialog replaces EVERY native title tooltip in the
+      // panel (buttons, icons, badges, stats breakdowns) via [data-tip].
       tip.style.cssText = 'position:fixed;display:none;z-index:2147483647;pointer-events:none;' +
-        `background:#ffffff;color:${THEME.text};padding:7px 11px;border-radius:8px;font-size:12px;line-height:1.5;` +
-        `border:1px solid ${THEME.border};box-shadow:0 6px 18px rgba(40,30,10,.28);max-width:240px;text-align:left;` +
-        'transform:translate(14px,16px);font-family:-apple-system,"Segoe UI",sans-serif;';
+        `background:#ffffff;color:${THEME.text};padding:9px 13px;border-radius:10px;font-size:13px;line-height:1.55;` +
+        `border:1px solid ${THEME.border};box-shadow:0 10px 26px rgba(40,30,10,.30);max-width:280px;text-align:left;` +
+        'transform:translate(14px,16px);font-family:-apple-system,"Segoe UI","Noto Sans TC",sans-serif;';
       document.body.appendChild(tip);
     }
-    // Follow the cursor (mousemove, not a one-shot mouseover): wherever the mouse
-    // is, the dialog trails just below-right — flipping to the left near the screen
-    // edge so it never runs off-screen.
-    // Only the count + bar zone (data-dietip) shows the dialog — NOT the % or the
-    // value below it (that area is for the digit/dice toggle, not stats).
-    diceEl.addEventListener('mousemove', (e) => {
-      const zone = e.target.closest('[data-dietip]');
-      if (!zone) { tip.style.display = 'none'; return; }
-      tip.innerHTML = diceTipHTML(+zone.getAttribute('data-dietip'));
-      // Trail below-right of the cursor, but flip horizontally near the right edge
-      // and vertically near the bottom edge so it never runs off-screen.
-      const tx = e.clientX > window.innerWidth - 260 ? 'calc(-100% - 14px)' : '14px';
-      const ty = e.clientY > window.innerHeight - 90 ? 'calc(-100% - 14px)' : '16px';
+    // Trail below-right of the cursor, flipping near the right/bottom screen
+    // edges so the dialog never runs off-screen.
+    const placeTip = (e) => {
+      const tx = e.clientX > window.innerWidth - 300 ? 'calc(-100% - 14px)' : '14px';
+      const ty = e.clientY > window.innerHeight - 110 ? 'calc(-100% - 14px)' : '16px';
       tip.style.transform = `translate(${tx},${ty})`;
       tip.style.left = e.clientX + 'px';
       tip.style.top = e.clientY + 'px';
       tip.style.display = 'block';
+    };
+    // Only the count + bar zone (data-dietip) shows the dice dialog — NOT the %
+    // or the value below it (that area is the digit/dice toggle).
+    diceEl.addEventListener('mousemove', (e) => {
+      const zone = e.target.closest('[data-dietip]');
+      if (!zone) { tip.style.display = 'none'; return; }
+      tip.innerHTML = diceTipHTML(+zone.getAttribute('data-dietip'));
+      placeTip(e);
     });
     diceEl.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+
+    // Generic styled tooltips: any [data-tip] in the panel uses the same dialog
+    // (the dice zones above own their richer HTML content, so skip them here).
+    host.addEventListener('mousemove', (e) => {
+      if (e.target.closest && e.target.closest('[data-dietip]')) return;
+      const z = e.target.closest && e.target.closest('[data-tip]');
+      if (!z || !host.contains(z)) { tip.style.display = 'none'; return; }
+      tip.textContent = z.getAttribute('data-tip');
+      placeTip(e);
+    });
+    host.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
 
     // Click the bottom value → flip digits ⇄ dice (a sticky manual override of the
     // auto-by-width default), with a springy fade swap. Only the value spans are
@@ -1243,6 +1286,7 @@
 
     render();
     applySectionInit();
+    updateViewTabs();
     if (uiState.panelCollapsed) setPanelCollapsed(true);
   }
 
@@ -1378,7 +1422,7 @@
         `border:1px solid ${seven ? THEME.bad : THEME.border};` +
         `${newest ? `box-shadow:0 0 0 2px ${THEME.accent}55;` : 'opacity:.9;'}">${n}</span>`;
     }).join('');
-    return `<div title="Last ${recent.length} rolls (oldest → newest)" ` +
+    return `<div data-tip="Last ${recent.length} rolls (oldest → newest)" ` +
       `style="display:flex;gap:0.25em;align-items:center;justify-content:flex-end;` +
       `overflow:hidden;margin:0 0 0.6em;flex:0 0 auto;">` +
       `<span style="color:${THEME.textDim};font-size:0.7em;margin-right:auto;white-space:nowrap;">Roll order</span>${chips}</div>`;
@@ -1413,7 +1457,7 @@
             </div>
           </div>
           <span style="font-size:0.7em;font-weight:600;font-variant-numeric:tabular-nums;color:${barColor};flex:0 0 auto;">${Math.round(pct)}%</span>
-          <span data-dietoggle="${n}" title="Click to switch digits / dice"
+          <span data-dietoggle="${n}" data-tip="Click to switch digits / dice"
                 style="display:inline-flex;align-items:center;justify-content:center;height:1.7em;line-height:1;flex:0 0 auto;cursor:pointer;transform-origin:center;">${dieValueHTML(n, faces)}</span>
         </div>`);
     }
@@ -1459,101 +1503,111 @@
   // the unknown/stolen-card count, headed by colonist's face-down "?" card. No
   // separate Σ total — colonist's own dashboard already shows each hand size.
   // Player rows follow colonist's panel order and show each player's avatar.
-  function renderResTable() {
-    const bank = bankRemaining();
-    // Wide player column (avatar + name + hand total) and slim single-digit
-    // resource columns so names have room.
-    const cols = `minmax(120px,2.6fr) repeat(${RESOURCES.length}, 0.8fr) 0.8fr`;
+  // The six live-stats columns (the Stats view of the player table). Keys
+  // double as data-res hooks for the column hover + the ±N float targeting.
+  const STAT_COLS = [
+    { key: 's-stole', icon: '⚔️', tip: 'Cards stolen from others' },
+    { key: 's-lost',  icon: '💔', tip: 'Cards lost to thieves' },
+    { key: 's-disc',  icon: '🗑️', tip: 'Cards discarded on 7s' },
+    { key: 's-gain',  icon: '📥', tip: 'Cards gained (rolls / placements / Year of Plenty)' },
+    { key: 's-dev',   icon: '🎴', tip: 'Dev cards bought' },
+    { key: 's-build', icon: '🏗️', tip: 'Roads, settlements & cities built' },
+  ];
 
+  // Wide player column (avatar + name + hand total) and six slim value
+  // columns — IDENTICAL in both views so switching tabs never reflows rows.
+  const TABLE_COLS = 'minmax(120px,2.6fr) repeat(6, 0.8fr)';
+
+  function nameCell(p, prof, active) {
+    const av = prof && prof.get(p.name) && prof.get(p.name).avatar;
+    const avatar = av
+      ? `<span style="display:inline-flex;flex:0 0 auto;width:1.7em;height:1.7em;margin-right:5px;
+          border-radius:50%;overflow:hidden;background:${escapeAttr(p.color)};align-items:center;justify-content:center;">
+          <img src="${escapeAttr(av)}" alt="" style="width:100%;height:100%;object-fit:contain;"></span>`
+      : '';
+    return `<span style="display:flex;align-items:center;gap:4px;min-width:0;color:${escapeAttr(p.color)};font-weight:700;" ` +
+      `data-tip="${escapeHtml(p.name)}${active ? ' — current turn' : ''}">${avatar}` +
+      `<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span>` +
+      `<span data-tip="Total cards in hand" style="flex:0 0 auto;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
+      `color:${THEME.text};background:#fbf9f4;border:1px solid ${THEME.border};border-radius:0.6em;padding:0 0.4em;">${playerTotal(p)}</span></span>`;
+  }
+
+  function rowShell(p, active, cells) {
+    return `
+      <div data-prow="${escapeHtml(p.name)}" style="display:grid;grid-template-columns:${TABLE_COLS};gap:4px;align-items:center;flex:1 1 auto;
+           padding:5px 3px 5px 11px;border-top:1px solid ${THEME.rowLine};${active ? `background:rgba(47,111,159,.12);box-shadow:inset 3px 0 0 ${THEME.accent};` : ''}">
+        ${cells}
+      </div>`;
+  }
+
+  const tableHead = (cells) => `
+    <div style="display:grid;grid-template-columns:${TABLE_COLS};gap:4px;align-items:end;padding:0.9em 3px 0.7em 11px;flex:0 0 auto;">
+      <span style="color:${THEME.textDim};font-size:0.8em;">Player</span>
+      ${cells}
+    </div>`;
+  const EMPTY_ROW = () =>
+    `<div style="color:${THEME.textDim};padding:5px 3px;flex:0 0 auto;">Waiting for first move…</div>`;
+
+  function renderCardsView() {
+    const bank = bankRemaining();
     const iconCell = (r) => {
       const low = bank[r] <= 2;
-      return `<span data-res="${r}" style="text-align:center;border-radius:5px;padding:2px 0;">
+      return `<span data-res="${r}" data-tip="Bank: ${bank[r]} ${RESOURCE_LABEL[r]} left" style="text-align:center;border-radius:5px;padding:2px 0;">
         <span style="position:relative;display:inline-block;line-height:0;">
-          ${iconImg(r, 1.7)}
-          <span title="Bank: ${bank[r]} left"
-                style="position:absolute;top:-0.55em;right:-0.7em;min-width:1.2em;padding:0 0.25em;text-align:center;
+          ${iconImg(r, 2.0)}
+          <span style="position:absolute;top:-0.5em;right:-0.65em;min-width:1.2em;padding:0 0.25em;text-align:center;
                 background:#fbf9f4;color:${low ? THEME.bad : THEME.text};border:1px solid ${THEME.border};
                 border-radius:0.7em;font-size:0.6em;font-weight:700;line-height:1.5;
                 box-shadow:0 1px 2px rgba(0,0,0,.2);">${bank[r]}</span>
         </span>
       </span>`;
     };
-
-    const head = `
-      <div style="display:grid;grid-template-columns:${cols};gap:4px;align-items:end;padding:0.9em 3px 0.7em 11px;flex:0 0 auto;">
-        <span style="color:${THEME.textDim};font-size:0.8em;">Player</span>
-        ${RESOURCES.map(iconCell).join('')}
-        <span data-res="unknown" style="text-align:center;border-radius:5px;padding:2px 0;" title="Unknown (stolen) cards">${iconImg('unknown', 1.55)}</span>
-      </div>`;
-
-    if (state.players.size === 0) {
-      return head + `<div style="color:${THEME.textDim};padding:5px 3px;flex:0 0 auto;">Waiting for first move…</div>`;
-    }
-
+    const head = tableHead(
+      RESOURCES.map(iconCell).join('') +
+      `<span data-res="unknown" data-tip="Unknown (stolen) cards" style="text-align:center;border-radius:5px;padding:2px 0;">${iconImg('unknown', 1.85)}</span>`
+    );
+    if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
-
-    const rows = [];
-    for (const p of players) {
-      const av = prof && prof.get(p.name) && prof.get(p.name).avatar;
-      const avatar = av
-        ? `<span style="display:inline-flex;flex:0 0 auto;width:1.5em;height:1.5em;margin-right:5px;
-            border-radius:50%;overflow:hidden;background:${escapeAttr(p.color)};align-items:center;justify-content:center;">
-            <img src="${escapeAttr(av)}" alt="" style="width:100%;height:100%;object-fit:contain;"></span>`
-        : '';
+    return head + players.map((p) => {
       const active = p.name === state.currentTurn;
       const actCls = active ? 'cst-active-cell' : '';
-      rows.push(`
-        <div data-prow="${escapeHtml(p.name)}" style="display:grid;grid-template-columns:${cols};gap:4px;align-items:center;flex:1 1 auto;
-             padding:5px 3px 5px 11px;border-top:1px solid ${THEME.rowLine};${active ? `background:rgba(47,111,159,.12);box-shadow:inset 3px 0 0 ${THEME.accent};` : ''}">
-          <span style="display:flex;align-items:center;gap:4px;min-width:0;color:${escapeAttr(p.color)};font-weight:700;" title="${escapeHtml(p.name)}${active ? ' — current turn' : ''}">${avatar}<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span><span title="Total cards in hand" style="flex:0 0 auto;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;color:${THEME.text};background:#fbf9f4;border:1px solid ${THEME.border};border-radius:0.6em;padding:0 0.4em;">${playerTotal(p)}</span></span>
-          ${RESOURCES.map((r) =>
-            `<span data-res="${r}" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}">${p.resources[r]}</span>`
-          ).join('')}
-          <span data-res="unknown" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? '' : 'opacity:.4;'}">${p.unknown}</span>
-        </div>`);
-    }
-    return head + rows.join('');
+      const cells = nameCell(p, prof, active) +
+        RESOURCES.map((r) =>
+          `<span data-res="${r}" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}">${p.resources[r]}</span>`
+        ).join('') +
+        `<span data-res="unknown" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? '' : 'opacity:.4;'}">${p.unknown}</span>`;
+      return rowShell(p, active, cells);
+    }).join('');
   }
 
-  // Live stats table: what colonist only shows on the end-of-game summary,
-  // surfaced mid-game. Columns: stolen-from-others / lost-to-thieves (hover for
-  // the per-opponent breakdown), discarded on 7s, cards gained, dev cards.
-  // A footer line totals the robber-blocked yields ("6 🧱 ×2 …").
   function statTip(map, word) {
     return Object.entries(map).map(([n, c]) => `${word} ${n} ×${c}`).join(', ');
   }
-  function renderStatsTable() {
-    if (state.players.size === 0) {
-      return `<div style="color:${THEME.textDim};padding:5px 3px;flex:0 0 auto;">Waiting for first move…</div>`;
-    }
-    const cols = 'minmax(110px,2.4fr) repeat(5, 0.95fr)';
-    const headCell = (label, tip) =>
-      `<span title="${tip}" style="text-align:center;color:${THEME.textDim};font-size:0.78em;white-space:nowrap;cursor:default;">${label}</span>`;
-    const head = `
-      <div style="display:grid;grid-template-columns:${cols};gap:4px;align-items:end;padding:0.7em 3px 0.5em 11px;flex:0 0 auto;">
-        <span style="color:${THEME.textDim};font-size:0.8em;">Player</span>
-        ${headCell('⚔️', 'Cards stolen from others')}
-        ${headCell('💔', 'Cards lost to thieves')}
-        ${headCell('🗑️', 'Cards discarded on 7s')}
-        ${headCell('📥', 'Cards gained (rolls / placements / Year of Plenty)')}
-        ${headCell('🎴', 'Dev cards bought')}
-      </div>`;
-    const { players } = panelOrderedPlayers();
-    const cell = (v, tip) =>
-      `<span ${tip ? `title="${escapeHtml(tip)}" ` : ''}style="text-align:center;font-variant-numeric:tabular-nums;` +
-      `${v ? '' : `color:${THEME.textDim};opacity:.4;`}">${v || 0}</span>`;
+
+  function renderStatsView() {
+    const head = tableHead(STAT_COLS.map((c) =>
+      `<span data-res="${c.key}" data-tip="${c.tip}" style="text-align:center;border-radius:5px;padding:2px 0;font-size:1.3em;line-height:1;cursor:default;">${c.icon}</span>`
+    ).join(''));
+    if (state.players.size === 0) return head + EMPTY_ROW();
+    const { players, prof } = panelOrderedPlayers();
     const rows = players.map((p) => {
+      const active = p.name === state.currentTurn;
+      const actCls = active ? 'cst-active-cell' : '';
       const t = state.tally[p.name] || {};
-      return `
-        <div style="display:grid;grid-template-columns:${cols};gap:4px;align-items:center;flex:1 1 auto;
-             padding:4px 3px 4px 11px;border-top:1px solid ${THEME.rowLine};">
-          <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${escapeAttr(p.color)};font-weight:700;">${escapeHtml(p.name)}</span>
-          ${cell(t.stole, t.stoleFrom && Object.keys(t.stoleFrom).length ? statTip(t.stoleFrom, 'from') : '')}
-          ${cell(t.lost, t.lostTo && Object.keys(t.lostTo).length ? statTip(t.lostTo, 'to') : '')}
-          ${cell(t.discardCards, t.discards ? `${t.discards} discard event${t.discards > 1 ? 's' : ''}` : '')}
-          ${cell(t.gained, '')}
-          ${cell(t.devCards, '')}
-        </div>`;
+      const vals = {
+        's-stole': { v: t.stole || 0, tip: t.stoleFrom && Object.keys(t.stoleFrom).length ? statTip(t.stoleFrom, 'from') : '' },
+        's-lost':  { v: t.lost || 0, tip: t.lostTo && Object.keys(t.lostTo).length ? statTip(t.lostTo, 'to') : '' },
+        's-disc':  { v: t.discardCards || 0, tip: t.discards ? `${t.discards} discard event${t.discards > 1 ? 's' : ''}` : '' },
+        's-gain':  { v: t.gained || 0, tip: '' },
+        's-dev':   { v: t.devCards || 0, tip: '' },
+        's-build': { v: t.builds || 0, tip: '' },
+      };
+      const cells = nameCell(p, prof, active) + STAT_COLS.map((c) => {
+        const { v, tip } = vals[c.key];
+        return `<span data-res="${c.key}" class="${actCls}" ${tip ? `data-tip="${escapeHtml(tip)}" ` : ''}` +
+          `style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${v ? '' : `color:${THEME.textDim};opacity:.4;`}">${v}</span>`;
+      }).join('');
+      return rowShell(p, active, cells);
     }).join('');
     let blockedLine = '';
     if (state.blocked.count) {
@@ -1567,6 +1621,10 @@
     return head + rows + blockedLine;
   }
 
+  function renderResTable() {
+    return uiState.resView === 'stats' ? renderStatsView() : renderCardsView();
+  }
+
   // ---- game-style floating "+N" / "−N" over changed resource cells ----
   // lastCounts is the per-player snapshot from the previous render; null means
   // "don't float on the next render" (set after reset/restore/deep re-scrape,
@@ -1575,9 +1633,12 @@
   function countsSnapshot() {
     const snap = {};
     for (const p of state.players.values()) {
+      const t = state.tally[p.name] || {};
       snap[p.name] = {
         lumber: p.resources.lumber, brick: p.resources.brick, wool: p.resources.wool,
         grain: p.resources.grain, ore: p.resources.ore, unknown: p.unknown,
+        's-stole': t.stole || 0, 's-lost': t.lost || 0, 's-disc': t.discardCards || 0,
+        's-gain': t.gained || 0, 's-dev': t.devCards || 0, 's-build': t.builds || 0,
       };
     }
     return snap;
@@ -1595,29 +1656,38 @@
     if (!prev) return;
     const rows = [...resEl.querySelectorAll('[data-prow]')];
     const wr = wrap.getBoundingClientRect();
+    // Only the columns of the CURRENT view get floats (the other view's cells
+    // aren't in the DOM). In the stats view, an INCREASE of lost/discarded is
+    // bad news — colour by what the change means, not by its sign.
+    const keys = uiState.resView === 'stats'
+      ? STAT_COLS.map((c) => c.key)
+      : [...RESOURCES, 'unknown'];
+    const BAD_UP = { 's-lost': true, 's-disc': true };
     for (const [name, cur] of Object.entries(lastCounts)) {
       const old = prev[name];
       if (!old) continue;                       // brand-new player row — no float
       const row = rows.find((el) => el.getAttribute('data-prow') === name);
       if (!row) continue;
-      for (const k of [...RESOURCES, 'unknown']) {
+      for (const k of keys) {
         const d = cur[k] - old[k];
         if (!d) continue;
         const cell = row.querySelector(`[data-res="${k}"]`);
         if (!cell) continue;
         const cr = cell.getBoundingClientRect();
+        const good = BAD_UP[k] ? d < 0 : d > 0;
         const f = document.createElement('span');
         f.textContent = (d > 0 ? '+' : '−') + Math.abs(d);
         f.style.cssText = 'position:absolute;z-index:3;pointer-events:none;' +
           `left:${cr.left - wr.left + cr.width / 2}px;top:${cr.top - wr.top}px;` +
-          'transform:translate(-50%,0);font-size:0.85em;font-weight:800;line-height:1;' +
-          `color:${d > 0 ? THEME.good : THEME.bad};text-shadow:0 1px 2px rgba(255,255,255,.85);` +
-          'opacity:1;transition:transform .7s ease-out, opacity .7s ease-out;';
+          'transform:translate(-50%,0);font-size:1.12em;font-weight:900;line-height:1;' +
+          `color:${good ? '#1f6b1f' : '#9c3018'};` +
+          'text-shadow:0 0 3px rgba(255,255,255,.95), 0 1px 2px rgba(255,255,255,.9);' +
+          'opacity:1;transition:transform .75s ease-out, opacity .75s ease-out;';
         wrap.appendChild(f);
         void f.offsetHeight;                    // start the drift-up + fade
-        f.style.transform = 'translate(-50%,-1.15em)';
+        f.style.transform = 'translate(-50%,-1.35em)';
         f.style.opacity = '0';
-        setTimeout(() => f.remove(), 750);
+        setTimeout(() => f.remove(), 800);
       }
     }
   }
@@ -1629,8 +1699,6 @@
     const r = panel.querySelector('#cst-resources');
     if (r) r.innerHTML = renderResTable();
     spawnGainFloats();
-    const s = panel.querySelector('#cst-stats');
-    if (s) s.innerHTML = renderStatsTable();
     const blocked = panel.querySelector('#cst-blocked');
     if (blocked) blocked.textContent = state.blocked.count ? `🚫 ${state.blocked.count} blocked` : '';
     const rolls = panel.querySelector('#cst-dice-rolls');
