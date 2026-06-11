@@ -1264,6 +1264,29 @@
       `<br><span style="color:${THEME.textDim};">Expected ${EXPECTED_PCT[n]}%</span>`;
   }
 
+  // The last ~12 rolls as a left→right strip (newest on the right, with an
+  // accent ring; 7s flagged in red) so you can read the RUN of rolls during a
+  // turn/trade — not just the frequency histogram. Hidden until the first roll.
+  const ROLL_STRIP_N = 12;
+  function renderRollStrip() {
+    const recent = state.rollHistory.slice(-ROLL_STRIP_N);
+    if (!recent.length) return '';
+    const chips = recent.map((n, i) => {
+      const newest = i === recent.length - 1;
+      const seven = n === 7;
+      return `<span style="display:inline-flex;align-items:center;justify-content:center;` +
+        `min-width:1.55em;height:1.55em;padding:0 0.2em;border-radius:0.35em;` +
+        `font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
+        `background:${seven ? THEME.bad : '#fbf9f4'};color:${seven ? '#fff' : THEME.text};` +
+        `border:1px solid ${seven ? THEME.bad : THEME.border};` +
+        `${newest ? `box-shadow:0 0 0 2px ${THEME.accent}55;` : 'opacity:.9;'}">${n}</span>`;
+    }).join('');
+    return `<div title="Last ${recent.length} rolls (oldest → newest)" ` +
+      `style="display:flex;gap:0.25em;align-items:center;justify-content:flex-end;` +
+      `overflow:hidden;margin:0 0 0.6em;flex:0 0 auto;">` +
+      `<span style="color:${THEME.textDim};font-size:0.7em;margin-right:auto;white-space:nowrap;">Roll order</span>${chips}</div>`;
+  }
+
   // Dice histogram bars (the section header lives in the static skeleton).
   // Top→bottom per column: the roll count, the bar, the %, then the sum (2–12,
   // shown as a digit or — toggled by clicking it — the two dice faces). Hovering a
@@ -1297,7 +1320,8 @@
                 style="display:inline-flex;align-items:center;justify-content:center;height:1.7em;line-height:1;flex:0 0 auto;cursor:pointer;transform-origin:center;">${dieValueHTML(n, faces)}</span>
         </div>`);
     }
-    return `<div style="display:flex;align-items:stretch;gap:3px;flex:1 1 auto;">${cols.join('')}</div>`;
+    return renderRollStrip() +
+      `<div style="display:flex;align-items:stretch;gap:3px;flex:1 1 auto;">${cols.join('')}</div>`;
   }
 
   // Read colonist's own player panel for the authoritative turn order AND each
