@@ -5,6 +5,9 @@ All notable changes in this repository are documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- youtube-video-upload-time (9.6): silenced the false-alarm "Could not find Shorts title element" warning (the title overlay renders ~4-5s after navigation; now warns once only after 20s of consecutive misses) and adapted active-reel detection to the 2026-06 single-reel Shorts DOM (`is-active` attribute removed by YouTube). +6 tests.
+- youtube-video-upload-time (9.2–9.5): renamed to "YouTube 精確時間"; fixed Shorts/watch SPA stale-meta dates (page dates now ID-verified, poisoned `v_` cache purged via `v2_` migration); badges keyed by `data-video-id`; added test suite; icon added from Stan's hand-drawn artwork (`icons/` + manifest `icons`/`action.default_icon`).
+- claude-status-monitor (1.0.2): added the missing extension icon — Stan's artwork (Claude orange starburst + blue tools), background made transparent, wired into manifest `icons` and `action.default_icon`. Conversion done by the new `tools/jpg-to-icons.js` (generic JPG → icon16/32/48/128 with optional `--transparent-bg` flood fill and `--trim`).
 - colonist-stats-tracker (1.18.0): **refresh / reconnect accuracy — two real holes plugged.** (1) colonist sometimes *replaces* the log container node (reconnect / re-render); the observer was left watching the detached node and updates silently stopped. The container is now re-discovered every tick. (2) After a reload, colonist may renumber `data-index`, so the restored dedup set can't be trusted — a mid-game refresh or container swap now triggers an **automatic deep re-scrape** (debounced 1.5 s) that rebuilds the stats from the full log, exactly like the 🔄 button. The re-scrape itself got more thorough: smaller scroll steps, longer settle waits, and a double scan per step so slow-mounting virtual rows aren't skipped.
 
 ### Added
