@@ -84,13 +84,13 @@
     "message": "偷到的牌"
   },
   "statLost": {
-    "message": "被偷走的牌"
+    "message": "被偷的牌"
   },
   "statDisc": {
-    "message": "因 7 點棄掉的牌"
+    "message": "棄掉的牌"
   },
   "statGain": {
-    "message": "獲得的牌（擲骰／初始放置／豐收年）"
+    "message": "獲得的牌"
   },
   "stoleFromItem": {
     "message": "偷自 {who} ×{n}"
@@ -100,9 +100,6 @@
   },
   "discardEvents": {
     "message": "{n} 次棄牌"
-  },
-  "blockedLine": {
-    "message": "強盜擋產 {n} 次"
   },
   "popupIntro": {
     "message": "開啟一局 <a href=\"https://colonist.io/\" target=\"_blank\" rel=\"noopener\">colonist.io</a> 對局，統計面板會<span class=\"ok\">自動出現</span>在畫面上。"

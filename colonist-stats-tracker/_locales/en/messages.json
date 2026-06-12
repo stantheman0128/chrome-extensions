@@ -81,16 +81,16 @@
     "message": "current turn"
   },
   "statStole": {
-    "message": "Cards stolen from others"
+    "message": "Cards stolen"
   },
   "statLost": {
-    "message": "Cards lost to thieves"
+    "message": "Cards lost"
   },
   "statDisc": {
-    "message": "Cards discarded on 7s"
+    "message": "Cards discarded"
   },
   "statGain": {
-    "message": "Cards gained (rolls / placements / Year of Plenty)"
+    "message": "Cards gained"
   },
   "stoleFromItem": {
     "message": "from {who} ×{n}"
@@ -100,9 +100,6 @@
   },
   "discardEvents": {
     "message": "{n} discard events"
-  },
-  "blockedLine": {
-    "message": "Robber blocked {n}×"
   },
   "popupIntro": {
     "message": "Open a <a href=\"https://colonist.io/\" target=\"_blank\" rel=\"noopener\">colonist.io</a> game and the stats panel will <span class=\"ok\">appear automatically</span>."

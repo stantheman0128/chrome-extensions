@@ -503,16 +503,23 @@
       // stolen card is revealed to the victim, so a real card img is present.
       // Without this branch the message falls into the Monopoly handler below
       // (one ref + one icon) and wrongly zeroes every OTHER player's pile.
-      if (text.includes('from you') && refs.length === 1 && total > 0) {
+      if (text.includes('from you') && refs.length === 1) {
         const thief = getPlayer(refs[0].name, refs[0].color);
         const victim = state.selfName ? getPlayer(state.selfName) : null;
-        for (const r of RESOURCES) {
-          if (counts[r] > 0) {
-            giveResource(thief, r, counts[r]);
-            if (victim) takeResource(victim, r, counts[r]);
+        if (total > 0) {
+          for (const r of RESOURCES) {
+            if (counts[r] > 0) {
+              giveResource(thief, r, counts[r]);
+              if (victim) takeResource(victim, r, counts[r]);
+            }
           }
+        } else if (thief && victim) {
+          // No card img in the message (colonist usually reveals your own
+          // loss, but don't bet on it) — still move one unknown card so the
+          // hand totals and the steal matrix stay right.
+          transferUnknown(victim, thief);
         }
-        recordSteal(thief && thief.name, victim && victim.name, total);
+        recordSteal(thief && thief.name, victim && victim.name, total || 1);
         renderSoon();
         return;
       }
@@ -1252,15 +1259,23 @@
       colHL.style.left = (hit.rect.left - wr.left) + 'px';
       colHL.style.width = hit.rect.width + 'px';
       colHL.style.height = resEl.offsetHeight + 'px';
-      // Soft fill, fading to transparent at the very top & bottom (no abrupt cut).
+      // Soft fill with LONG fades at both ends — the previous short 13% ramp
+      // ended right where the rectangular box-shadow glow didn't, which read
+      // as a hard line / a bump sticking out at the top.
       colFill.style.background =
-        `linear-gradient(to bottom, rgba(${rgb},0) 0%, rgba(${rgb},.24) 13%, rgba(${rgb},.14) 87%, rgba(${rgb},0) 100%)`;
+        `linear-gradient(to bottom, rgba(${rgb},0) 0%, rgba(${rgb},.22) 22%, rgba(${rgb},.13) 78%, rgba(${rgb},0) 100%)`;
       // Neon side bars: bright through the middle, fading at the ends to match.
       const barGrad =
-        `linear-gradient(to bottom, rgba(${rgb},0) 0%, rgb(${rgb}) 14%, rgb(${rgb}) 86%, rgba(${rgb},0) 100%)`;
+        `linear-gradient(to bottom, rgba(${rgb},0) 0%, rgb(${rgb}) 22%, rgb(${rgb}) 78%, rgba(${rgb},0) 100%)`;
       colBarL.style.background = barGrad;
       colBarR.style.background = barGrad;
-      colHL.style.boxShadow = `0 0 12px 1px rgba(${rgb},.5)`;   // outer fluorescent bloom
+      // The bloom is a drop-shadow on the bars themselves: it follows their
+      // gradient alpha, so the glow fades out WITH the bar instead of being a
+      // rectangle clipped at the highlight's bounds.
+      const bloom = `drop-shadow(0 0 5px rgba(${rgb},.6))`;
+      colBarL.style.filter = bloom;
+      colBarR.style.filter = bloom;
+      colHL.style.boxShadow = 'none';
       colHL.style.display = 'block';
       resEl.querySelectorAll('[data-res]').forEach((el) => {
         if (el.getAttribute('data-res') !== hit.res || el.querySelector('img')) { el.style.fontWeight = ''; return; }
@@ -1314,6 +1329,12 @@
       const pieEl = e.target.closest && e.target.closest('[data-pie]');
       if (pieEl && host.contains(pieEl)) {
         const html = gainPieHTML(pieEl.getAttribute('data-pie'));
+        if (html) { tip.innerHTML = html; placeTip(e); return; }
+      }
+      const bdEl = e.target.closest && e.target.closest('[data-bd]');
+      if (bdEl && host.contains(bdEl)) {
+        const [who, kind] = bdEl.getAttribute('data-bd').split('|');
+        const html = stealBreakdownHTML(who, kind);
         if (html) { tip.innerHTML = html; placeTip(e); return; }
       }
       const z = e.target.closest && e.target.closest('[data-tip]');
@@ -1618,6 +1639,10 @@
   const RES_HL = {
     lumber: '66,170,45', brick: '203,90,68', wool: '146,196,74',
     grain: '238,194,60', ore: '143,179,166', unknown: '47,111,159',
+    // Stats columns glow in a violet no other panel element uses, so the
+    // hover reads as "stats", not as any particular resource.
+    's-stole': '138,103,194', 's-lost': '138,103,194',
+    's-disc': '138,103,194', 's-gain': '138,103,194',
   };
 
   // The live-stats columns (the Stats view of the player table). Keys double
@@ -1625,10 +1650,10 @@
   // and builds stay TALLIED (and archived per game) but aren't displayed —
   // colonist's own dashboard already shows them; four columns breathe better.
   const STAT_COLS = [
-    { key: 's-stole', icon: '⚔️', tip: t('statStole', 'Cards stolen from others') },
-    { key: 's-lost',  icon: '💔', tip: t('statLost', 'Cards lost to thieves') },
-    { key: 's-disc',  icon: '🗑️', tip: t('statDisc', 'Cards discarded on 7s') },
-    { key: 's-gain',  icon: '📥', tip: t('statGain', 'Cards gained (rolls / placements / Year of Plenty)') },
+    { key: 's-stole', icon: '⚔️', tip: t('statStole', 'Cards stolen') },
+    { key: 's-lost',  icon: '💔', tip: t('statLost', 'Cards lost') },
+    { key: 's-disc',  icon: '🗑️', tip: t('statDisc', 'Cards discarded') },
+    { key: 's-gain',  icon: '📥', tip: t('statGain', 'Cards gained') },
   ];
 
   // Wide player column (avatar + name + hand total) + the value columns.
@@ -1701,12 +1726,25 @@
     }).join('');
   }
 
-  // Per-opponent breakdown for the steal columns, e.g. "from Ann ×2, from Bob ×1"
-  // — biggest offender first.
-  function statTip(map, key, fallback) {
-    return Object.entries(map)
+  // Per-opponent breakdown for the steal columns — biggest offender first, one
+  // line each, with the opponent's name styled exactly like the player rows
+  // (their own game colour, bold). The localized template is escaped FIRST,
+  // then the {who}/{n} placeholders are swapped for our own markup, so the
+  // name styling survives any word order ("from {who} ×{n}" / "被 {who} 偷 ×{n}").
+  function stealBreakdownHTML(name, kind) {
+    const map = (state.tally[name] || {})[kind];
+    if (!map || !Object.keys(map).length) return '';
+    const tpl = escapeHtml(kind === 'stoleFrom'
+      ? t('stoleFromItem', 'from {who} ×{n}')
+      : t('lostToItem', 'to {who} ×{n}'));
+    const lines = Object.entries(map)
       .sort((a, b) => b[1] - a[1])
-      .map(([who, c]) => t(key, fallback, { who, n: c })).join(', ');
+      .map(([who, c]) => {
+        const p = state.players.get(who);
+        const whoHtml = `<b style="color:${escapeAttr((p && p.color) || THEME.accent)};">${escapeHtml(who)}</b>`;
+        return `<span style="white-space:nowrap;">${tpl.split('{who}').join(whoHtml).split('{n}').join(c)}</span>`;
+      });
+    return `<span style="display:flex;flex-direction:column;gap:2px;">${lines.join('')}</span>`;
   }
 
   // Hover content for the gained-cards cell: a small pie of the per-resource
@@ -1753,33 +1791,24 @@
       const actCls = active ? 'cst-active-cell' : '';
       const ty = state.tally[p.name] || {};
       const vals = {
-        's-stole': { v: ty.stole || 0, tip: ty.stoleFrom && Object.keys(ty.stoleFrom).length ? statTip(ty.stoleFrom, 'stoleFromItem', 'from {who} ×{n}') : '' },
-        's-lost':  { v: ty.lost || 0, tip: ty.lostTo && Object.keys(ty.lostTo).length ? statTip(ty.lostTo, 'lostToItem', 'to {who} ×{n}') : '' },
+        's-stole': { v: ty.stole || 0, bd: ty.stoleFrom && Object.keys(ty.stoleFrom).length ? 'stoleFrom' : null },
+        's-lost':  { v: ty.lost || 0, bd: ty.lostTo && Object.keys(ty.lostTo).length ? 'lostTo' : null },
         's-disc':  { v: ty.discardCards || 0, tip: ty.discards ? t('discardEvents', '{n} discard events', { n: ty.discards }) : '' },
-        's-gain':  { v: ty.gained || 0, tip: '', pie: ty.gained ? p.name : null },
+        's-gain':  { v: ty.gained || 0, pie: ty.gained ? p.name : null },
       };
       const cells = nameCell(p, prof, active) + STAT_COLS.map((c) => {
-        const { v, tip, pie } = vals[c.key];
-        return `<span data-res="${c.key}" class="${actCls}" ${pie ? `data-pie="${escapeHtml(pie)}" ` : ''}${tip ? `data-tip="${escapeHtml(tip)}" ` : ''}` +
+        const { v, tip, pie, bd } = vals[c.key];
+        return `<span data-res="${c.key}" class="${actCls}" ` +
+          `${pie ? `data-pie="${escapeHtml(pie)}" ` : ''}` +
+          `${bd ? `data-bd="${escapeHtml(p.name)}|${bd}" ` : ''}` +
+          `${tip ? `data-tip="${escapeHtml(tip)}" ` : ''}` +
           `style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${v ? '' : `color:${THEME.textDim};opacity:.4;`}">${v}</span>`;
       }).join('');
       return rowShell(p, active, cells, STATS_GRID);
     }).join('');
-    let blockedLine = '';
-    if (state.blocked.count) {
-      // Tile keys look like "6 brick" — show the number + the same colonist
-      // card art the Resources header uses (only the number is escaped; the
-      // icon img is our own markup).
-      const parts = Object.entries(state.blocked.byKey).map(([k, c]) => {
-        const res = (k.match(/lumber|brick|wool|grain|ore/) || [])[0];
-        const num = (k.match(/\d+/) || [])[0] || '';
-        return `${escapeHtml(num)}&hairsp;${res ? iconImg(res, 1.2) : escapeHtml(k)}×${c}`;
-      }).join(' · ');
-      blockedLine = `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:6px 3px 2px 11px;` +
-        `color:${THEME.textDim};font-size:0.78em;border-top:1px solid ${THEME.rowLine};">` +
-        `🚫 ${escapeHtml(t('blockedLine', 'Robber blocked {n}×', { n: state.blocked.count }))} — ${parts}</div>`;
-    }
-    return head + rows + blockedLine;
+    // (The robber-blocked breakdown line was dropped by request — the events
+    // are still tallied and archived per game, just not displayed here.)
+    return head + rows;
   }
 
   function renderResTable() {

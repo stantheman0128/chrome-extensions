@@ -44,6 +44,21 @@ test('"Itin stole Brick from you": thief gains, self loses, others untouched', (
   assert.equal(cst.state.tally.Me.lostTo.Itin, 1);
 });
 
+test('"stole from you" WITHOUT a card img still moves one unknown card', () => {
+  cst.resetState();
+  cst.state.selfName = 'Me';
+  const me = cst.getPlayer('Me', '#00c');
+  cst.giveResource(me, 'ore', 2);
+
+  feed(MSG(`${NAME('Itin')} stole from you`));   // no revealed card
+
+  const itin = cst.state.players.get('Itin');
+  assert.equal(itin.unknown, 1, 'thief gains one unknown card');
+  assert.equal(me.resources.ore, 1, 'victim loses one card (best pile)');
+  assert.equal(cst.state.tally.Itin.stoleFrom.Me, 1);
+  assert.equal(cst.state.tally.Me.lostTo.Itin, 1);
+});
+
 test('knight steal "X stole from Y" updates the tally matrix', () => {
   cst.resetState();
   const victim = cst.getPlayer('Bob', '#0c0');

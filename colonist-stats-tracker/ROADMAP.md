@@ -85,6 +85,12 @@ biggest nemesis (who steals from you the most). Viewer: popup or a dedicated
 page. To brainstorm when enough games have accumulated.
 
 ### Deferred refinements from shipped features
+- **selfName heuristic in multi-human games.** The local player is inferred as
+  "the first coloured name whose message avatar is `icon_player.svg`" — solid
+  in bot games, but another human with the default avatar could be misread as
+  self, which would mis-attribute "(stole) from you" events. Worth verifying in
+  a multi-human game; a better anchor might be colonist's own profile/header
+  element if it exposes the username.
 - Ghost mode (v1.15.0) uses a size+class heuristic to spot colonist dialogs; if
   a dialog ever fails to trigger it (or something triggers it falsely), capture
   that element's DOM so the selector can be pinned exactly.
