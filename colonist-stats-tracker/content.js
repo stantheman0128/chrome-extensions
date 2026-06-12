@@ -1100,21 +1100,30 @@
       if (vt && host.contains(vt)) {
         const v = vt.getAttribute('data-resview') === 'stats' ? 'stats' : 'cards';
         if (v !== uiState.resView) {
+          const goingStats = v === 'stats';
           uiState.resView = v;
           saveUI({ resView: v });
           lastCounts = null;            // a view switch is not a "gain" — no floats
           updateViewTabs();
-          // Quick cross-fade: the columns swap while the table is invisible.
-          // (Header heights are pinned to the same slot, so nothing jumps.)
+          // Directional slide + fade: heading to Stats the table glides left
+          // and the new columns enter from the right (and vice versa) — the
+          // wrap's overflow:hidden clips the slide. Header heights share one
+          // fixed slot, so the panel itself never moves.
           const tbl = host.querySelector('#cst-resources');
-          tbl.style.transition = 'opacity .13s ease';
+          tbl.style.transition = 'opacity .16s ease, transform .16s ease';
           tbl.style.opacity = '0';
+          tbl.style.transform = `translateX(${goingStats ? -18 : 18}px)`;
           setTimeout(() => {
             render();
             host.style.height = 'auto';
+            tbl.style.transition = 'none';
+            tbl.style.transform = `translateX(${goingStats ? 18 : -18}px)`;
+            void tbl.offsetHeight;      // commit the entry position, then animate in
+            tbl.style.transition = 'opacity .2s ease, transform .24s cubic-bezier(.2,.8,.3,1)';
             tbl.style.opacity = '1';
-            setTimeout(() => { tbl.style.transition = ''; }, 140);
-          }, 130);
+            tbl.style.transform = 'translateX(0)';
+            setTimeout(() => { tbl.style.transition = ''; tbl.style.transform = ''; }, 250);
+          }, 160);
         }
         return;
       }
@@ -1649,7 +1658,8 @@
       acc += n;
       const to = (acc / total) * 360;
       slices.push(`rgb(${RES_HL[r]}) ${from.toFixed(1)}deg ${to.toFixed(1)}deg`);
-      legend.push(`<span style="white-space:nowrap;">${RESOURCE_LABEL[r]}&hairsp;×${n}</span>`);
+      // Same colonist card art as the Resources header — one icon language.
+      legend.push(`<span style="white-space:nowrap;display:inline-flex;align-items:center;gap:2px;">${iconImg(r, 1.25)}×${n}</span>`);
     }
     return `<div style="display:flex;align-items:center;gap:10px;">` +
       `<span style="flex:0 0 auto;width:52px;height:52px;border-radius:50%;` +
@@ -1661,8 +1671,12 @@
   }
 
   function renderStatsView() {
+    // The font-size lives on an INNER span: putting it on the cell itself would
+    // scale the em-based HEAD_SLOT height with it, making the Stats header
+    // taller than the Resources one (the height-jump bug).
     const head = tableHead(STAT_COLS.map((c) =>
-      `<span data-res="${c.key}" data-tip="${c.tip}" style="${HEAD_SLOT}border-radius:5px;font-size:1.5em;line-height:1;cursor:default;">${c.icon}</span>`
+      `<span data-res="${c.key}" data-tip="${c.tip}" style="${HEAD_SLOT}border-radius:5px;cursor:default;">` +
+      `<span style="font-size:1.5em;line-height:1;">${c.icon}</span></span>`
     ).join(''), STATS_GRID);
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
@@ -1685,12 +1699,17 @@
     }).join('');
     let blockedLine = '';
     if (state.blocked.count) {
+      // Tile keys look like "6 brick" — show the number + the same colonist
+      // card art the Resources header uses (only the number is escaped; the
+      // icon img is our own markup).
       const parts = Object.entries(state.blocked.byKey).map(([k, c]) => {
-        const disp = k.replace(/(lumber|brick|wool|grain|ore)/, (m) => RESOURCE_LABEL[m]);
-        return `${disp} ×${c}`;
+        const res = (k.match(/lumber|brick|wool|grain|ore/) || [])[0];
+        const num = (k.match(/\d+/) || [])[0] || '';
+        return `${escapeHtml(num)}&hairsp;${res ? iconImg(res, 1.2) : escapeHtml(k)}×${c}`;
       }).join(' · ');
-      blockedLine = `<div style="padding:6px 3px 2px 11px;color:${THEME.textDim};font-size:0.78em;` +
-        `border-top:1px solid ${THEME.rowLine};">🚫 ${escapeHtml(t('blockedLine', 'Robber blocked {n}×', { n: state.blocked.count }))} — ${escapeHtml(parts)}</div>`;
+      blockedLine = `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:6px 3px 2px 11px;` +
+        `color:${THEME.textDim};font-size:0.78em;border-top:1px solid ${THEME.rowLine};">` +
+        `🚫 ${escapeHtml(t('blockedLine', 'Robber blocked {n}×', { n: state.blocked.count }))} — ${parts}</div>`;
     }
     return head + rows + blockedLine;
   }
