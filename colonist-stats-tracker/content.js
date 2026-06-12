@@ -141,8 +141,9 @@
         stoleFrom: {}, lostTo: {}, // per-opponent breakdown (name -> cards)
         discards: 0, discardCards: 0,
         gained: 0,               // cards gained from rolls / placements / YoP
-        devCards: 0,
-        builds: 0,               // roads + settlements + cities built
+        gainedRes: {},           // ...broken down per resource (feeds the hover pie)
+        devCards: 0,             // tracked + archived, not displayed (dashboard has it)
+        builds: 0,               // tracked + archived, not displayed
       };
     }
     return state.tally[name];
@@ -446,7 +447,11 @@
       const { counts, total } = countResources(msgEl);
       if (total > 0 && player) {
         for (const r of RESOURCES) giveResource(player, r, counts[r]);
-        tallyOf(player.name).gained += total;
+        const ty = tallyOf(player.name);
+        ty.gained += total;
+        for (const r of RESOURCES) {
+          if (counts[r]) ty.gainedRes[r] = (ty.gainedRes[r] || 0) + counts[r];
+        }
         renderSoon();
         return;
       }
@@ -1052,7 +1057,6 @@
             <span style="color:${THEME.textDim};font-weight:400;">·</span>
             <span class="cst-vtab" data-resview="stats">${t('statsTab', 'Stats')}</span>
           </strong>
-          <span id="cst-blocked" style="color:${THEME.textDim};font-size:0.82em;"></span>
         </div>
         <div id="cst-res-wrap" style="flex:1 0 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;transition:max-height .28s ease;"><div id="cst-resources" style="flex:1 1 auto;display:flex;flex-direction:column;"></div></div>
       </div>`;
@@ -1100,8 +1104,17 @@
           saveUI({ resView: v });
           lastCounts = null;            // a view switch is not a "gain" — no floats
           updateViewTabs();
-          render();
-          host.style.height = 'auto';
+          // Quick cross-fade: the columns swap while the table is invisible.
+          // (Header heights are pinned to the same slot, so nothing jumps.)
+          const tbl = host.querySelector('#cst-resources');
+          tbl.style.transition = 'opacity .13s ease';
+          tbl.style.opacity = '0';
+          setTimeout(() => {
+            render();
+            host.style.height = 'auto';
+            tbl.style.opacity = '1';
+            setTimeout(() => { tbl.style.transition = ''; }, 140);
+          }, 130);
         }
         return;
       }
@@ -1171,10 +1184,6 @@
     // is by pointer-x against the header cells, so the WHOLE column strip is hot —
     // gaps between cells and rows included. The overlay lives in the stable
     // #cst-res-wrap so it survives render()'s innerHTML swaps.
-    const RES_HL = {
-      lumber: '66,170,45', brick: '203,90,68', wool: '146,196,74',
-      grain: '238,194,60', ore: '143,179,166', unknown: '47,111,159',
-    };
     const wrap = host.querySelector('#cst-res-wrap');
     wrap.style.position = 'relative';
     const resEl = host.querySelector('#cst-resources');
@@ -1278,8 +1287,14 @@
 
     // Generic styled tooltips: any [data-tip] in the panel uses the same dialog
     // (the dice zones above own their richer HTML content, so skip them here).
+    // [data-pie] cells (gained cards) get a live per-resource pie instead.
     host.addEventListener('mousemove', (e) => {
       if (e.target.closest && e.target.closest('[data-dietip]')) return;
+      const pieEl = e.target.closest && e.target.closest('[data-pie]');
+      if (pieEl && host.contains(pieEl)) {
+        const html = gainPieHTML(pieEl.getAttribute('data-pie'));
+        if (html) { tip.innerHTML = html; placeTip(e); return; }
+      }
       const z = e.target.closest && e.target.closest('[data-tip]');
       if (!z || !host.contains(z)) { tip.style.display = 'none'; return; }
       tip.textContent = z.getAttribute('data-tip');
@@ -1387,7 +1402,7 @@
       return `<span style="font-size:0.82em;font-weight:600;font-variant-numeric:tabular-nums;color:${n === 7 ? THEME.bad : THEME.textDim};">${n}</span>`;
     }
     const [a, b] = DICE_PAIR[n];
-    return `<span style="display:inline-flex;gap:0.16em;align-items:center;justify-content:center;">${dieFaceSVG(a, 0.84)}${dieFaceSVG(b, 0.84)}</span>`;
+    return `<span style="display:inline-flex;gap:0.16em;align-items:center;justify-content:center;">${dieFaceSVG(a, 1.05)}${dieFaceSVG(b, 1.05)}</span>`;
   }
   // Flip the bottom value (digit ⇄ dice) in place with a springy fade — updating
   // ONLY the value spans (not a full render) so the bars/spacing never reflow.
@@ -1521,20 +1536,30 @@
   // the unknown/stolen-card count, headed by colonist's face-down "?" card. No
   // separate Σ total — colonist's own dashboard already shows each hand size.
   // Player rows follow colonist's panel order and show each player's avatar.
-  // The six live-stats columns (the Stats view of the player table). Keys
-  // double as data-res hooks for the column hover + the ±N float targeting.
+  // Sampled from colonist's resource tints; shared by the column-hover
+  // highlight and the gained-cards hover pie.
+  const RES_HL = {
+    lumber: '66,170,45', brick: '203,90,68', wool: '146,196,74',
+    grain: '238,194,60', ore: '143,179,166', unknown: '47,111,159',
+  };
+
+  // The live-stats columns (the Stats view of the player table). Keys double
+  // as data-res hooks for the column hover + the ±N float targeting. Dev cards
+  // and builds stay TALLIED (and archived per game) but aren't displayed —
+  // colonist's own dashboard already shows them; four columns breathe better.
   const STAT_COLS = [
     { key: 's-stole', icon: '⚔️', tip: t('statStole', 'Cards stolen from others') },
     { key: 's-lost',  icon: '💔', tip: t('statLost', 'Cards lost to thieves') },
     { key: 's-disc',  icon: '🗑️', tip: t('statDisc', 'Cards discarded on 7s') },
     { key: 's-gain',  icon: '📥', tip: t('statGain', 'Cards gained (rolls / placements / Year of Plenty)') },
-    { key: 's-dev',   icon: '🎴', tip: t('statDev', 'Dev cards bought') },
-    { key: 's-build', icon: '🏗️', tip: t('statBuild', 'Roads, settlements & cities built') },
   ];
 
-  // Wide player column (avatar + name + hand total) and six slim value
-  // columns — IDENTICAL in both views so switching tabs never reflows rows.
-  const TABLE_COLS = 'minmax(120px,2.6fr) repeat(6, 0.8fr)';
+  // Wide player column (avatar + name + hand total) + the value columns.
+  // Header cells in BOTH views sit in the same fixed-height slot, so switching
+  // tabs never changes the table height (no jumping panel).
+  const CARDS_GRID = 'minmax(120px,2.6fr) repeat(6, 0.8fr)';
+  const STATS_GRID = 'minmax(120px,2.6fr) repeat(4, 1.2fr)';
+  const HEAD_SLOT = 'height:2.3em;display:flex;align-items:center;justify-content:center;';
 
   function nameCell(p, prof, active) {
     const av = prof && prof.get(p.name) && prof.get(p.name).avatar;
@@ -1550,17 +1575,17 @@
       `color:${THEME.text};background:#fbf9f4;border:1px solid ${THEME.border};border-radius:0.6em;padding:0 0.4em;">${playerTotal(p)}</span></span>`;
   }
 
-  function rowShell(p, active, cells) {
+  function rowShell(p, active, cells, grid) {
     return `
-      <div data-prow="${escapeHtml(p.name)}" style="display:grid;grid-template-columns:${TABLE_COLS};gap:4px;align-items:center;flex:1 1 auto;
+      <div data-prow="${escapeHtml(p.name)}" style="display:grid;grid-template-columns:${grid};gap:4px;align-items:center;flex:1 1 auto;
            padding:5px 3px 5px 11px;border-top:1px solid ${THEME.rowLine};${active ? `background:rgba(47,111,159,.12);box-shadow:inset 3px 0 0 ${THEME.accent};` : ''}">
         ${cells}
       </div>`;
   }
 
-  const tableHead = (cells) => `
-    <div style="display:grid;grid-template-columns:${TABLE_COLS};gap:4px;align-items:end;padding:0.9em 3px 0.7em 11px;flex:0 0 auto;">
-      <span style="color:${THEME.textDim};font-size:0.8em;">${t('player', 'Player')}</span>
+  const tableHead = (cells, grid) => `
+    <div style="display:grid;grid-template-columns:${grid};gap:4px;align-items:end;padding:0.9em 3px 0.7em 11px;flex:0 0 auto;">
+      <span style="color:${THEME.textDim};font-size:0.8em;align-self:center;">${t('player', 'Player')}</span>
       ${cells}
     </div>`;
   const EMPTY_ROW = () =>
@@ -1570,7 +1595,7 @@
     const bank = bankRemaining();
     const iconCell = (r) => {
       const low = bank[r] <= 2;
-      return `<span data-res="${r}" data-tip="${t('bankLeft', 'Bank: {n} {res} left', { n: bank[r], res: RESOURCE_LABEL[r] })}" style="text-align:center;border-radius:5px;padding:2px 0;">
+      return `<span data-res="${r}" data-tip="${t('bankLeft', 'Bank: {n} {res} left', { n: bank[r], res: RESOURCE_LABEL[r] })}" style="${HEAD_SLOT}border-radius:5px;">
         <span style="position:relative;display:inline-block;line-height:0;">
           ${iconImg(r, 2.0)}
           <span style="position:absolute;top:-0.5em;right:-0.65em;min-width:1.2em;padding:0 0.25em;text-align:center;
@@ -1582,7 +1607,8 @@
     };
     const head = tableHead(
       RESOURCES.map(iconCell).join('') +
-      `<span data-res="unknown" data-tip="${t('tipUnknownCards', 'Unknown (stolen) cards')}" style="text-align:center;border-radius:5px;padding:2px 0;">${iconImg('unknown', 1.85)}</span>`
+      `<span data-res="unknown" data-tip="${t('tipUnknownCards', 'Unknown (stolen) cards')}" style="${HEAD_SLOT}border-radius:5px;">${iconImg('unknown', 1.85)}</span>`,
+      CARDS_GRID
     );
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
@@ -1594,19 +1620,50 @@
           `<span data-res="${r}" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}">${p.resources[r]}</span>`
         ).join('') +
         `<span data-res="unknown" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? '' : 'opacity:.4;'}">${p.unknown}</span>`;
-      return rowShell(p, active, cells);
+      return rowShell(p, active, cells, CARDS_GRID);
     }).join('');
   }
 
-  // Per-opponent breakdown for the steal columns, e.g. "from Ann ×2, from Bob ×1".
+  // Per-opponent breakdown for the steal columns, e.g. "from Ann ×2, from Bob ×1"
+  // — biggest offender first.
   function statTip(map, key, fallback) {
-    return Object.entries(map).map(([who, c]) => t(key, fallback, { who, n: c })).join(', ');
+    return Object.entries(map)
+      .sort((a, b) => b[1] - a[1])
+      .map(([who, c]) => t(key, fallback, { who, n: c })).join(', ');
+  }
+
+  // Hover content for the gained-cards cell: a small pie of the per-resource
+  // income (conic-gradient — no SVG arc math) + a count legend.
+  function gainPieHTML(name) {
+    const ty = state.tally[name] || {};
+    const res = ty.gainedRes || {};
+    const total = RESOURCES.reduce((s, r) => s + (res[r] || 0), 0);
+    if (!total) return '';
+    let acc = 0;
+    const slices = [];
+    const legend = [];
+    for (const r of RESOURCES) {
+      const n = res[r] || 0;
+      if (!n) continue;
+      const from = (acc / total) * 360;
+      acc += n;
+      const to = (acc / total) * 360;
+      slices.push(`rgb(${RES_HL[r]}) ${from.toFixed(1)}deg ${to.toFixed(1)}deg`);
+      legend.push(`<span style="white-space:nowrap;">${RESOURCE_LABEL[r]}&hairsp;×${n}</span>`);
+    }
+    return `<div style="display:flex;align-items:center;gap:10px;">` +
+      `<span style="flex:0 0 auto;width:52px;height:52px;border-radius:50%;` +
+      `background:conic-gradient(${slices.join(',')});box-shadow:inset 0 0 0 1px rgba(0,0,0,.12);"></span>` +
+      `<span style="display:flex;flex-direction:column;gap:2px;">` +
+      `<b>${escapeHtml(t('tipGainBreakdown', '{n} cards gained', { n: total }))}</b>` +
+      `<span style="display:flex;flex-wrap:wrap;gap:2px 8px;color:${THEME.textDim};">${legend.join('')}</span>` +
+      `</span></div>`;
   }
 
   function renderStatsView() {
     const head = tableHead(STAT_COLS.map((c) =>
-      `<span data-res="${c.key}" data-tip="${c.tip}" style="text-align:center;border-radius:5px;padding:2px 0;font-size:1.3em;line-height:1;cursor:default;">${c.icon}</span>`
-    ).join(''));
+      `<span data-res="${c.key}" data-tip="${c.tip}" style="${HEAD_SLOT}border-radius:5px;font-size:1.5em;line-height:1;cursor:default;">${c.icon}</span>`
+    ).join(''), STATS_GRID);
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
     const rows = players.map((p) => {
@@ -1617,16 +1674,14 @@
         's-stole': { v: ty.stole || 0, tip: ty.stoleFrom && Object.keys(ty.stoleFrom).length ? statTip(ty.stoleFrom, 'stoleFromItem', 'from {who} ×{n}') : '' },
         's-lost':  { v: ty.lost || 0, tip: ty.lostTo && Object.keys(ty.lostTo).length ? statTip(ty.lostTo, 'lostToItem', 'to {who} ×{n}') : '' },
         's-disc':  { v: ty.discardCards || 0, tip: ty.discards ? t('discardEvents', '{n} discard events', { n: ty.discards }) : '' },
-        's-gain':  { v: ty.gained || 0, tip: '' },
-        's-dev':   { v: ty.devCards || 0, tip: '' },
-        's-build': { v: ty.builds || 0, tip: '' },
+        's-gain':  { v: ty.gained || 0, tip: '', pie: ty.gained ? p.name : null },
       };
       const cells = nameCell(p, prof, active) + STAT_COLS.map((c) => {
-        const { v, tip } = vals[c.key];
-        return `<span data-res="${c.key}" class="${actCls}" ${tip ? `data-tip="${escapeHtml(tip)}" ` : ''}` +
+        const { v, tip, pie } = vals[c.key];
+        return `<span data-res="${c.key}" class="${actCls}" ${pie ? `data-pie="${escapeHtml(pie)}" ` : ''}${tip ? `data-tip="${escapeHtml(tip)}" ` : ''}` +
           `style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${v ? '' : `color:${THEME.textDim};opacity:.4;`}">${v}</span>`;
       }).join('');
-      return rowShell(p, active, cells);
+      return rowShell(p, active, cells, STATS_GRID);
     }).join('');
     let blockedLine = '';
     if (state.blocked.count) {
@@ -1657,7 +1712,7 @@
         lumber: p.resources.lumber, brick: p.resources.brick, wool: p.resources.wool,
         grain: p.resources.grain, ore: p.resources.ore, unknown: p.unknown,
         's-stole': t.stole || 0, 's-lost': t.lost || 0, 's-disc': t.discardCards || 0,
-        's-gain': t.gained || 0, 's-dev': t.devCards || 0, 's-build': t.builds || 0,
+        's-gain': t.gained || 0,
       };
     }
     return snap;
@@ -1718,8 +1773,6 @@
     const r = panel.querySelector('#cst-resources');
     if (r) r.innerHTML = renderResTable();
     spawnGainFloats();
-    const blocked = panel.querySelector('#cst-blocked');
-    if (blocked) blocked.textContent = state.blocked.count ? `🚫 ${t('blockedBadge', '{n} blocked', { n: state.blocked.count })}` : '';
     const rolls = panel.querySelector('#cst-dice-rolls');
     if (rolls) rolls.textContent = t('rollsCount', '{n} rolls', { n: state.totalRolls });
     updateTimer();

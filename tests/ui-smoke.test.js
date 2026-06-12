@@ -9,7 +9,9 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { cst, document } = require('./helpers/setup');
 
-test('UI renders the full panel: dice bars + %, merged resources/bank, player rows', () => {
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+test('UI renders the full panel: dice bars + %, merged resources/bank, player rows', async () => {
   cst.resetState();
   const stan = cst.getPlayer('StanTheMan01', '#CF4449');
   cst.giveResource(stan, 'grain', 3);
@@ -45,10 +47,12 @@ test('UI renders the full panel: dice bars + %, merged resources/bank, player ro
   const tabs = panel.querySelectorAll('.cst-vtab');
   assert.equal(tabs.length, 2);
   panel.querySelector('[data-resview="stats"]').click();
+  await sleep(200);   // the switch cross-fades (render happens ~130ms in)
   assert.equal(resources.querySelectorAll('span[data-res="s-stole"]').length, 3,
     'stats header + one cell per player');
   assert.match(resources.textContent, /StanTheMan01/);
   panel.querySelector('[data-resview="cards"]').click();
+  await sleep(200);
   assert.equal(resources.querySelectorAll('span[data-res="s-stole"]').length, 0,
     'back to the resource columns');
 

@@ -1,57 +1,143 @@
 {
-  "appDesc": { "message": "在 colonist.io 對局中即時追蹤擲骰分佈、各玩家資源與事件數據。" },
-
-  "diceRolls": { "message": "擲骰統計" },
-  "resourcesTab": { "message": "資源" },
-  "statsTab": { "message": "數據" },
-  "player": { "message": "玩家" },
-  "rollOrder": { "message": "擲骰順序" },
-  "rollsCount": { "message": "{n} 次擲骰" },
-  "waitingFirstMove": { "message": "等待第一個動作…" },
-
-  "tipCollapse": { "message": "點擊收合／展開" },
-  "tipTimer": { "message": "本局已進行時間" },
-  "tipResync": { "message": "深度重抓：從頭重新讀取整個遊戲紀錄" },
-  "tipSizeToggle": { "message": "切換大／小版面" },
-  "tipPresets": { "message": "版面預設集" },
-  "menuSaveLarge": { "message": "將目前存為「大」版面" },
-  "menuSaveSmall": { "message": "將目前存為「小」版面" },
-  "menuReset": { "message": "還原預設" },
-  "textSize": { "message": "文字大小" },
-  "tipSmallerText": { "message": "縮小文字" },
-  "tipLargerText": { "message": "放大文字" },
-
-  "tipDiceToggle": { "message": "點擊切換數字／骰面" },
-  "tipLastRolls": { "message": "最近 {n} 次擲骰（左舊右新）" },
-  "tipRollsSince": { "message": "距離上次擲出 {n} 已過 {k} 次" },
-  "tipExpected": { "message": "理論機率 {p}%" },
-
-  "bankLeft": { "message": "銀行剩 {n} 張 {res}" },
-  "tipUnknownCards": { "message": "未知（被偷）的牌" },
-  "tipHandTotal": { "message": "手牌總數" },
-  "currentTurn": { "message": "目前回合" },
-
-  "statStole": { "message": "偷到的牌" },
-  "statLost": { "message": "被偷走的牌" },
-  "statDisc": { "message": "因 7 點棄掉的牌" },
-  "statGain": { "message": "獲得的牌（擲骰／初始放置／豐收年）" },
-  "statDev": { "message": "購買的發展卡" },
-  "statBuild": { "message": "建造數（道路＋聚落＋城市）" },
-  "stoleFromItem": { "message": "偷自 {who} ×{n}" },
-  "lostToItem": { "message": "被 {who} 偷 ×{n}" },
-  "discardEvents": { "message": "{n} 次棄牌" },
-  "blockedLine": { "message": "強盜擋產 {n} 次" },
-  "blockedBadge": { "message": "被擋 {n} 次" },
-
-  "popupIntro": { "message": "開啟一局 <a href=\"https://colonist.io/\" target=\"_blank\" rel=\"noopener\">colonist.io</a> 對局，統計面板會<span class=\"ok\">自動出現</span>在畫面上。" },
-  "popupHint": { "message": "即時追蹤擲骰分佈與各玩家手牌；資料只存在你這台裝置，斷線重整也會記得當前這局。" },
-  "histTitle": { "message": "📜 對局紀錄" },
-  "exportJson": { "message": "匯出 JSON" },
-  "histEmpty": { "message": "還沒有完成的對局 — 打完一場（有人獲勝）就會自動存一筆，最多保留 50 場。" },
-  "histHand": { "message": "{n} 張手牌" },
-  "histStole": { "message": "偷到 {n}" },
-  "histLost": { "message": "被偷 {n}" },
-  "srcLink": { "message": "原始碼" },
-  "privacyLink": { "message": "隱私政策" },
-  "popupLegal": { "message": "非官方工具，與 Colonist／colonist.io 無隸屬、未經其背書或贊助。遊戲名稱與美術素材版權均屬其各自所有者。" }
+  "appDesc": {
+    "message": "在 colonist.io 對局中即時追蹤擲骰分佈、各玩家資源與事件數據。"
+  },
+  "diceRolls": {
+    "message": "擲骰統計"
+  },
+  "resourcesTab": {
+    "message": "資源"
+  },
+  "statsTab": {
+    "message": "數據"
+  },
+  "player": {
+    "message": "玩家"
+  },
+  "rollOrder": {
+    "message": "擲骰順序"
+  },
+  "rollsCount": {
+    "message": "{n} 次擲骰"
+  },
+  "waitingFirstMove": {
+    "message": "等待第一個動作…"
+  },
+  "tipCollapse": {
+    "message": "點擊收合／展開"
+  },
+  "tipTimer": {
+    "message": "本局已進行時間"
+  },
+  "tipResync": {
+    "message": "深度重抓：從頭重新讀取整個遊戲紀錄"
+  },
+  "tipSizeToggle": {
+    "message": "切換大／小版面"
+  },
+  "tipPresets": {
+    "message": "版面預設集"
+  },
+  "menuSaveLarge": {
+    "message": "將目前存為「大」版面"
+  },
+  "menuSaveSmall": {
+    "message": "將目前存為「小」版面"
+  },
+  "menuReset": {
+    "message": "還原預設"
+  },
+  "textSize": {
+    "message": "文字大小"
+  },
+  "tipSmallerText": {
+    "message": "縮小文字"
+  },
+  "tipLargerText": {
+    "message": "放大文字"
+  },
+  "tipDiceToggle": {
+    "message": "點擊切換數字／骰面"
+  },
+  "tipLastRolls": {
+    "message": "最近 {n} 次擲骰（左舊右新）"
+  },
+  "tipRollsSince": {
+    "message": "距離上次擲出 {n} 已過 {k} 次"
+  },
+  "tipExpected": {
+    "message": "理論機率 {p}%"
+  },
+  "bankLeft": {
+    "message": "銀行剩 {n} 張 {res}"
+  },
+  "tipUnknownCards": {
+    "message": "未知（被偷）的牌"
+  },
+  "tipHandTotal": {
+    "message": "手牌總數"
+  },
+  "currentTurn": {
+    "message": "目前回合"
+  },
+  "statStole": {
+    "message": "偷到的牌"
+  },
+  "statLost": {
+    "message": "被偷走的牌"
+  },
+  "statDisc": {
+    "message": "因 7 點棄掉的牌"
+  },
+  "statGain": {
+    "message": "獲得的牌（擲骰／初始放置／豐收年）"
+  },
+  "stoleFromItem": {
+    "message": "偷自 {who} ×{n}"
+  },
+  "lostToItem": {
+    "message": "被 {who} 偷 ×{n}"
+  },
+  "discardEvents": {
+    "message": "{n} 次棄牌"
+  },
+  "blockedLine": {
+    "message": "強盜擋產 {n} 次"
+  },
+  "popupIntro": {
+    "message": "開啟一局 <a href=\"https://colonist.io/\" target=\"_blank\" rel=\"noopener\">colonist.io</a> 對局，統計面板會<span class=\"ok\">自動出現</span>在畫面上。"
+  },
+  "popupHint": {
+    "message": "即時追蹤擲骰分佈與各玩家手牌；資料只存在你這台裝置，斷線重整也會記得當前這局。"
+  },
+  "histTitle": {
+    "message": "📜 對局紀錄"
+  },
+  "exportJson": {
+    "message": "匯出 JSON"
+  },
+  "histEmpty": {
+    "message": "還沒有完成的對局 — 打完一場（有人獲勝）就會自動存一筆，最多保留 50 場。"
+  },
+  "histHand": {
+    "message": "{n} 張手牌"
+  },
+  "histStole": {
+    "message": "偷到 {n}"
+  },
+  "histLost": {
+    "message": "被偷 {n}"
+  },
+  "srcLink": {
+    "message": "原始碼"
+  },
+  "privacyLink": {
+    "message": "隱私政策"
+  },
+  "popupLegal": {
+    "message": "非官方工具，與 Colonist／colonist.io 無隸屬、未經其背書或贊助。遊戲名稱與美術素材版權均屬其各自所有者。"
+  },
+  "tipGainBreakdown": {
+    "message": "共獲得 {n} 張"
+  }
 }

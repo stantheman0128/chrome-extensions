@@ -5,6 +5,12 @@ All notable changes in this repository are documented in this file.
 ## [Unreleased]
 
 ### Added
+- colonist-stats-tracker (1.17.0): **Stats view refined to 4 columns + richer hovers + stable switching.**
+  - **Four columns with room to breathe:** ⚔️ stolen (robber + monopoly included) / 💔 lost / 🗑️ discarded on 7s / 📥 gained. Dev cards and builds are still **tallied and archived** per game — just not displayed (colonist's dashboard already shows them).
+  - **Hover upgrades:** the 📥 gained cell pops a live **pie chart** of per-resource income (conic-gradient, colonist resource tints) with a count legend; the 💔 lost breakdown is **sorted by biggest thief first** (⚔️ likewise).
+  - **No more height jump:** both views' header cells sit in the same fixed-height slot, and switching tabs **cross-fades** the table instead of snapping.
+  - **Dice faces enlarged** in the histogram's digit ⇄ dice toggle (0.84 em → 1.05 em).
+  - **Removed** the "N blocked" count next to the section tabs — the per-tile breakdown line under Stats stays.
 - colonist-stats-tracker (1.16.0): **one player table, two views + i18n + UI refinements.**
   - **Resources · Stats tabs.** The Stats section merged into the Resources table — same players, same rows, same grid; the section header gains two tabs that swap the six value columns (5 resources + "?" ⇄ ⚔️ stolen / 💔 lost / 🗑️ discarded / 📥 gained / 🎴 dev cards / 🏗️ **builds**, a new tally). The ±N floats work in both views and are **bigger, bolder and darker**, with semantic colouring in Stats (more "lost"/"discarded" = red).
   - **i18n.** All panel and popup strings follow the browser UI language via `chrome.i18n` (`_locales/en` + `zh_TW`; manifest `default_locale: en`, description localized). English fallbacks keep preview.html/tests working.
