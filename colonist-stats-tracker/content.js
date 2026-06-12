@@ -38,6 +38,22 @@
     unknown: 'https://cdn.colonist.io/dist/assets/card_rescardback.03c18312a76028b0d9c9.svg',
   };
 
+  // i18n: panel strings follow the browser UI language via chrome.i18n
+  // (_locales/en + zh_TW). The English fallbacks keep preview.html and the
+  // Node tests working where chrome.i18n doesn't exist. {x} placeholders are
+  // substituted here (not Chrome's $1$ scheme) so both paths behave the same.
+  function t(key, fallback, subs) {
+    let msg = fallback;
+    try {
+      if (typeof chrome !== 'undefined' && chrome.i18n) {
+        const m = chrome.i18n.getMessage(key);
+        if (m) msg = m;
+      }
+    } catch (e) { /* not an extension context */ }
+    if (subs) for (const k of Object.keys(subs)) msg = msg.split('{' + k + '}').join(subs[k]);
+    return msg;
+  }
+
   // Palette sampled from colonist's own side panels (player cards / chat / log):
   // a light warm-grey card on the blue page, near-black text, blue accents, and
   // the familiar green/terracotta resource tones. Grouped here so the whole look
@@ -999,42 +1015,42 @@
            padding:8px 11px;cursor:move;background:${THEME.bgAlt};border-bottom:1px solid ${THEME.border};
            border-radius:10px 10px 0 0;position:sticky;top:0;z-index:1;">
         <strong style="font-size:1.05em;color:${THEME.accent};white-space:nowrap;display:flex;align-items:center;gap:6px;">
-          <span id="cst-glyph" data-tip="Click to collapse / expand" style="cursor:pointer;display:inline-block;transition:transform .35s ease, font-size .25s ease, filter .15s ease;">🎲</span>
+          <span id="cst-glyph" data-tip="${t('tipCollapse', 'Click to collapse / expand')}" style="cursor:pointer;display:inline-block;transition:transform .35s ease, font-size .25s ease, filter .15s ease;">🎲</span>
           <span id="cst-title">Colonist Stats</span>
-          <span id="cst-timer" data-tip="Time since this game started"
+          <span id="cst-timer" data-tip="${t('tipTimer', 'Time since this game started')}"
                 style="color:${THEME.textDim};font-size:0.74em;font-weight:600;font-variant-numeric:tabular-nums;"></span>
         </strong>
         <div id="cst-controls" style="display:flex;gap:4px;align-items:center;">
-          ${ctrlBtn('cst-resync', ICON_SYNC, 'Deep re-sync: re-read the whole game log from the top')}
-          ${ctrlBtn('cst-size', ICON_SHRINK, 'Toggle large / small layout')}
-          ${ctrlBtn('cst-prefs', ICON_MORE, 'Layout presets')}
+          ${ctrlBtn('cst-resync', ICON_SYNC, t('tipResync', 'Deep re-sync: re-read the whole game log from the top'))}
+          ${ctrlBtn('cst-size', ICON_SHRINK, t('tipSizeToggle', 'Toggle large / small layout'))}
+          ${ctrlBtn('cst-prefs', ICON_MORE, t('tipPresets', 'Layout presets'))}
         </div>
         <div id="cst-menu" style="display:none;position:absolute;top:40px;right:10px;z-index:6;
              background:${THEME.bg};border:1px solid ${THEME.border};border-radius:8px;
              box-shadow:0 6px 18px rgba(40,30,10,.28);padding:5px;min-width:178px;">
-          ${menuBtn('save-large', 'Save current as Large')}
-          ${menuBtn('save-small', 'Save current as Small')}
-          ${menuBtn('reset', 'Reset to defaults')}
+          ${menuBtn('save-large', t('menuSaveLarge', 'Save current as Large'))}
+          ${menuBtn('save-small', t('menuSaveSmall', 'Save current as Small'))}
+          ${menuBtn('reset', t('menuReset', 'Reset to defaults'))}
           <div style="display:flex;align-items:center;gap:6px;padding:6px 8px 3px;margin-top:3px;border-top:1px solid ${THEME.border};">
-            <span style="flex:1 1 auto;font-size:0.82em;color:${THEME.textDim};">Text size</span>
-            <button data-act="font-down" data-tip="Smaller text" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A−</button>
-            <button data-act="font-up" data-tip="Larger text" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A+</button>
+            <span style="flex:1 1 auto;font-size:0.82em;color:${THEME.textDim};">${t('textSize', 'Text size')}</span>
+            <button data-act="font-down" data-tip="${t('tipSmallerText', 'Smaller text')}" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A−</button>
+            <button data-act="font-up" data-tip="${t('tipLargerText', 'Larger text')}" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A+</button>
           </div>
         </div>
       </div>
       <div id="cst-body" style="display:flex;flex-direction:column;flex:1 1 auto;min-height:0;
            overflow:auto;padding:12px 14px 13px;">
         <div id="cst-dice-head" data-fold="diceCollapsed" style="${secHead}flex:0 0 auto;margin-bottom:7px;">
-          <strong style="color:${THEME.accent};"><span class="cst-chev">${uiState.diceCollapsed ? '▸' : '▾'}</span> Dice Rolls</strong>
+          <strong style="color:${THEME.accent};"><span class="cst-chev">${uiState.diceCollapsed ? '▸' : '▾'}</span> ${t('diceRolls', 'Dice Rolls')}</strong>
           <span id="cst-dice-rolls" style="color:${THEME.textDim};font-size:0.82em;"></span>
         </div>
         <div id="cst-dice-wrap" style="flex:1 0 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;transition:max-height .28s ease;"><div id="cst-dice" style="flex:1 1 auto;display:flex;flex-direction:column;"></div></div>
         <div id="cst-res-head" data-fold="resCollapsed" style="${secHead}flex:0 0 auto;margin-top:14px;">
           <strong style="color:${THEME.accent};display:flex;align-items:baseline;gap:6px;">
             <span class="cst-chev">${uiState.resCollapsed ? '▸' : '▾'}</span>
-            <span class="cst-vtab" data-resview="cards">Resources</span>
+            <span class="cst-vtab" data-resview="cards">${t('resourcesTab', 'Resources')}</span>
             <span style="color:${THEME.textDim};font-weight:400;">·</span>
-            <span class="cst-vtab" data-resview="stats">Stats</span>
+            <span class="cst-vtab" data-resview="stats">${t('statsTab', 'Stats')}</span>
           </strong>
           <span id="cst-blocked" style="color:${THEME.textDim};font-size:0.82em;"></span>
         </div>
@@ -1400,9 +1416,11 @@
   // bar, % below it). It surfaces only what ISN'T visible: the drought (rolls
   // since this sum last came up) and the fair-dice expected %.
   function diceTipHTML(n) {
-    if (!state.totalRolls) return `Expected <b>${EXPECTED_PCT[n]}%</b>`;
-    return `<span style="color:#b5730a;font-weight:700;">${rollsSince(n)} rolls</span> since last <b>${n}</b>` +
-      `<br><span style="color:${THEME.textDim};">Expected ${EXPECTED_PCT[n]}%</span>`;
+    const expected = escapeHtml(t('tipExpected', 'Expected {p}%', { p: EXPECTED_PCT[n] }));
+    if (!state.totalRolls) return `<b>${expected}</b>`;
+    return `<span style="color:#b5730a;font-weight:700;">` +
+      escapeHtml(t('tipRollsSince', '{k} rolls since last {n}', { k: rollsSince(n), n })) +
+      `</span><br><span style="color:${THEME.textDim};">${expected}</span>`;
   }
 
   // The last ~12 rolls as a left→right strip (newest on the right, with an
@@ -1422,10 +1440,10 @@
         `border:1px solid ${seven ? THEME.bad : THEME.border};` +
         `${newest ? `box-shadow:0 0 0 2px ${THEME.accent}55;` : 'opacity:.9;'}">${n}</span>`;
     }).join('');
-    return `<div data-tip="Last ${recent.length} rolls (oldest → newest)" ` +
+    return `<div data-tip="${t('tipLastRolls', 'Last {n} rolls (oldest → newest)', { n: recent.length })}" ` +
       `style="display:flex;gap:0.25em;align-items:center;justify-content:flex-end;` +
       `overflow:hidden;margin:0 0 0.6em;flex:0 0 auto;">` +
-      `<span style="color:${THEME.textDim};font-size:0.7em;margin-right:auto;white-space:nowrap;">Roll order</span>${chips}</div>`;
+      `<span style="color:${THEME.textDim};font-size:0.7em;margin-right:auto;white-space:nowrap;">${t('rollOrder', 'Roll order')}</span>${chips}</div>`;
   }
 
   // Dice histogram bars (the section header lives in the static skeleton).
@@ -1457,7 +1475,7 @@
             </div>
           </div>
           <span style="font-size:0.7em;font-weight:600;font-variant-numeric:tabular-nums;color:${barColor};flex:0 0 auto;">${Math.round(pct)}%</span>
-          <span data-dietoggle="${n}" data-tip="Click to switch digits / dice"
+          <span data-dietoggle="${n}" data-tip="${t('tipDiceToggle', 'Click to switch digits / dice')}"
                 style="display:inline-flex;align-items:center;justify-content:center;height:1.7em;line-height:1;flex:0 0 auto;cursor:pointer;transform-origin:center;">${dieValueHTML(n, faces)}</span>
         </div>`);
     }
@@ -1506,12 +1524,12 @@
   // The six live-stats columns (the Stats view of the player table). Keys
   // double as data-res hooks for the column hover + the ±N float targeting.
   const STAT_COLS = [
-    { key: 's-stole', icon: '⚔️', tip: 'Cards stolen from others' },
-    { key: 's-lost',  icon: '💔', tip: 'Cards lost to thieves' },
-    { key: 's-disc',  icon: '🗑️', tip: 'Cards discarded on 7s' },
-    { key: 's-gain',  icon: '📥', tip: 'Cards gained (rolls / placements / Year of Plenty)' },
-    { key: 's-dev',   icon: '🎴', tip: 'Dev cards bought' },
-    { key: 's-build', icon: '🏗️', tip: 'Roads, settlements & cities built' },
+    { key: 's-stole', icon: '⚔️', tip: t('statStole', 'Cards stolen from others') },
+    { key: 's-lost',  icon: '💔', tip: t('statLost', 'Cards lost to thieves') },
+    { key: 's-disc',  icon: '🗑️', tip: t('statDisc', 'Cards discarded on 7s') },
+    { key: 's-gain',  icon: '📥', tip: t('statGain', 'Cards gained (rolls / placements / Year of Plenty)') },
+    { key: 's-dev',   icon: '🎴', tip: t('statDev', 'Dev cards bought') },
+    { key: 's-build', icon: '🏗️', tip: t('statBuild', 'Roads, settlements & cities built') },
   ];
 
   // Wide player column (avatar + name + hand total) and six slim value
@@ -1526,9 +1544,9 @@
           <img src="${escapeAttr(av)}" alt="" style="width:100%;height:100%;object-fit:contain;"></span>`
       : '';
     return `<span style="display:flex;align-items:center;gap:4px;min-width:0;color:${escapeAttr(p.color)};font-weight:700;" ` +
-      `data-tip="${escapeHtml(p.name)}${active ? ' — current turn' : ''}">${avatar}` +
+      `data-tip="${escapeHtml(p.name)}${active ? ' — ' + t('currentTurn', 'current turn') : ''}">${avatar}` +
       `<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span>` +
-      `<span data-tip="Total cards in hand" style="flex:0 0 auto;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
+      `<span data-tip="${t('tipHandTotal', 'Total cards in hand')}" style="flex:0 0 auto;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
       `color:${THEME.text};background:#fbf9f4;border:1px solid ${THEME.border};border-radius:0.6em;padding:0 0.4em;">${playerTotal(p)}</span></span>`;
   }
 
@@ -1542,17 +1560,17 @@
 
   const tableHead = (cells) => `
     <div style="display:grid;grid-template-columns:${TABLE_COLS};gap:4px;align-items:end;padding:0.9em 3px 0.7em 11px;flex:0 0 auto;">
-      <span style="color:${THEME.textDim};font-size:0.8em;">Player</span>
+      <span style="color:${THEME.textDim};font-size:0.8em;">${t('player', 'Player')}</span>
       ${cells}
     </div>`;
   const EMPTY_ROW = () =>
-    `<div style="color:${THEME.textDim};padding:5px 3px;flex:0 0 auto;">Waiting for first move…</div>`;
+    `<div style="color:${THEME.textDim};padding:5px 3px;flex:0 0 auto;">${t('waitingFirstMove', 'Waiting for first move…')}</div>`;
 
   function renderCardsView() {
     const bank = bankRemaining();
     const iconCell = (r) => {
       const low = bank[r] <= 2;
-      return `<span data-res="${r}" data-tip="Bank: ${bank[r]} ${RESOURCE_LABEL[r]} left" style="text-align:center;border-radius:5px;padding:2px 0;">
+      return `<span data-res="${r}" data-tip="${t('bankLeft', 'Bank: {n} {res} left', { n: bank[r], res: RESOURCE_LABEL[r] })}" style="text-align:center;border-radius:5px;padding:2px 0;">
         <span style="position:relative;display:inline-block;line-height:0;">
           ${iconImg(r, 2.0)}
           <span style="position:absolute;top:-0.5em;right:-0.65em;min-width:1.2em;padding:0 0.25em;text-align:center;
@@ -1564,7 +1582,7 @@
     };
     const head = tableHead(
       RESOURCES.map(iconCell).join('') +
-      `<span data-res="unknown" data-tip="Unknown (stolen) cards" style="text-align:center;border-radius:5px;padding:2px 0;">${iconImg('unknown', 1.85)}</span>`
+      `<span data-res="unknown" data-tip="${t('tipUnknownCards', 'Unknown (stolen) cards')}" style="text-align:center;border-radius:5px;padding:2px 0;">${iconImg('unknown', 1.85)}</span>`
     );
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
@@ -1580,8 +1598,9 @@
     }).join('');
   }
 
-  function statTip(map, word) {
-    return Object.entries(map).map(([n, c]) => `${word} ${n} ×${c}`).join(', ');
+  // Per-opponent breakdown for the steal columns, e.g. "from Ann ×2, from Bob ×1".
+  function statTip(map, key, fallback) {
+    return Object.entries(map).map(([who, c]) => t(key, fallback, { who, n: c })).join(', ');
   }
 
   function renderStatsView() {
@@ -1593,14 +1612,14 @@
     const rows = players.map((p) => {
       const active = p.name === state.currentTurn;
       const actCls = active ? 'cst-active-cell' : '';
-      const t = state.tally[p.name] || {};
+      const ty = state.tally[p.name] || {};
       const vals = {
-        's-stole': { v: t.stole || 0, tip: t.stoleFrom && Object.keys(t.stoleFrom).length ? statTip(t.stoleFrom, 'from') : '' },
-        's-lost':  { v: t.lost || 0, tip: t.lostTo && Object.keys(t.lostTo).length ? statTip(t.lostTo, 'to') : '' },
-        's-disc':  { v: t.discardCards || 0, tip: t.discards ? `${t.discards} discard event${t.discards > 1 ? 's' : ''}` : '' },
-        's-gain':  { v: t.gained || 0, tip: '' },
-        's-dev':   { v: t.devCards || 0, tip: '' },
-        's-build': { v: t.builds || 0, tip: '' },
+        's-stole': { v: ty.stole || 0, tip: ty.stoleFrom && Object.keys(ty.stoleFrom).length ? statTip(ty.stoleFrom, 'stoleFromItem', 'from {who} ×{n}') : '' },
+        's-lost':  { v: ty.lost || 0, tip: ty.lostTo && Object.keys(ty.lostTo).length ? statTip(ty.lostTo, 'lostToItem', 'to {who} ×{n}') : '' },
+        's-disc':  { v: ty.discardCards || 0, tip: ty.discards ? t('discardEvents', '{n} discard events', { n: ty.discards }) : '' },
+        's-gain':  { v: ty.gained || 0, tip: '' },
+        's-dev':   { v: ty.devCards || 0, tip: '' },
+        's-build': { v: ty.builds || 0, tip: '' },
       };
       const cells = nameCell(p, prof, active) + STAT_COLS.map((c) => {
         const { v, tip } = vals[c.key];
@@ -1616,7 +1635,7 @@
         return `${disp} ×${c}`;
       }).join(' · ');
       blockedLine = `<div style="padding:6px 3px 2px 11px;color:${THEME.textDim};font-size:0.78em;` +
-        `border-top:1px solid ${THEME.rowLine};">🚫 Robber blocked ${state.blocked.count}× — ${escapeHtml(parts)}</div>`;
+        `border-top:1px solid ${THEME.rowLine};">🚫 ${escapeHtml(t('blockedLine', 'Robber blocked {n}×', { n: state.blocked.count }))} — ${escapeHtml(parts)}</div>`;
     }
     return head + rows + blockedLine;
   }
@@ -1700,9 +1719,9 @@
     if (r) r.innerHTML = renderResTable();
     spawnGainFloats();
     const blocked = panel.querySelector('#cst-blocked');
-    if (blocked) blocked.textContent = state.blocked.count ? `🚫 ${state.blocked.count} blocked` : '';
+    if (blocked) blocked.textContent = state.blocked.count ? `🚫 ${t('blockedBadge', '{n} blocked', { n: state.blocked.count })}` : '';
     const rolls = panel.querySelector('#cst-dice-rolls');
-    if (rolls) rolls.textContent = `${state.totalRolls} rolls`;
+    if (rolls) rolls.textContent = t('rollsCount', '{n} rolls', { n: state.totalRolls });
     updateTimer();
   }
 

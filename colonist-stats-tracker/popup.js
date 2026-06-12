@@ -4,6 +4,28 @@
 // from the manifest — a single source of truth, no hard-coded string to drift.
 document.getElementById('ver').textContent = 'v' + chrome.runtime.getManifest().version;
 
+// i18n: Chrome picks _locales/<UI language>; {x} placeholders are ours (the
+// same scheme the content script uses), substituted here.
+function M(key, subs) {
+  let m = chrome.i18n.getMessage(key) || '';
+  if (m && subs) for (const k of Object.keys(subs)) m = m.split('{' + k + '}').join(subs[k]);
+  return m;
+}
+
+// Swap the static zh-TW copy in popup.html for the user's UI language.
+// popupIntro carries author-controlled markup (a link + a highlight span).
+{
+  const intro = M('popupIntro');
+  if (intro) document.getElementById('intro').innerHTML = intro;
+  for (const [id, key] of Object.entries({
+    hint: 'popupHint', histTitle: 'histTitle', export: 'exportJson',
+    srcLink: 'srcLink', privacyLink: 'privacyLink', legal: 'popupLegal',
+  })) {
+    const msg = M(key);
+    if (msg) document.getElementById(id).textContent = msg;
+  }
+}
+
 // ---- per-game history (written by the content script when someone wins) ----
 const HISTORY_KEY = 'cst-history';
 const histEl = document.getElementById('history');
@@ -35,7 +57,8 @@ function renderHistory(history) {
     const p = document.createElement('p');
     p.className = 'hint';
     p.style.fontSize = '11px';
-    p.textContent = '還沒有完成的對局 — 打完一場（有人獲勝）就會自動存一筆，最多保留 50 場。';
+    p.textContent = M('histEmpty') ||
+      '還沒有完成的對局 — 打完一場（有人獲勝）就會自動存一筆，最多保留 50 場。';
     histEl.appendChild(p);
     exportLink.style.display = 'none';
     return;
@@ -45,15 +68,15 @@ function renderHistory(history) {
     const line = document.createElement('div');
     line.className = 'hist-line';
     line.textContent = `${fmtDate(g.date)} · 🏆 ${g.winner || '—'} · ` +
-      `${g.totalRolls || 0} rolls · ⏱ ${fmtDuration(g.duration)}`;
+      `${M('rollsCount', { n: g.totalRolls || 0 }) || `${g.totalRolls || 0} rolls`} · ⏱ ${fmtDuration(g.duration)}`;
     const det = document.createElement('div');
     det.className = 'hist-det';
     det.style.display = 'none';
     det.textContent = (g.players || []).map((p) => {
       const t = (g.tally && g.tally[p.name]) || {};
-      const bits = [`${handTotal(p)} 張手牌`];
-      if (t.stole) bits.push(`偷到 ${t.stole}`);
-      if (t.lost) bits.push(`被偷 ${t.lost}`);
+      const bits = [M('histHand', { n: handTotal(p) }) || `${handTotal(p)} cards`];
+      if (t.stole) bits.push(M('histStole', { n: t.stole }) || `stole ${t.stole}`);
+      if (t.lost) bits.push(M('histLost', { n: t.lost }) || `lost ${t.lost}`);
       return `${p.name}${p.name === g.winner ? ' 🏆' : ''}：${bits.join('、')}`;
     }).join('\n');
     line.addEventListener('click', () => {

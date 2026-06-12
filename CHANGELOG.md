@@ -5,6 +5,16 @@ All notable changes in this repository are documented in this file.
 ## [Unreleased]
 
 ### Added
+- colonist-stats-tracker (1.16.0): **one player table, two views + i18n + UI refinements.**
+  - **Resources · Stats tabs.** The Stats section merged into the Resources table — same players, same rows, same grid; the section header gains two tabs that swap the six value columns (5 resources + "?" ⇄ ⚔️ stolen / 💔 lost / 🗑️ discarded / 📥 gained / 🎴 dev cards / 🏗️ **builds**, a new tally). The ±N floats work in both views and are **bigger, bolder and darker**, with semantic colouring in Stats (more "lost"/"discarded" = red).
+  - **i18n.** All panel and popup strings follow the browser UI language via `chrome.i18n` (`_locales/en` + `zh_TW`; manifest `default_locale: en`, description localized). English fallbacks keep preview.html/tests working.
+  - **Styled tooltips everywhere.** Every native title tooltip replaced by the white data dialog (same element as the dice tooltip) via `[data-tip]` delegation — larger type, softer corners, deeper shadow. Resource header icons enlarged (2.0 em), avatars too.
+  - **Ghost mode on overlap.** Colonist dialogs/menus now ghost the panel when they merely overlap it (not only full-screen): added menu/popover/drawer candidates with a size floor against false positives.
+
+### Removed
+- colonist-stats-tracker (1.16.0): the popup's **強制重新抓取這局** button and its message plumbing — the panel's 🔄 deep re-sync (v1.10.0) supersedes it.
+
+### Added
 - colonist-stats-tracker (1.15.0): **ghost mode.** When a full-screen colonist dialog (e.g. Settings) opens, the panel fades to a faint ghost and stops catching the mouse — readable, clickable dialogs without dragging the panel away; it restores the moment the dialog closes. Detection is a heuristic (a visible fixed/absolute element covering ≥half the viewport with a modal/dialog/overlay/settings class), checked within ~250 ms of the dialog mounting. If a colonist dialog ever fails to trigger it, grab its DOM and the selector can be pinned exactly.
 - colonist-stats-tracker (1.14.0): **per-game history.** When someone wins, the finished game is archived to `chrome.storage.local` (last 50 games; new `storage` permission, no new host permissions): date, duration, winner, total rolls, dice distribution, each player's final hand, and the live-stats tally. The toolbar popup gains a **對局紀錄** list (newest first; click a game to fold out the per-player summary) and a **匯出 JSON** link.
 - colonist-stats-tracker (1.13.0): **live in-game stats.** A new collapsible **Stats** section surfaces, mid-game, what colonist only shows on the end screen: per player — cards stolen from others ⚔️ / lost to thieves 💔 (hover for the per-opponent breakdown), discards on 7s 🗑️, cards gained 📥, dev cards bought 🎴. A footer line totals **robber-blocked yields** parsed from the "[6] brick tile is blocked by the Robber. No resources produced" log line (count + per-tile breakdown, also shown next to the section header).

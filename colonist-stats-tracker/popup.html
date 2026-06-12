@@ -69,20 +69,20 @@
     <span class="ver" id="ver"></span>
   </header>
   <main>
-    <p>開啟一局 <a href="https://colonist.io/" target="_blank" rel="noopener">colonist.io</a> 對局，統計面板會<span class="ok">自動出現</span>在畫面上。</p>
-    <p class="hint">即時追蹤擲骰分佈與各玩家手牌；資料只存在你這台裝置，斷線重整也會記得當前這局。</p>
+    <p id="intro">開啟一局 <a href="https://colonist.io/" target="_blank" rel="noopener">colonist.io</a> 對局，統計面板會<span class="ok">自動出現</span>在畫面上。</p>
+    <p class="hint" id="hint">即時追蹤擲骰分佈與各玩家手牌；資料只存在你這台裝置，斷線重整也會記得當前這局。</p>
     <div class="hist">
       <div class="hist-head">
-        <span>📜 對局紀錄</span>
+        <span id="histTitle">📜 對局紀錄</span>
         <a href="#" id="export">匯出 JSON</a>
       </div>
       <div id="history"></div>
     </div>
     <div class="links">
-      <a href="https://github.com/stantheman0128/stan-chrome-extensions" target="_blank" rel="noopener">原始碼</a>
-      <a href="https://github.com/stantheman0128/stan-chrome-extensions/blob/master/colonist-stats-tracker/PRIVACY.md" target="_blank" rel="noopener">隱私政策</a>
+      <a id="srcLink" href="https://github.com/stantheman0128/stan-chrome-extensions" target="_blank" rel="noopener">原始碼</a>
+      <a id="privacyLink" href="https://github.com/stantheman0128/stan-chrome-extensions/blob/master/colonist-stats-tracker/PRIVACY.md" target="_blank" rel="noopener">隱私政策</a>
     </div>
-    <p class="legal">
+    <p class="legal" id="legal">
       非官方工具，與 Colonist／colonist.io 無隸屬、未經其背書或贊助。
       遊戲名稱與美術素材版權均屬其各自所有者。
     </p>
