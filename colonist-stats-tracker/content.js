@@ -652,7 +652,18 @@
         // The roster check alone can't catch a same-players rematch, so the
         // fresh container is the new-game signal here.
         startNextGame();
-      } else if (!justRestored) {
+      } else if (justRestored) {
+        // Refreshed mid-game: colonist may renumber data-index after a reload,
+        // so the restored dedup set can't be fully trusted. Keep it for the
+        // interim (avoids obvious double counts), then rebuild everything from
+        // the actual log once it settles.
+        scheduleAutoRescrape();
+      } else if (observedContainer && lifecycle === LIFE.PLAYING) {
+        // The log container was REPLACED mid-game (reconnect / re-render):
+        // indices may have shifted — rebuild from the full log.
+        state.seenIndices = new Set();
+        scheduleAutoRescrape();
+      } else {
         state.seenIndices = new Set();
       }
       justRestored = false;
@@ -845,6 +856,7 @@
     host.style.width = host.offsetWidth + 'px';
     host.style.height = host.offsetHeight + 'px';
     void host.offsetHeight; // reflow
+    host.querySelectorAll('.cst-rz').forEach((g) => { g.style.display = collapsed ? 'none' : ''; });
     if (collapsed) {
       host.style.resize = 'none';
       host.style.minWidth = '0';
@@ -1323,6 +1335,7 @@
     });
 
     makeDraggable(host, host.querySelector('#cst-header'));
+    makeEdgeResizable(host);
 
     render();
     applySectionInit();
@@ -1361,6 +1374,61 @@
       // Dragging updates the active preset, so your position sticks to large/small.
       updateActivePreset({ left: parseInt(el.style.left, 10), top: parseInt(el.style.top, 10) });
     });
+  }
+
+  // Edge-resize: thin grab strips on all four sides (the native resize:both
+  // only offers the bottom-right corner). Left/top drags also reposition the
+  // panel so the opposite edge stays planted. Width changes flow through the
+  // existing ResizeObserver (font zoom + preset save); position is saved on
+  // mouseup. Strips sit INSIDE the panel (overflow:hidden would clip outies).
+  function makeEdgeResizable(el) {
+    const ZONES = [
+      { side: 'left',   css: 'left:0;top:10px;bottom:10px;width:6px;cursor:ew-resize;' },
+      { side: 'right',  css: 'right:0;top:10px;bottom:10px;width:6px;cursor:ew-resize;' },
+      { side: 'top',    css: 'top:0;left:10px;right:10px;height:6px;cursor:ns-resize;' },
+      { side: 'bottom', css: 'bottom:0;left:10px;right:10px;height:6px;cursor:ns-resize;' },
+    ];
+    for (const z of ZONES) {
+      const grip = document.createElement('div');
+      grip.className = 'cst-rz';
+      grip.style.cssText = 'position:absolute;z-index:7;' + z.css;
+      el.appendChild(grip);
+      grip.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const r = el.getBoundingClientRect();
+        const sx = e.clientX, sy = e.clientY;
+        const start = { left: r.left, top: r.top, width: r.width, height: r.height };
+        el.style.right = 'auto';
+        const move = (ev) => {
+          const dx = ev.clientX - sx, dy = ev.clientY - sy;
+          if (z.side === 'right') {
+            el.style.width = Math.max(250, start.width + dx) + 'px';
+          } else if (z.side === 'left') {
+            const w = Math.max(250, start.width - dx);
+            el.style.width = w + 'px';
+            el.style.left = (start.left + (start.width - w)) + 'px';
+          } else if (z.side === 'bottom') {
+            el.style.height = Math.max(120, start.height + dy) + 'px';
+          } else {                                   // top
+            const h = Math.max(120, start.height - dy);
+            el.style.height = h + 'px';
+            el.style.top = (start.top + (start.height - h)) + 'px';
+          }
+        };
+        const up = () => {
+          window.removeEventListener('mousemove', move);
+          window.removeEventListener('mouseup', up);
+          updateActivePreset({
+            left: Math.round(parseFloat(el.style.left) || start.left),
+            top: Math.round(parseFloat(el.style.top) || start.top),
+            width: Math.round(el.getBoundingClientRect().width),
+          });
+        };
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', up);
+      });
+    }
   }
 
   // "Rolls since the last N" — the drought for a given sum (0 if N was just rolled,
@@ -1837,7 +1905,12 @@
       maybeNewGame();
       updateTimer();
       updateGhost();
-      if (observedContainer) scanExisting(observedContainer);
+      // colonist sometimes REPLACES the log container node (reconnect /
+      // re-render). Re-discover it every tick — otherwise the observer keeps
+      // watching a detached node and updates silently stop. attachObserver()
+      // is a cheap no-op while the container is unchanged.
+      if (!rescraping) attachObserver();
+      if (observedContainer && observedContainer.isConnected) scanExisting(observedContainer);
       if (syncFromPanel()) renderSoon();
     }, 1000);
 
@@ -2177,6 +2250,15 @@
     return el;
   }
 
+  // Automatic full rebuild, debounced: fired after a mid-game refresh or a
+  // container swap (reconnect), once colonist has had a moment to refill the
+  // log. The manual 🔄 button calls deepRescrape() directly.
+  let autoRescrapeTimer = null;
+  function scheduleAutoRescrape() {
+    clearTimeout(autoRescrapeTimer);
+    autoRescrapeTimer = setTimeout(() => { deepRescrape(); }, 1500);
+  }
+
   let rescraping = false;
   async function deepRescrape() {
     if (rescraping) return;
@@ -2202,20 +2284,23 @@
       lifecycle = keep.life;
 
       const sc = scrollableOf(container);
-      const prevTop = sc.scrollTop;
       sc.scrollTop = 0;
-      await sleep(160);
+      await sleep(220);
       let guard = 0;
-      while (container.isConnected && guard++ < 400) {
+      while (container.isConnected && guard++ < 600) {
+        // Scan, wait a beat, scan again — virtual rows can mount a frame or
+        // two after the scroll lands, and a single pass skips the laggards.
+        scanExisting(container);
+        await sleep(90);
         scanExisting(container);
         if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 2) break;
         const before = sc.scrollTop;
-        sc.scrollTop = before + Math.max(40, sc.clientHeight * 0.8);
-        await sleep(160);
+        sc.scrollTop = before + Math.max(40, sc.clientHeight * 0.66);
+        await sleep(180);
         if (sc.scrollTop === before) break;   // can't scroll further
       }
       if (container.isConnected) scanExisting(container);
-      sc.scrollTop = prevTop;
+      sc.scrollTop = sc.scrollHeight;         // the live log sticks to the bottom
     } finally {
       rescraping = false;
     }

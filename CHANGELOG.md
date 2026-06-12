@@ -5,6 +5,12 @@ All notable changes in this repository are documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- colonist-stats-tracker (1.18.0): **refresh / reconnect accuracy — two real holes plugged.** (1) colonist sometimes *replaces* the log container node (reconnect / re-render); the observer was left watching the detached node and updates silently stopped. The container is now re-discovered every tick. (2) After a reload, colonist may renumber `data-index`, so the restored dedup set can't be trusted — a mid-game refresh or container swap now triggers an **automatic deep re-scrape** (debounced 1.5 s) that rebuilds the stats from the full log, exactly like the 🔄 button. The re-scrape itself got more thorough: smaller scroll steps, longer settle waits, and a double scan per step so slow-mounting virtual rows aren't skipped.
+
+### Added
+- colonist-stats-tracker (1.18.0): **resize from any edge.** Thin grab strips on all four sides — left/right drag width, top/bottom drag height (left/top also reposition so the opposite edge stays planted), on top of the native bottom-right corner. Hidden while collapsed; width changes flow through the existing zoom + preset persistence.
+
+### Fixed
 - colonist-stats-tracker (1.17.1): **the Stats header really was taller than the Resources one** — `font-size:1.5em` sat on the header cell, scaling its em-based fixed-height slot to 2.3 × 1.5 em; the size moved to an inner span so both views share the exact same slot. The gained-pie legend and the robber-blocked breakdown now use the **same colonist card art** as the Resources header (no more emoji mix). The view switch upgraded from a plain cross-fade to a **directional slide** (to Stats glides left, back to Resources glides right, soft deceleration, clipped by the section wrap).
 
 ### Added
