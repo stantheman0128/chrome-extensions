@@ -4,6 +4,9 @@ All notable changes in this repository are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- colonist-stats-tracker (1.17.1): **the Stats header really was taller than the Resources one** — `font-size:1.5em` sat on the header cell, scaling its em-based fixed-height slot to 2.3 × 1.5 em; the size moved to an inner span so both views share the exact same slot. The gained-pie legend and the robber-blocked breakdown now use the **same colonist card art** as the Resources header (no more emoji mix). The view switch upgraded from a plain cross-fade to a **directional slide** (to Stats glides left, back to Resources glides right, soft deceleration, clipped by the section wrap).
+
 ### Added
 - colonist-stats-tracker (1.17.0): **Stats view refined to 4 columns + richer hovers + stable switching.**
   - **Four columns with room to breathe:** ⚔️ stolen (robber + monopoly included) / 💔 lost / 🗑️ discarded on 7s / 📥 gained. Dev cards and builds are still **tallied and archived** per game — just not displayed (colonist's dashboard already shows them).
