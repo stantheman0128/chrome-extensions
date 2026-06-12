@@ -78,6 +78,21 @@ automatic gap-detection trigger for the deep re-sync.
 
 Ideas raised but not yet designed — each needs its own brainstorm → design pass.
 
+### Idea pool (brainstormed 2026-06-12 — none committed)
+Sorted roughly by value-per-effort; all build on data we already collect:
+
+1. **Luck meter (chi-square).** A small "how unfair are these dice" score from
+   `rollHistory` vs the fair distribution — pure math over existing data, fun
+   to glance at. Could live in the dice section header.
+2. **Discard-risk highlight.** Tint a player's hand-total badge red when they
+   hold 8+ cards (a 7 would cost them half) — zero new data, one style rule.
+3. **Turn-time stats.** Average seconds per turn per player ("who's slow") —
+   derivable from roll-message timestamps we already see ticking in.
+4. **Trade-flow matrix.** Net resource flow between players from the executed
+   trade branch ("who keeps feeding whom") — counters exist conceptually,
+   needs a display idea (maybe inside the steal-breakdown-style hover).
+5. **Share card.** Export the end-of-game stats as an image for chat bragging.
+
 ### Cross-game aggregation ("your luck over time")
 Per-game history (v1.14.0) stores the raw records; an aggregation view could sit
 on top: dice-distribution across all your games, win rate, average income,
