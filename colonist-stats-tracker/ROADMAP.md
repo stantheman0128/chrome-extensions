@@ -41,6 +41,11 @@ the real-image path is an enhancement layered on top, not a replacement.
 
 ## Shipped from this roadmap
 
+### v1.22.3 (2026-06-13)
+- **Ghost tweaks (raised by Stan)** — both ghost tiers click-through again so the
+  trade UI / dialog behind the faded panel is clickable (edge-trigger keeps the
+  manual-drag case un-faded + grabbable); Settings/dialog opacity 0.12 → 0.05.
+
 ### v1.22.2 (2026-06-13)
 - **Polish (raised by Stan)** — value columns pinned to strictly equal width via
   `minmax(0, 0.8fr)` (a bare `0.8fr` let wide content like `1:05` bulge a

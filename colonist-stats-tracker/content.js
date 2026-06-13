@@ -2401,22 +2401,25 @@
   // =============================================================
   // Ghost mode — get out of the way of colonist's own UI
   //
-  // Two tiers, restored the moment the trigger closes:
-  //  - 'full' (opacity .12, click-through): a colonist dialog/menu (Settings,
-  //    etc.) is open — EITHER a large overlay (≥35% of the viewport) OR any
-  //    dialog-ish element overlapping the panel, so a corner Settings menu
-  //    sliding under the panel ghosts it too, not just full-screen modals.
-  //  - 'light' (opacity .3, STILL grabbable): colonist's trade UI appeared over
-  //    the panel — faded so the offer reads through, but the panel keeps
-  //    catching the mouse so you can always drag it away.
+  // Two tiers, restored the moment the trigger closes. BOTH are click-through
+  // (pointer-events:none) so whatever colonist put over the panel — a dialog or
+  // a trade offer — is fully clickable through the faded panel, and hovering
+  // that area never lights up the panel's own cells.
+  //  - 'full' (opacity .05): a colonist dialog/menu (Settings, etc.) is open —
+  //    EITHER a large overlay (≥35% of the viewport) OR any dialog-ish element
+  //    overlapping the panel, so a corner Settings menu sliding under the panel
+  //    ghosts it too, not just full-screen modals. Stays ghosted the whole time
+  //    the dialog is up.
+  //  - 'light' (opacity .3): colonist's trade UI appeared over the panel —
+  //    faded so the offer reads through, click-through so you can act on it.
   //
   // The light tier is EDGE-TRIGGERED: it fires only when the trade appears over
   // a stationary panel, NOT when you drag the panel onto an existing trade — in
-  // that case the panel stays solid and grabbable where you put it. (Previously
-  // any overlap ghosted the panel AND killed its pointer events, so a panel
-  // dragged onto the trade area became impossible to grab back.)
+  // that case the panel stays solid and grabbable where you put it. So the only
+  // time the panel goes click-through is when colonist itself covered it, never
+  // because you moved the panel there.
   // =============================================================
-  const GHOST_OPACITY = { full: '0.12', light: '0.3' };
+  const GHOST_OPACITY = { full: '0.05', light: '0.3' };
   let ghosted = '';            // '' | 'full' | 'light'
   let prevTradeOverlap = false; // did a trade element overlap the panel last tick?
   let lastPanelXY = null;       // panel top-left last tick, to detect dragging
@@ -2483,10 +2486,11 @@
     ghosted = kind;
     panel.style.transition = 'opacity .2s ease';
     panel.style.opacity = kind ? GHOST_OPACITY[kind] : '';
-    // Only the full (dialog) tier releases the mouse — the dialog needs the
-    // clicks. The light (trade) tier stays grabbable so the panel can always be
-    // dragged off the trade.
-    panel.style.pointerEvents = kind === 'full' ? 'none' : '';
+    // Both tiers release the mouse so whatever colonist covered the panel with
+    // (dialog OR trade offer) is clickable through it — and the panel's own
+    // cells don't light up under the pass-through cursor. The edge-trigger means
+    // this only happens when colonist covered the panel, not when you dragged it.
+    panel.style.pointerEvents = kind ? 'none' : '';
     setTimeout(() => { if (panel && ghosted === kind) panel.style.transition = ''; }, 220);
   }
 
