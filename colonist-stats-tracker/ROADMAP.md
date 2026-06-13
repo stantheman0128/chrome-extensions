@@ -41,6 +41,12 @@ the real-image path is an enhancement layered on top, not a replacement.
 
 ## Shipped from this roadmap
 
+### v1.22.2 (2026-06-13)
+- **Polish (raised by Stan)** — value columns pinned to strictly equal width via
+  `minmax(0, 0.8fr)` (a bare `0.8fr` let wide content like `1:05` bulge a
+  column); hand-total badge nudged left (7px right margin) off the next column's
+  hover glow.
+
 ### v1.22.1 (2026-06-13)
 - **Bugfix (raised by Stan)** — Player column was a different width in Resources
   vs Stats (6th-column grid tweak shrank the Stats name track); unified both to

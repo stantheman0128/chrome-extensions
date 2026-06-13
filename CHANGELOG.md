@@ -5,6 +5,9 @@ All notable changes in this repository are documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- colonist-stats-tracker (1.22.2): **all six value columns are now strictly equal width, and the hand-total badge sits a touch further from the next column.** The value tracks were a bare `0.8fr` (= `minmax(auto, 0.8fr)`), so a wider cell like the `1:05` turn-time could bulge its column past the others; they're now `minmax(0, 0.8fr)`, pinning every column to the same width regardless of content (true for both Resources and Stats, since they share one grid). The player's hand-total badge gained a 7px right margin so it no longer crowds the first value column's hover glow.
+
+### Fixed
 - colonist-stats-tracker (1.22.1): **the Player column is now identical across the Resources and Stats views, and the switch no longer flickers it.** Adding the 6th Stats column in 1.22.0 had shrunk that view's first grid track (`minmax(96px,2fr)` vs the cards view's `minmax(120px,2.6fr)`), so the player name column visibly changed width/size when toggling tabs. Both views now share one `TABLE_GRID` (Player + 6 value columns), so only the value cells differ. The switch animation was rewritten to slide+fade **only the value cells** (`[data-res]`) — the Player column (header text + each name cell) stays perfectly still. +2 tests (103 total).
 
 ### Added

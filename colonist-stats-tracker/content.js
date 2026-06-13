@@ -1794,7 +1794,10 @@
   // ONE grid for both views: each is the Player column + 6 value columns, so a
   // shared template keeps the Player column pixel-identical when you switch tabs
   // (only the six value cells' contents change — no width/style jump).
-  const TABLE_GRID = 'minmax(120px,2.6fr) repeat(6, 0.8fr)';
+  // The value tracks use minmax(0, …) (not a bare 0.8fr, which is minmax(auto,…)
+  // and lets a wider cell like "1:05" bulge its column): this pins all six to the
+  // exact same width regardless of content.
+  const TABLE_GRID = 'minmax(120px,2.6fr) repeat(6, minmax(0, 0.8fr))';
   const CARDS_GRID = TABLE_GRID;
   const STATS_GRID = TABLE_GRID;
   const HEAD_SLOT = 'height:2.3em;display:flex;align-items:center;justify-content:center;';
@@ -1814,7 +1817,7 @@
       `data-tip="${escapeHtml(p.name)}${active ? ' — ' + t('currentTurn', 'current turn') : ''}">${avatar}` +
       `<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span>` +
       `<span data-tip="${t('tipHandTotal', 'Total cards in hand')}" ` +
-      `style="flex:0 0 auto;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
+      `style="flex:0 0 auto;margin-right:7px;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
       `color:${risk ? '#fff' : THEME.text};background:${risk ? THEME.bad : '#fbf9f4'};` +
       `border:1px solid ${risk ? THEME.bad : THEME.border};border-radius:0.6em;padding:0 0.4em;">${total}</span></span>`;
   }
