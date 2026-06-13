@@ -41,6 +41,43 @@ the real-image path is an enhancement layered on top, not a replacement.
 
 ## Shipped from this roadmap
 
+### v1.22.1 (2026-06-13)
+- **Bugfix (raised by Stan)** — Player column was a different width in Resources
+  vs Stats (6th-column grid tweak shrank the Stats name track); unified both to
+  one `TABLE_GRID` and made the switch animate only the value cells, leaving the
+  Player column still.
+
+### v1.22.0 (2026-06-13)
+- **① Luck meter (chi-square)** — full version: χ² goodness-of-fit in the dice
+  header (idea pool #1 now fully shipped).
+- **③ Turn-time stats** — ⏱ Stats column, avg per player from live roll gaps
+  (idea pool #3).
+- **④ Trade-flow matrix** — 🤝 Stats column + per-opponent gave/got hover
+  (idea pool #4).
+
+### v1.21.0 (2026-06-13)
+- **Bugfix — snake-draft pivot float**: the first player to receive starting
+  resources (last in round 1 / first in round 2) now shows the `+N` gain float
+  like everyone else.
+- **Trade ghost edge-trigger** (raised by Stan): fade only when the trade UI
+  appears over a still panel, not when the panel is dragged onto it; light tier
+  stays grabbable.
+
+### v1.20.0 (2026-06-13)
+- **Dice drought spotlight** (idea pool #1, reframed): instead of a chi-square
+  luck score, the dice header flags the *single most overdue* producing sum,
+  probability-weighted (`rollsSince / expectedGap`), so 6/8 surface before 2/12.
+- **C keyboard shortcut** (raised by Stan): collapse / expand the whole panel.
+
+### v1.19.0 (2026-06-13)
+- **Discard-risk highlight** (idea pool #2): hand-total badge turns terracotta at
+  8+ cards.
+- **Trade-aware light ghost** (raised by Stan): the trade UI overlapping the
+  panel triggers a milder opacity-.3 ghost (dialogs keep the full .12).
+- **R/S keyboard view shortcuts** (raised by Stan): R → Resources, S → Stats.
+- **Source-explicit stat tooltips**: ⚔️/💔 note robber/knight/Monopoly, 🗑️ notes
+  the rolled-7 rule.
+
 ### v1.11.0 – v1.14.0 batch (2026-06-12)
 - **v1.11.0 — UI polish:** floating `+N`/`−N` card-gain effect (raised
   2026-06-09); the large⇄small toggle animates (one-shot transition); the
@@ -81,16 +118,11 @@ Ideas raised but not yet designed — each needs its own brainstorm → design p
 ### Idea pool (brainstormed 2026-06-12 — none committed)
 Sorted roughly by value-per-effort; all build on data we already collect:
 
-1. **Luck meter (chi-square).** A small "how unfair are these dice" score from
-   `rollHistory` vs the fair distribution — pure math over existing data, fun
-   to glance at. Could live in the dice section header.
-2. **Discard-risk highlight.** Tint a player's hand-total badge red when they
-   hold 8+ cards (a 7 would cost them half) — zero new data, one style rule.
-3. **Turn-time stats.** Average seconds per turn per player ("who's slow") —
-   derivable from roll-message timestamps we already see ticking in.
-4. **Trade-flow matrix.** Net resource flow between players from the executed
-   trade branch ("who keeps feeding whom") — counters exist conceptually,
-   needs a display idea (maybe inside the steal-breakdown-style hover).
+1. ~~**Luck meter (chi-square).**~~ Shipped in two parts: the probability-weighted
+   drought spotlight (v1.20.0) and the full χ² goodness-of-fit score (v1.22.0).
+2. ~~**Discard-risk highlight.**~~ Shipped in v1.19.0.
+3. ~~**Turn-time stats.**~~ Shipped in v1.22.0 (⏱ Stats column).
+4. ~~**Trade-flow matrix.**~~ Shipped in v1.22.0 (🤝 Stats column + gave/got hover).
 5. **Share card.** Export the end-of-game stats as an image for chat bragging.
 
 ### Cross-game aggregation ("your luck over time")

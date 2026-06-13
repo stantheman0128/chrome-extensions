@@ -96,6 +96,8 @@
     totalRolls: 0,
     rollHistory: [],     // ordered dice sums — powers "rolls since last N"
     currentTurn: null,   // last player to roll = whose turn it (probably) is
+    lastRoller: null,    // who rolled last + when, to time turns (live only)
+    lastRollTs: null,
     players: new Map(), // name -> { color, resources:{}, unknown:number }
     seenIndices: new Set(), // log message data-index values already processed
     selfName: null, // local human player; messages with avatar=icon_player.svg
@@ -144,6 +146,8 @@
         gainedRes: {},           // ...broken down per resource (feeds the hover pie)
         devCards: 0,             // tracked + archived, not displayed (dashboard has it)
         builds: 0,               // tracked + archived, not displayed
+        turnMs: 0, turns: 0,     // total timed turn duration + count → average
+        tradeGave: {}, tradeGot: {}, // executed-trade cards per opponent (flow)
       };
     }
     return state.tally[name];
@@ -160,6 +164,42 @@
       const v = tallyOf(victimName);
       v.lost += n;
       if (thiefName) v.lostTo[thiefName] = (v.lostTo[thiefName] || 0) + n;
+    }
+  }
+
+  // ---- turn timing (Stats ⏱) ----
+  // Each roll marks the start of a turn, so the gap between consecutive rolls is
+  // the PREVIOUS roller's turn. Gaps over the cap (AFK / disconnect / a fresh
+  // page after a reload) are dropped so they don't wreck the average. Called
+  // with live timestamps only — never during a deep re-scrape, where messages
+  // replay back-to-back and every "turn" would read as milliseconds.
+  const TURN_CAP_MS = 180000; // 3 min — beyond this it isn't really a turn
+  function recordTurn(roller, now) {
+    if (state.lastRoller && state.lastRollTs != null) {
+      const ms = now - state.lastRollTs;
+      if (ms > 0 && ms <= TURN_CAP_MS) {
+        const ty = tallyOf(state.lastRoller);
+        ty.turnMs += ms;
+        ty.turns += 1;
+      }
+    }
+    state.lastRoller = roller;
+    state.lastRollTs = now;
+  }
+
+  // ---- executed-trade flow (Stats 🤝) ----
+  // Record cards moving between two players in a completed trade, from BOTH
+  // sides, so each player's hover shows who they fed and who fed them.
+  function recordTrade(actorName, otherName, gaveN, gotN) {
+    if (!actorName || !otherName) return;
+    const a = tallyOf(actorName), o = tallyOf(otherName);
+    if (gaveN > 0) {
+      a.tradeGave[otherName] = (a.tradeGave[otherName] || 0) + gaveN;
+      o.tradeGot[actorName] = (o.tradeGot[actorName] || 0) + gaveN;
+    }
+    if (gotN > 0) {
+      a.tradeGot[otherName] = (a.tradeGot[otherName] || 0) + gotN;
+      o.tradeGave[actorName] = (o.tradeGave[actorName] || 0) + gotN;
     }
   }
 
@@ -412,7 +452,12 @@
         state.diceCounts[sum] += 1;
         state.totalRolls += 1;
         state.rollHistory.push(sum);
-        if (player) state.currentTurn = player.name;
+        if (player) {
+          state.currentTurn = player.name;
+          // Time turns from live rolls only — a deep re-scrape replays the log
+          // back-to-back, so timing it would record millisecond "turns".
+          if (!rescraping) recordTurn(player.name, Date.now());
+        }
         renderSoon();
         return;
       }
@@ -429,10 +474,12 @@
         const actor = getPlayer(refs[0].name, refs[0].color);
         const other = getPlayer(refs[1].name, refs[1].color);
         const { give, recv } = splitTradeResources(msgEl);
+        let gaveN = 0, gotN = 0;
         for (const r of RESOURCES) {
-          if (give[r]) { takeResource(actor, r, give[r]); giveResource(other, r, give[r]); }
-          if (recv[r]) { giveResource(actor, r, recv[r]); takeResource(other, r, recv[r]); }
+          if (give[r]) { takeResource(actor, r, give[r]); giveResource(other, r, give[r]); gaveN += give[r]; }
+          if (recv[r]) { giveResource(actor, r, recv[r]); takeResource(other, r, recv[r]); gotN += recv[r]; }
         }
+        recordTrade(actor.name, other.name, gaveN, gotN);
         renderSoon();
         return;
       }
@@ -843,6 +890,68 @@
     });
   }
 
+  // Switch the Resources ⇄ Stats view. Both views share ONE grid (TABLE_GRID),
+  // so the Player column never moves; only the six VALUE cells change. The
+  // animation reflects that — it slides+fades just the value cells (every
+  // [data-res] cell: the six column headers + each row's six values), leaving
+  // the Player column (header text + each name cell) perfectly still.
+  const valueCells = () => panel
+    ? [...panel.querySelectorAll('#cst-resources [data-res]')]
+    : [];
+  function switchResView(v) {
+    if (!panel || v === uiState.resView) return;
+    const goingStats = v === 'stats';
+    uiState.resView = v;
+    saveUI({ resView: v });
+    lastCounts = null;            // a view switch is not a "gain" — no floats
+    updateViewTabs();
+    const tbl = panel.querySelector('#cst-resources');
+    if (!tbl) { render(); return; }
+    // Fade the OLD value cells out (the Player column is left untouched).
+    valueCells().forEach((c) => {
+      c.style.transition = 'opacity .12s ease, transform .12s ease';
+      c.style.opacity = '0';
+      c.style.transform = `translateX(${goingStats ? -12 : 12}px)`;
+    });
+    setTimeout(() => {
+      render();                   // rebuilds the table; Player column is identical
+      panel.style.height = 'auto';
+      const cells = valueCells();
+      cells.forEach((c) => {      // place the NEW value cells off-screen, transition off
+        c.style.transition = 'none';
+        c.style.opacity = '0';
+        c.style.transform = `translateX(${goingStats ? 12 : -12}px)`;
+      });
+      if (cells.length) void tbl.offsetHeight; // commit the entry position
+      cells.forEach((c) => {      // ...then slide+fade them in
+        c.style.transition = 'opacity .2s ease, transform .24s cubic-bezier(.2,.8,.3,1)';
+        c.style.opacity = '1';
+        c.style.transform = 'translateX(0)';
+        setTimeout(() => { c.style.transition = ''; c.style.transform = ''; }, 250);
+      });
+    }, 130);
+  }
+
+  // Keyboard shortcuts: C collapses / expands the whole panel, R jumps to the
+  // Resources view, S to Stats. All ignored while typing (colonist's chat box /
+  // any input / contenteditable) or with a modifier key held. R/S also need the
+  // panel open; C works either way (so it can expand a collapsed panel).
+  let keysBound = false;
+  function bindKeys() {
+    if (keysBound || typeof document === 'undefined') return;
+    keysBound = true;
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.altKey || e.metaKey || !panel) return;
+      const el = e.target;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (key === 'c') { setPanelCollapsed(!uiState.panelCollapsed); return; }
+      if (uiState.panelCollapsed) return;   // R/S only make sense when open
+      if (key === 'r') switchResView('cards');
+      else if (key === 's') switchResView('stats');
+    });
+  }
+
   // Collapse the whole panel down to a single spinning dice icon (no circle —
   // just the dice) and back. The width/height transition is enabled ONLY for
   // this toggle (the base style has none, so live drag-resizing stays instant).
@@ -1081,6 +1190,7 @@
       </div>`;
     document.body.appendChild(host);
     panel = host;
+    bindKeys();
 
     // Inject the :hover rule once (inline styles can't express :hover).
     if (!document.getElementById('cst-style')) {
@@ -1117,33 +1227,7 @@
       // claim the click before the fold logic below sees it).
       const vt = e.target.closest && e.target.closest('[data-resview]');
       if (vt && host.contains(vt)) {
-        const v = vt.getAttribute('data-resview') === 'stats' ? 'stats' : 'cards';
-        if (v !== uiState.resView) {
-          const goingStats = v === 'stats';
-          uiState.resView = v;
-          saveUI({ resView: v });
-          lastCounts = null;            // a view switch is not a "gain" — no floats
-          updateViewTabs();
-          // Directional slide + fade: heading to Stats the table glides left
-          // and the new columns enter from the right (and vice versa) — the
-          // wrap's overflow:hidden clips the slide. Header heights share one
-          // fixed slot, so the panel itself never moves.
-          const tbl = host.querySelector('#cst-resources');
-          tbl.style.transition = 'opacity .16s ease, transform .16s ease';
-          tbl.style.opacity = '0';
-          tbl.style.transform = `translateX(${goingStats ? -18 : 18}px)`;
-          setTimeout(() => {
-            render();
-            host.style.height = 'auto';
-            tbl.style.transition = 'none';
-            tbl.style.transform = `translateX(${goingStats ? 18 : -18}px)`;
-            void tbl.offsetHeight;      // commit the entry position, then animate in
-            tbl.style.transition = 'opacity .2s ease, transform .24s cubic-bezier(.2,.8,.3,1)';
-            tbl.style.opacity = '1';
-            tbl.style.transform = 'translateX(0)';
-            setTimeout(() => { tbl.style.transition = ''; tbl.style.transform = ''; }, 250);
-          }, 160);
-        }
+        switchResView(vt.getAttribute('data-resview') === 'stats' ? 'stats' : 'cards');
         return;
       }
       const head = e.target.closest && e.target.closest('[data-fold]');
@@ -1334,7 +1418,7 @@
       const bdEl = e.target.closest && e.target.closest('[data-bd]');
       if (bdEl && host.contains(bdEl)) {
         const [who, kind] = bdEl.getAttribute('data-bd').split('|');
-        const html = stealBreakdownHTML(who, kind);
+        const html = kind === 'trade' ? tradeBreakdownHTML(who) : stealBreakdownHTML(who, kind);
         if (html) { tip.innerHTML = html; placeTip(e); return; }
       }
       const z = e.target.closest && e.target.closest('[data-tip]');
@@ -1458,6 +1542,51 @@
     const h = state.rollHistory;
     for (let i = h.length - 1, k = 0; i >= 0; i--, k++) if (h[i] === n) return k;
     return h.length;
+  }
+
+  // ---- dice drought spotlight ----
+  // A drought is more surprising for a COMMON sum (6/8 — expected every ~7
+  // rolls) than a rare one (2/12 — every ~36), so we weight rolls-since-last by
+  // the expected gap rather than spotlighting raw absence (which 2/12 would
+  // always win). coldestSum() returns the most-overdue producing sum (2–6,
+  // 8–12; 7 is excluded — a 7 drought is good news, no robber) as {n, k, factor},
+  // or null until the game has enough rolls AND a clear leader has emerged — so
+  // the header spotlight only appears when it actually means something.
+  const COLD_MIN_ROLLS = 8;    // ignore the noisy opening rolls
+  const COLD_MIN_DROUGHT = 5;  // a 3-roll gap isn't a "drought"
+  const COLD_FACTOR = 2;       // twice the expected gap = worth flagging
+  function expectedGap(n) { return 100 / EXPECTED_PCT[n]; } // 1/p, in rolls
+  function coldestSum() {
+    if (state.totalRolls < COLD_MIN_ROLLS) return null;
+    let best = null;
+    for (let n = 2; n <= 12; n++) {
+      if (n === 7) continue;
+      const k = rollsSince(n);
+      if (k < COLD_MIN_DROUGHT) continue;
+      const factor = k / expectedGap(n);
+      if (factor < COLD_FACTOR) continue;
+      if (!best || factor > best.factor) best = { n, k, factor };
+    }
+    return best;
+  }
+
+  // ---- dice fairness (chi-square goodness-of-fit) ----
+  // Σ (observed − expected)² / expected over sums 2–12 (10 degrees of freedom).
+  // A perfectly fair sample → ~0; for fair dice the statistic averages ≈10 (the
+  // dof) and only exceeds ~18.3 about 5% of the time, so a higher reading means
+  // the dice are skewed at the p<0.05 level. Null until the sample is big enough
+  // for the statistic to mean anything.
+  const CHI_MIN_ROLLS = 24;
+  function chiSquare() {
+    if (state.totalRolls < CHI_MIN_ROLLS) return null;
+    let chi = 0;
+    for (let n = 2; n <= 12; n++) {
+      const exp = state.totalRolls * EXPECTED_PCT[n] / 100;
+      if (exp <= 0) continue;
+      const diff = state.diceCounts[n] - exp;
+      chi += (diff * diff) / exp;
+    }
+    return chi;
   }
 
   // The "natural" two-dice pairing for each sum, used by the dice-faces view.
@@ -1643,6 +1772,7 @@
     // hover reads as "stats", not as any particular resource.
     's-stole': '138,103,194', 's-lost': '138,103,194',
     's-disc': '138,103,194', 's-gain': '138,103,194',
+    's-turn': '138,103,194', 's-trade': '138,103,194',
   };
 
   // The live-stats columns (the Stats view of the player table). Keys double
@@ -1650,17 +1780,23 @@
   // and builds stay TALLIED (and archived per game) but aren't displayed —
   // colonist's own dashboard already shows them; four columns breathe better.
   const STAT_COLS = [
-    { key: 's-stole', icon: '⚔️', tip: t('statStole', 'Cards stolen') },
-    { key: 's-lost',  icon: '💔', tip: t('statLost', 'Cards lost') },
-    { key: 's-disc',  icon: '🗑️', tip: t('statDisc', 'Cards discarded') },
+    { key: 's-stole', icon: '⚔️', tip: t('statStole', 'Cards stolen (robber, knight & Monopoly)') },
+    { key: 's-lost',  icon: '💔', tip: t('statLost', 'Cards lost to steals (robber, knight & Monopoly)') },
+    { key: 's-disc',  icon: '🗑️', tip: t('statDisc', 'Cards discarded on a rolled 7 (hand over 7)') },
     { key: 's-gain',  icon: '📥', tip: t('statGain', 'Cards gained') },
+    { key: 's-turn',  icon: '⏱', tip: t('statTurn', 'Average turn length (live rolls only)') },
+    { key: 's-trade', icon: '🤝', tip: t('statTrade', 'Cards traded away (hover for who fed whom)') },
   ];
 
   // Wide player column (avatar + name + hand total) + the value columns.
   // Header cells in BOTH views sit in the same fixed-height slot, so switching
   // tabs never changes the table height (no jumping panel).
-  const CARDS_GRID = 'minmax(120px,2.6fr) repeat(6, 0.8fr)';
-  const STATS_GRID = 'minmax(120px,2.6fr) repeat(4, 1.2fr)';
+  // ONE grid for both views: each is the Player column + 6 value columns, so a
+  // shared template keeps the Player column pixel-identical when you switch tabs
+  // (only the six value cells' contents change — no width/style jump).
+  const TABLE_GRID = 'minmax(120px,2.6fr) repeat(6, 0.8fr)';
+  const CARDS_GRID = TABLE_GRID;
+  const STATS_GRID = TABLE_GRID;
   const HEAD_SLOT = 'height:2.3em;display:flex;align-items:center;justify-content:center;';
 
   function nameCell(p, prof, active) {
@@ -1670,11 +1806,17 @@
           border-radius:50%;overflow:hidden;background:${escapeAttr(p.color)};align-items:center;justify-content:center;">
           <img src="${escapeAttr(av)}" alt="" style="width:100%;height:100%;object-fit:contain;"></span>`
       : '';
+    // Discard risk: at 8+ cards a rolled 7 would cost half the hand, so the
+    // hand-total badge flips to the warning colour (same data, pure style).
+    const total = playerTotal(p);
+    const risk = total >= 8;
     return `<span style="display:flex;align-items:center;gap:4px;min-width:0;color:${escapeAttr(p.color)};font-weight:700;" ` +
       `data-tip="${escapeHtml(p.name)}${active ? ' — ' + t('currentTurn', 'current turn') : ''}">${avatar}` +
       `<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span>` +
-      `<span data-tip="${t('tipHandTotal', 'Total cards in hand')}" style="flex:0 0 auto;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
-      `color:${THEME.text};background:#fbf9f4;border:1px solid ${THEME.border};border-radius:0.6em;padding:0 0.4em;">${playerTotal(p)}</span></span>`;
+      `<span data-tip="${t('tipHandTotal', 'Total cards in hand')}" ` +
+      `style="flex:0 0 auto;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
+      `color:${risk ? '#fff' : THEME.text};background:${risk ? THEME.bad : '#fbf9f4'};` +
+      `border:1px solid ${risk ? THEME.bad : THEME.border};border-radius:0.6em;padding:0 0.4em;">${total}</span></span>`;
   }
 
   function rowShell(p, active, cells, grid) {
@@ -1747,6 +1889,35 @@
     return `<span style="display:flex;flex-direction:column;gap:2px;">${lines.join('')}</span>`;
   }
 
+  // Average turn length for a player, compactly: "23s" or "1:05" past a minute.
+  function turnAvgText(ty) {
+    if (!ty || !ty.turns) return '–';
+    const sec = Math.round(ty.turnMs / ty.turns / 1000);
+    if (sec < 60) return `${sec}s`;
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  }
+
+  // Per-opponent trade flow: one line per opponent (most-fed first) showing what
+  // this player gave them and got back — "→ Who N / ← M" — names in game colour.
+  function tradeBreakdownHTML(name) {
+    const ty = state.tally[name] || {};
+    const gave = ty.tradeGave || {}, got = ty.tradeGot || {};
+    const who = new Set([...Object.keys(gave), ...Object.keys(got)]);
+    if (!who.size) return '';
+    const lines = [...who]
+      .sort((a, b) => (gave[b] || 0) - (gave[a] || 0))
+      .map((opp) => {
+        const p = state.players.get(opp);
+        const nameHtml = `<b style="color:${escapeAttr((p && p.color) || THEME.accent)};">${escapeHtml(opp)}</b>`;
+        return `<span style="white-space:nowrap;">${nameHtml} ` +
+          `<span style="color:#9c3018;">→${gave[opp] || 0}</span> ` +
+          `<span style="color:#1f6b1f;">←${got[opp] || 0}</span></span>`;
+      });
+    const header = escapeHtml(t('tradeFlowTitle', 'Trade flow (→ fed · ← got)'));
+    return `<span style="display:flex;flex-direction:column;gap:2px;">` +
+      `<b style="margin-bottom:1px;">${header}</b>${lines.join('')}</span>`;
+  }
+
   // Hover content for the gained-cards cell: a small pie of the per-resource
   // income (conic-gradient — no SVG arc math) + a count legend.
   function gainPieHTML(name) {
@@ -1790,19 +1961,24 @@
       const active = p.name === state.currentTurn;
       const actCls = active ? 'cst-active-cell' : '';
       const ty = state.tally[p.name] || {};
+      const tradeFed = ty.tradeGave ? Object.values(ty.tradeGave).reduce((s, n) => s + n, 0) : 0;
+      const hasTrade = tradeFed > 0 || (ty.tradeGot && Object.keys(ty.tradeGot).length);
       const vals = {
         's-stole': { v: ty.stole || 0, bd: ty.stoleFrom && Object.keys(ty.stoleFrom).length ? 'stoleFrom' : null },
         's-lost':  { v: ty.lost || 0, bd: ty.lostTo && Object.keys(ty.lostTo).length ? 'lostTo' : null },
         's-disc':  { v: ty.discardCards || 0, tip: ty.discards ? t('discardEvents', '{n} discard events', { n: ty.discards }) : '' },
         's-gain':  { v: ty.gained || 0, pie: ty.gained ? p.name : null },
+        's-turn':  { v: ty.turns || 0, disp: ty.turns ? turnAvgText(ty) : '–',
+          tip: ty.turns ? t('tipTurnAvg', 'Average over {n} timed turns', { n: ty.turns }) : '' },
+        's-trade': { v: tradeFed, bd: hasTrade ? 'trade' : null },
       };
       const cells = nameCell(p, prof, active) + STAT_COLS.map((c) => {
-        const { v, tip, pie, bd } = vals[c.key];
+        const { v, disp, tip, pie, bd } = vals[c.key];
         return `<span data-res="${c.key}" class="${actCls}" ` +
           `${pie ? `data-pie="${escapeHtml(pie)}" ` : ''}` +
           `${bd ? `data-bd="${escapeHtml(p.name)}|${bd}" ` : ''}` +
           `${tip ? `data-tip="${escapeHtml(tip)}" ` : ''}` +
-          `style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${v ? '' : `color:${THEME.textDim};opacity:.4;`}">${v}</span>`;
+          `style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${v ? '' : `color:${THEME.textDim};opacity:.4;`}">${disp != null ? escapeHtml(disp) : v}</span>`;
       }).join('');
       return rowShell(p, active, cells, STATS_GRID);
     }).join('');
@@ -1853,9 +2029,16 @@
       ? STAT_COLS.map((c) => c.key)
       : [...RESOURCES, 'unknown'];
     const BAD_UP = { 's-lost': true, 's-disc': true };
+    // A player absent from the previous snapshot is treated as a zero baseline:
+    // players are always created at 0 cards, so their first gain is a real +N.
+    // (This is why the snake-draft pivot — created and gaining within one render
+    // window, never separately snapshotted at 0 — used to be skipped.) The +N
+    // "shower" after a reset/restore/deep-rescrape is prevented by the
+    // `if (!prev) return` guard above, NOT by skipping new rows here.
+    const ZERO = { lumber: 0, brick: 0, wool: 0, grain: 0, ore: 0, unknown: 0,
+      's-stole': 0, 's-lost': 0, 's-disc': 0, 's-gain': 0 };
     for (const [name, cur] of Object.entries(lastCounts)) {
-      const old = prev[name];
-      if (!old) continue;                       // brand-new player row — no float
+      const old = prev[name] || ZERO;
       const row = rows.find((el) => el.getAttribute('data-prow') === name);
       if (!row) continue;
       for (const k of keys) {
@@ -1890,7 +2073,28 @@
     if (r) r.innerHTML = renderResTable();
     spawnGainFloats();
     const rolls = panel.querySelector('#cst-dice-rolls');
-    if (rolls) rolls.textContent = t('rollsCount', '{n} rolls', { n: state.totalRolls });
+    if (rolls) {
+      let html = escapeHtml(t('rollsCount', '{n} rolls', { n: state.totalRolls }));
+      const chi = chiSquare();
+      if (chi != null) {
+        // χ²₀.₀₅(10) ≈ 18.3 — above it the dice are skewed at the p<0.05 level.
+        const skewed = chi > 18.3;
+        const tip = escapeHtml(t('tipLuck',
+          'Dice fairness χ²={x} (fair dice average ≈10; over 18.3 is skewed, p<0.05)',
+          { x: chi.toFixed(1) }));
+        html += ` <span data-tip="${tip}" style="font-weight:700;white-space:nowrap;` +
+          `color:${skewed ? '#b5730a' : THEME.textDim};">χ²${Math.round(chi)}</span>`;
+      }
+      const cold = coldestSum();
+      if (cold) {
+        const tip = escapeHtml(t('tipColdSum',
+          '{n} hasn’t come up in {k} rolls (~{x}× its usual gap)',
+          { n: cold.n, k: cold.k, x: cold.factor.toFixed(1) }));
+        html += ` <span data-tip="${tip}" style="color:#3d7fb0;font-weight:700;white-space:nowrap;">` +
+          `❄️ ${cold.n} <span style="opacity:.7;font-weight:600;">${cold.k}</span></span>`;
+      }
+      rolls.innerHTML = html;
+    }
     updateTimer();
   }
 
@@ -1960,6 +2164,8 @@
     state.paused = false;
     state.rollHistory = [];
     state.currentTurn = null;
+    state.lastRoller = null;
+    state.lastRollTs = null;
     state.gameStartTs = Date.now(); // a reset = a new game begins now
     state.gameEndTs = null;
     state.tally = {};
@@ -2190,51 +2396,116 @@
   }
 
   // =============================================================
-  // Ghost mode — get out of the way of colonist's own dialogs
+  // Ghost mode — get out of the way of colonist's own UI
   //
-  // When a colonist dialog/menu (Settings, etc.) opens, the panel fades to a
-  // faint ghost and stops catching the mouse, so the dialog is readable and
-  // clickable without dragging the panel away. Triggers on EITHER a large
-  // overlay (≥35% of the viewport) OR any dialog-ish element that actually
-  // overlaps the panel — so a corner Settings menu sliding under the panel
-  // ghosts it too, not just full-screen modals. Restored the moment it closes.
+  // Two tiers, restored the moment the trigger closes:
+  //  - 'full' (opacity .12, click-through): a colonist dialog/menu (Settings,
+  //    etc.) is open — EITHER a large overlay (≥35% of the viewport) OR any
+  //    dialog-ish element overlapping the panel, so a corner Settings menu
+  //    sliding under the panel ghosts it too, not just full-screen modals.
+  //  - 'light' (opacity .3, STILL grabbable): colonist's trade UI appeared over
+  //    the panel — faded so the offer reads through, but the panel keeps
+  //    catching the mouse so you can always drag it away.
+  //
+  // The light tier is EDGE-TRIGGERED: it fires only when the trade appears over
+  // a stationary panel, NOT when you drag the panel onto an existing trade — in
+  // that case the panel stays solid and grabbable where you put it. (Previously
+  // any overlap ghosted the panel AND killed its pointer events, so a panel
+  // dragged onto the trade area became impossible to grab back.)
   // =============================================================
-  let ghosted = false;
+  const GHOST_OPACITY = { full: '0.12', light: '0.3' };
+  let ghosted = '';            // '' | 'full' | 'light'
+  let prevTradeOverlap = false; // did a trade element overlap the panel last tick?
+  let lastPanelXY = null;       // panel top-left last tick, to detect dragging
 
-  function bigOverlayOpen() {
-    if (typeof getComputedStyle !== 'function' || typeof window === 'undefined') return false;
+  // Pure decision for the light (trade) tier — unit-tested. Ghost only when the
+  // overlap BEGINS over a still panel (trade appeared); keep it once on; never
+  // start it just because the panel was dragged onto an existing trade.
+  function tradeGhostOn({ over, moved, prevOverlap, alreadyLight }) {
+    if (!over) return false;
+    if (alreadyLight) return true;
+    return !prevOverlap && !moved;
+  }
+
+  function elVisible(el) {
+    const cs = getComputedStyle(el);
+    return cs.display !== 'none' && cs.visibility !== 'hidden' &&
+      parseFloat(cs.opacity || '1') >= 0.1 ? cs : null;
+  }
+
+  // A colonist dialog/menu overlapping the panel (the 'full' tier).
+  function dialogOverlapping(pr) {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    if (!vw || !vh) return false;
+    const overlapsPanel = (r) => !(r.right < pr.left || r.left > pr.right ||
+                                   r.bottom < pr.top || r.top > pr.bottom);
     const cands = document.querySelectorAll(
       '[class*="modal"], [class*="dialog"], [class*="overlay"], [class*="settings"], ' +
       '[class*="menu"], [class*="popover"], [class*="drawer"], [role="dialog"], [role="menu"]');
-    const vw = window.innerWidth, vh = window.innerHeight;
-    if (!vw || !vh || !panel) return false;
-    const pr = panel.getBoundingClientRect();
     for (const el of cands) {
       if (el === panel || panel.contains(el) || el.contains(panel)) continue;
       const r = el.getBoundingClientRect();
       const area = r.width * r.height;
       if (area < 24000) continue;                       // ignore chips / tooltips
       const big = area >= vw * vh * 0.35;
-      const overlapsPanel = !(r.right < pr.left || r.left > pr.right ||
-                              r.bottom < pr.top || r.top > pr.bottom);
-      if (!big && !overlapsPanel) continue;
-      const cs = getComputedStyle(el);
+      if (!big && !overlapsPanel(r)) continue;
+      const cs = elVisible(el);
+      if (!cs) continue;
       if (cs.position !== 'fixed' && cs.position !== 'absolute') continue;
-      if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity || '1') < 0.1) continue;
       return true;
     }
     return false;
   }
 
-  function updateGhost() {
-    if (!panel) return;
-    const g = bigOverlayOpen();
-    if (g === ghosted) return;
-    ghosted = g;
+  // A colonist trade element visibly overlapping the panel (the 'light' tier).
+  // Trade UI sits in the normal layout flow (not fixed/absolute), so no position
+  // gate — just "a real trade element is visible and actually under the panel".
+  function tradeOverlapping(pr) {
+    const overlapsPanel = (r) => !(r.right < pr.left || r.left > pr.right ||
+                                   r.bottom < pr.top || r.top > pr.bottom);
+    const trades = document.querySelectorAll('[class*="trade"], [id*="trade"]');
+    for (const el of trades) {
+      if (el === panel || panel.contains(el) || el.contains(panel)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width * r.height < 24000) continue;         // buttons / icons, not the panel
+      if (!overlapsPanel(r)) continue;
+      if (!elVisible(el)) continue;
+      return true;
+    }
+    return false;
+  }
+
+  function applyGhost(kind) {
+    if (kind === ghosted) return;
+    ghosted = kind;
     panel.style.transition = 'opacity .2s ease';
-    panel.style.opacity = g ? '0.12' : '';
-    panel.style.pointerEvents = g ? 'none' : '';
-    setTimeout(() => { if (panel && ghosted === g) panel.style.transition = ''; }, 220);
+    panel.style.opacity = kind ? GHOST_OPACITY[kind] : '';
+    // Only the full (dialog) tier releases the mouse — the dialog needs the
+    // clicks. The light (trade) tier stays grabbable so the panel can always be
+    // dragged off the trade.
+    panel.style.pointerEvents = kind === 'full' ? 'none' : '';
+    setTimeout(() => { if (panel && ghosted === kind) panel.style.transition = ''; }, 220);
+  }
+
+  function updateGhost() {
+    if (!panel || typeof getComputedStyle !== 'function' || typeof window === 'undefined') return;
+    const pr = panel.getBoundingClientRect();
+    const moved = !!lastPanelXY &&
+      (Math.abs(pr.left - lastPanelXY.x) > 1 || Math.abs(pr.top - lastPanelXY.y) > 1);
+    lastPanelXY = { x: pr.left, y: pr.top };
+
+    let kind = '';
+    if (dialogOverlapping(pr)) {
+      kind = 'full';
+      prevTradeOverlap = false;          // a dialog supersedes any trade tracking
+    } else {
+      const over = tradeOverlapping(pr);
+      if (tradeGhostOn({ over, moved, prevOverlap: prevTradeOverlap, alreadyLight: ghosted === 'light' })) {
+        kind = 'light';
+      }
+      prevTradeOverlap = over;
+    }
+    applyGhost(kind);
   }
 
   // ---- game clock ----
@@ -2416,6 +2687,10 @@
       getLifecycle: () => lifecycle,
       timerText,
       buildGameRecord,
+      coldestSum,
+      chiSquare,
+      recordTurn,
+      tradeGhostOn,
       // UI entry points (exposed so the jsdom smoke test can render the panel).
       createPanel,
       render,

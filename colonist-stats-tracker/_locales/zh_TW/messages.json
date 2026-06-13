@@ -20,11 +20,14 @@
   "rollsCount": {
     "message": "{n} 次擲骰"
   },
+  "tipColdSum": {
+    "message": "{n} 已經 {k} 回合沒出（約是平常間隔的 {x} 倍）"
+  },
   "waitingFirstMove": {
     "message": "等待第一個動作…"
   },
   "tipCollapse": {
-    "message": "點擊收合／展開"
+    "message": "點擊（或按 C）收合／展開"
   },
   "tipTimer": {
     "message": "本局已進行時間"
@@ -81,16 +84,31 @@
     "message": "目前回合"
   },
   "statStole": {
-    "message": "偷到的牌"
+    "message": "偷到的牌（盜賊／騎士／壟斷卡）"
   },
   "statLost": {
-    "message": "被偷的牌"
+    "message": "被偷走的牌（盜賊／騎士／壟斷卡）"
   },
   "statDisc": {
-    "message": "棄掉的牌"
+    "message": "擲出 7 的棄牌（手牌超過 7 張）"
   },
   "statGain": {
     "message": "獲得的牌"
+  },
+  "statTurn": {
+    "message": "平均每回合時間（僅計即時擲骰）"
+  },
+  "statTrade": {
+    "message": "交易給出的牌（hover 看餵給誰）"
+  },
+  "tipTurnAvg": {
+    "message": "{n} 個計時回合的平均"
+  },
+  "tradeFlowTitle": {
+    "message": "交易流向（→ 餵出 · ← 收到）"
+  },
+  "tipLuck": {
+    "message": "骰子公平度 χ²={x}（公平骰平均約 10；超過 18.3 即顯著偏斜，p<0.05）"
   },
   "stoleFromItem": {
     "message": "偷自 {who} ×{n}"

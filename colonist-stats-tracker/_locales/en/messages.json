@@ -20,11 +20,14 @@
   "rollsCount": {
     "message": "{n} rolls"
   },
+  "tipColdSum": {
+    "message": "{n} hasn’t come up in {k} rolls (~{x}× its usual gap)"
+  },
   "waitingFirstMove": {
     "message": "Waiting for first move…"
   },
   "tipCollapse": {
-    "message": "Click to collapse / expand"
+    "message": "Click (or press C) to collapse / expand"
   },
   "tipTimer": {
     "message": "Time since this game started"
@@ -81,16 +84,31 @@
     "message": "current turn"
   },
   "statStole": {
-    "message": "Cards stolen"
+    "message": "Cards stolen (robber, knight & Monopoly)"
   },
   "statLost": {
-    "message": "Cards lost"
+    "message": "Cards lost to steals (robber, knight & Monopoly)"
   },
   "statDisc": {
-    "message": "Cards discarded"
+    "message": "Cards discarded on a rolled 7 (hand over 7)"
   },
   "statGain": {
     "message": "Cards gained"
+  },
+  "statTurn": {
+    "message": "Average turn length (live rolls only)"
+  },
+  "statTrade": {
+    "message": "Cards traded away (hover for who fed whom)"
+  },
+  "tipTurnAvg": {
+    "message": "Average over {n} timed turns"
+  },
+  "tradeFlowTitle": {
+    "message": "Trade flow (→ fed · ← got)"
+  },
+  "tipLuck": {
+    "message": "Dice fairness χ²={x} (fair dice average ≈10; over 18.3 is skewed, p<0.05)"
   },
   "stoleFromItem": {
     "message": "from {who} ×{n}"

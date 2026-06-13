@@ -5,6 +5,32 @@ All notable changes in this repository are documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- colonist-stats-tracker (1.22.1): **the Player column is now identical across the Resources and Stats views, and the switch no longer flickers it.** Adding the 6th Stats column in 1.22.0 had shrunk that view's first grid track (`minmax(96px,2fr)` vs the cards view's `minmax(120px,2.6fr)`), so the player name column visibly changed width/size when toggling tabs. Both views now share one `TABLE_GRID` (Player + 6 value columns), so only the value cells differ. The switch animation was rewritten to slide+fade **only the value cells** (`[data-res]`) — the Player column (header text + each name cell) stays perfectly still. +2 tests (103 total).
+
+### Added
+- colonist-stats-tracker (1.22.0): **three Stats additions — dice fairness, turn-time, trade-flow.**
+  - **① Dice fairness (chi-square).** The dice header shows `χ²N` once a game has ≥24 rolls — a goodness-of-fit statistic over sums 2–12 (10 dof). Fair dice average ≈10; it turns amber over 18.3 (skewed at p<0.05). Hover explains the scale. (This is the full version of the luck meter that v1.20.0 previewed as the single-number drought spotlight.)
+  - **② Turn-time (⏱, 5th Stats column).** Average turn length per player, measured from the gap between consecutive live rolls (the previous roller's turn). Gaps over 3 min (AFK / disconnect / a fresh page) are dropped so the average stays real; deep re-scrapes don't time turns (replayed messages would read as milliseconds). Shows `23s` / `1:05`; hover gives the timed-turn count.
+  - **③ Trade-flow (🤝, 6th Stats column).** Cards each player traded *away*; hover shows the per-opponent flow ("→ fed N · ← got M", names in game colour) — who keeps feeding whom. Both sides of every executed trade are recorded.
+  - The Stats grid widened to 6 value columns; all three metrics are tallied, persisted, and archived per game. +6 tests (100 total).
+
+### Fixed
+- colonist-stats-tracker (1.21.0): **snake-draft pivot player's first resources now float +N.** The player who places last in round 1 and first in round 2 lays both settlements back-to-back and immediately receives starting resources, with no other message between their creation and that gain — so they were absent from the previous render's snapshot and `spawnGainFloats` skipped them (`if (!old) continue`), swallowing their first `+N`; only later players floated. Since every player is created at 0 cards, a missing baseline is now treated as zero. The post-reset/restore/rescrape `+N` "shower" is still prevented by the separate null-snapshot guard. +1 test.
+
+### Changed
+- colonist-stats-tracker (1.21.0): **trade ghost is now edge-triggered and stays grabbable.** The light trade-overlap fade (added 1.19.0) used to fire on *any* overlap and kill the panel's pointer events — so dragging the panel onto the trade area left it faded AND ungrabbable (you had to collapse/expand to recover). Now it fades **only when the trade UI appears over a stationary panel**, never when you drag the panel onto an existing trade, and the light tier keeps catching the mouse so the panel can always be dragged off. (The full dialog ghost is unchanged: opacity .12, click-through.) +4 tests (95 total). DOM overlap detection is layout-based — verify in a real game.
+
+### Added
+- colonist-stats-tracker (1.20.0): **dice drought spotlight + C collapse key.**
+  - **Drought spotlight.** The dice section header flags the producing sum (2–6, 8–12; never 7) that's most overdue *relative to how often it should appear* — e.g. `❄️ 6 15` ("6 hasn't come up in 15 rolls, ~2.1× its usual gap"). Probability-weighted, so a quiet 6/8 is flagged while a naturally-rare 2/12 isn't; appears only past 8 rolls and a 2× expected-gap threshold, so it stays meaningful. Hover for the full explanation.
+  - **C keyboard shortcut.** `C` collapses / expands the whole panel (works even when collapsed, to bring it back). Joins R/S under the shared key handler; same typing/modifier guards. The dice-glyph tooltip now mentions it. +6 tests (90 total).
+- colonist-stats-tracker (1.19.0): **trade-aware ghost + R/S view keys + discard-risk badge + clearer stat tooltips.**
+  - **Light ghost for the trade panel.** Ghost mode is now two-tier: colonist dialogs still fade the panel to opacity .12, and the **trade UI** (detected via `trade` class/id elements that actually overlap the panel) fades it to a milder **.3** — the offer is readable underneath while the stats stay glanceable. Both tiers release the mouse.
+  - **R / S keyboard shortcuts.** `R` jumps to the Resources view, `S` to Stats, with the same directional slide as the tabs (the switch logic was extracted into a shared `switchResView()`). Ignored while typing (chat box / inputs / contenteditable), with Ctrl/Alt/Meta held, or while the panel is collapsed.
+  - **Discard-risk badge.** A player's hand-total badge turns the warning terracotta at **8+ cards** (a rolled 7 would cost half) — zero new data, pure style.
+  - **Source-explicit stat tooltips.** ⚔️ "Cards stolen (robber, knight & Monopoly)" / 💔 "Cards lost to steals (robber, knight & Monopoly)" / 🗑️ "Cards discarded on a rolled 7 (hand over 7)" in both locales — Lost (taken by opponents) and Discarded (forfeited to the rule) are now unmistakably different things. +4 tests (84 total).
+
+### Fixed
 - youtube-video-upload-time (9.6): silenced the false-alarm "Could not find Shorts title element" warning (the title overlay renders ~4-5s after navigation; now warns once only after 20s of consecutive misses) and adapted active-reel detection to the 2026-06 single-reel Shorts DOM (`is-active` attribute removed by YouTube). +6 tests.
 - youtube-video-upload-time (9.2–9.5): renamed to "YouTube 精確時間"; fixed Shorts/watch SPA stale-meta dates (page dates now ID-verified, poisoned `v_` cache purged via `v2_` migration); badges keyed by `data-video-id`; added test suite; icon added from Stan's hand-drawn artwork (`icons/` + manifest `icons`/`action.default_icon`).
 - claude-status-monitor (1.0.2): added the missing extension icon — Stan's artwork (Claude orange starburst + blue tools), background made transparent, wired into manifest `icons` and `action.default_icon`. Conversion done by the new `tools/jpg-to-icons.js` (generic JPG → icon16/32/48/128 with optional `--transparent-bg` flood fill and `--trim`).
