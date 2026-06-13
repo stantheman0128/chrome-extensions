@@ -4,6 +4,9 @@ All notable changes in this repository are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- colonist-stats-tracker (1.23.0): **the panel auto-collapses while colonist's Settings page is open.** Settings is a full-page in-place view (outer class `gameSettingsContainer…`, no URL change, not a fixed/absolute overlay), so it never tripped ghost mode — the old `[class*="settings"]` selector also missed it on case (the class is `gameSettings**C**ontainer`). The panel now collapses to the dice icon when Settings opens and expands again when it closes; if you'd already collapsed it yourself before opening Settings, it's left as-is (no surprise expand). +3 tests (108 total).
+
 ### Fixed
 - colonist-stats-tracker (1.22.5): **trade ghost no longer misses when the panel is parked over the bottom trade bar.** colonist's trade button bar and its `gameTradeOffersContainer` reserve are always present, so the old `[class*="trade"]` match read as "trade overlapping" the whole time the panel sat near the bottom — meaning popping the trade creator produced no fresh overlap edge and the panel didn't fade. Detection now keys off the trade *creator's* open-only parts (`tradeCreatorProposal…` / `tradeCreatorActions…`, which don't exist until it's expanded) and tests overlap against the `tradeCreator…` cluster only, ignoring the persistent furniture. +2 tests (105 total).
 

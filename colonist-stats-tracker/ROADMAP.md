@@ -41,6 +41,11 @@ the real-image path is an enhancement layered on top, not a replacement.
 
 ## Shipped from this roadmap
 
+### v1.23.0 (2026-06-13)
+- **Settings auto-collapse (raised by Stan)** — detect colonist's full-page
+  Settings (`gameSettingsContainer…`) and collapse the dashboard to the dice icon
+  while it's open, restoring on close (respecting a user's prior manual collapse).
+
 ### v1.22.5 (2026-06-13)
 - **Trade ghost edge fix (raised by Stan)** — keyed trade detection off the trade
   creator's open-only parts (`tradeCreatorProposal/Actions`) instead of any

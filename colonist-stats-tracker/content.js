@@ -2141,6 +2141,7 @@
       maybeNewGame();
       updateTimer();
       updateGhost();
+      updateSettingsPosture();
       // colonist sometimes REPLACES the log container node (reconnect /
       // re-render). Re-discover it every tick — otherwise the observer keeps
       // watching a detached node and updates silently stop. attachObserver()
@@ -2525,6 +2526,33 @@
     applyGhost(kind);
   }
 
+  // ---- Settings posture: collapse the panel out of the way while colonist's
+  // full-page Settings is open, restore it on close ----
+  // colonist's Settings is an in-place full-page view (no URL change, not a
+  // fixed/absolute overlay) under `gameSettingsContainer…` — so it never tripped
+  // ghost mode. Since the dashboard's top has nothing to click past, the tidiest
+  // behaviour is to COLLAPSE it to the dice icon while Settings is up, then
+  // auto-expand on close — but only if WE collapsed it (never fight a panel the
+  // user had already collapsed before opening Settings).
+  let settingsOpenPrev = false;
+  let collapsedForSettings = false;
+  function settingsOpen() {
+    const el = document.querySelector('[class*="gameSettingsContainer"]');
+    return !!(el && elVisible(el));
+  }
+  function updateSettingsPosture() {
+    if (!panel) return;
+    const open = settingsOpen();
+    if (open === settingsOpenPrev) return;   // edge-triggered, like the lifecycle
+    settingsOpenPrev = open;
+    if (open) {
+      if (!uiState.panelCollapsed) { collapsedForSettings = true; setPanelCollapsed(true); }
+    } else if (collapsedForSettings) {
+      collapsedForSettings = false;
+      if (uiState.panelCollapsed) setPanelCollapsed(false);
+    }
+  }
+
   // ---- game clock ----
   function timerText() {
     if (!state.gameStartTs) return '';
@@ -2709,6 +2737,9 @@
       recordTurn,
       tradeGhostOn,
       tradeCreatorOpen,
+      settingsOpen,
+      updateSettingsPosture,
+      getUiState: () => uiState,
       // UI entry points (exposed so the jsdom smoke test can render the panel).
       createPanel,
       render,
@@ -2744,6 +2775,7 @@
       if (now - lastGhostCheck > 250) {
         lastGhostCheck = now;
         updateGhost();
+        updateSettingsPosture();   // collapse/restore within ~250ms of Settings open/close
       }
     }).observe(document.documentElement, { childList: true, subtree: true });
   }
