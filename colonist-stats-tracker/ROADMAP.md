@@ -41,6 +41,10 @@ the real-image path is an enhancement layered on top, not a replacement.
 
 ## Shipped from this roadmap
 
+### v1.22.4 (2026-06-13)
+- **Ghost opacity unified (raised by Stan)** — both tiers now fade to 0.18 (the
+  average of the old 0.05 dialog / 0.3 trade), so the dim is consistent.
+
 ### v1.22.3 (2026-06-13)
 - **Ghost tweaks (raised by Stan)** — both ghost tiers click-through again so the
   trade UI / dialog behind the faded panel is clickable (edge-trigger keeps the
