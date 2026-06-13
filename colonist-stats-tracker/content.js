@@ -2460,17 +2460,30 @@
     return false;
   }
 
-  // A colonist trade element visibly overlapping the panel (the 'light' tier).
-  // Trade UI sits in the normal layout flow (not fixed/absolute), so no position
-  // gate — just "a real trade element is visible and actually under the panel".
+  // True only while colonist's TRADE CREATOR is open. Its proposal/actions parts
+  // (class `tradeCreatorProposal…` / `tradeCreatorActions…`) exist ONLY when the
+  // creator is expanded — unlike the always-present trade button bar and the
+  // `gameTradeOffersContainer` reserve, which used to make the panel read as
+  // "trade overlapping" forever when parked near the bottom bar (so popping the
+  // creator produced no fresh overlap edge → no ghost). Keying off the creator's
+  // open-only parts ignores the persistent furniture. (Hashes after the prefix
+  // change per colonist deploy, so match the stable prefix.)
+  function tradeCreatorOpen() {
+    const el = document.querySelector('[class*="tradeCreatorProposal"], [class*="tradeCreatorActions"]');
+    return !!(el && elVisible(el));
+  }
+
+  // The open trade creator visibly overlapping the panel (the 'light' tier).
+  // Only the creator's own parts count — never the always-present bar/offers
+  // reserve — so parking the panel over the bottom bar no longer masks the edge.
   function tradeOverlapping(pr) {
+    if (!tradeCreatorOpen()) return false;
     const overlapsPanel = (r) => !(r.right < pr.left || r.left > pr.right ||
                                    r.bottom < pr.top || r.top > pr.bottom);
-    const trades = document.querySelectorAll('[class*="trade"], [id*="trade"]');
-    for (const el of trades) {
+    for (const el of document.querySelectorAll('[class*="tradeCreator"]')) {
       if (el === panel || panel.contains(el) || el.contains(panel)) continue;
       const r = el.getBoundingClientRect();
-      if (r.width * r.height < 24000) continue;         // buttons / icons, not the panel
+      if (r.width * r.height < 4000) continue;          // skip slivers
       if (!overlapsPanel(r)) continue;
       if (!elVisible(el)) continue;
       return true;
@@ -2695,6 +2708,7 @@
       chiSquare,
       recordTurn,
       tradeGhostOn,
+      tradeCreatorOpen,
       // UI entry points (exposed so the jsdom smoke test can render the panel).
       createPanel,
       render,

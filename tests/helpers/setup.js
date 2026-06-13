@@ -20,6 +20,9 @@ global.Node = dom.window.Node;
 global.NodeFilter = dom.window.NodeFilter;
 global.MutationObserver = dom.window.MutationObserver;
 global.requestAnimationFrame = () => {};
+// In a browser getComputedStyle is a bare global; jsdom only exposes it on
+// window. Surface it so visibility checks (elVisible / ghost helpers) run.
+global.getComputedStyle = (el) => dom.window.getComputedStyle(el);
 
 const cst = require('../../colonist-stats-tracker/content.js');
 

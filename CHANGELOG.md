@@ -4,6 +4,9 @@ All notable changes in this repository are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- colonist-stats-tracker (1.22.5): **trade ghost no longer misses when the panel is parked over the bottom trade bar.** colonist's trade button bar and its `gameTradeOffersContainer` reserve are always present, so the old `[class*="trade"]` match read as "trade overlapping" the whole time the panel sat near the bottom — meaning popping the trade creator produced no fresh overlap edge and the panel didn't fade. Detection now keys off the trade *creator's* open-only parts (`tradeCreatorProposal…` / `tradeCreatorActions…`, which don't exist until it's expanded) and tests overlap against the `tradeCreator…` cluster only, ignoring the persistent furniture. +2 tests (105 total).
+
 ### Changed
 - colonist-stats-tracker (1.22.4): **unified the two ghost tiers to one opacity.** The Settings/dialog tier (0.05) and the trade tier (0.3) faded by different amounts; both now use 0.18 (their average), so the panel dims by the same amount whatever covered it.
 - colonist-stats-tracker (1.22.3): **ghosted panel is now click-through again, and the Settings fade is fainter.** When colonist's trade UI pops over the panel, the faded panel released the mouse in 1.19.0 but 1.21.0 made the light tier keep catching it (to stay grabbable) — which meant you couldn't click the trade behind it and hovering lit up the panel's own cells. Both ghost tiers are click-through (`pointer-events:none`) again; the edge-trigger already guarantees this only happens when colonist covered the panel, never when you dragged the panel onto the trade (that case still doesn't fade at all, so the panel stays grabbable). The full (dialog/Settings) tier opacity dropped 0.12 → 0.05 so the panel is nearly invisible while a dialog is open; it stays ghosted for as long as the dialog is up.

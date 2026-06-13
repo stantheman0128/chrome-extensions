@@ -8,7 +8,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { cst } = require('./helpers/setup');
+const { cst, document } = require('./helpers/setup');
 
 test('no overlap → never ghost', () => {
   assert.equal(cst.tradeGhostOn({ over: false, moved: false, prevOverlap: false, alreadyLight: false }), false);
@@ -29,4 +29,25 @@ test('panel dragged onto an existing trade → do NOT ghost (stays grabbable)', 
 
 test('an already-open trade ghost is kept while the overlap lasts', () => {
   assert.equal(cst.tradeGhostOn({ over: true, moved: true, prevOverlap: true, alreadyLight: true }), true);
+});
+
+// tradeCreatorOpen distinguishes the OPEN trade creator from colonist's always-
+// present trade furniture (the button bar + gameTradeOffersContainer reserve),
+// which used to mask the overlap edge when the panel was parked near the bar.
+test('tradeCreatorOpen ignores the persistent trade bar / offers container', () => {
+  document.body.innerHTML =
+    '<div class="tradeButton-BgRRP9Nn"></div>' +
+    '<div class="gameTradeOffersContainer-DYpyuwA9"></div>' +
+    '<div class="tradeCreatorContainer-BsQ23Nsz"></div>'; // closed creator (no proposal/actions)
+  assert.equal(cst.tradeCreatorOpen(), false, 'closed: persistent trade elements do not count');
+});
+
+test('tradeCreatorOpen is true once the creator pops its proposal/actions parts', () => {
+  document.body.innerHTML =
+    '<div class="tradeButton-BgRRP9Nn"></div>' +
+    '<div class="tradeCreatorContainer-BsQ23Nsz"></div>' +
+    '<div class="tradeCreatorProposalContainer-wcW0pzjo"></div>' +
+    '<div class="tradeCreatorActionsContainer-OhHzY6JP"></div>';
+  assert.equal(cst.tradeCreatorOpen(), true, 'open: the proposal/actions parts mark it');
+  document.body.innerHTML = '';
 });

@@ -41,6 +41,12 @@ the real-image path is an enhancement layered on top, not a replacement.
 
 ## Shipped from this roadmap
 
+### v1.22.5 (2026-06-13)
+- **Trade ghost edge fix (raised by Stan)** — keyed trade detection off the trade
+  creator's open-only parts (`tradeCreatorProposal/Actions`) instead of any
+  `[class*="trade"]`, so the always-present bottom bar / offers reserve no longer
+  masks the pop-out edge when the panel is parked over the bar.
+
 ### v1.22.4 (2026-06-13)
 - **Ghost opacity unified (raised by Stan)** — both tiers now fade to 0.18 (the
   average of the old 0.05 dialog / 0.3 trade), so the dim is consistent.
