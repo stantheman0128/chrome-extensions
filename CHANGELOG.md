@@ -8,7 +8,7 @@ All notable changes in this repository are documented in this file.
 - colonist-stats-tracker (1.25.0): **Settings auto-collapse now actually fires.** colonist keeps the Settings modal (`gameSettingsContainer`) mounted at full size even when closed and hides it by fading a PARENT to `opacity:0` — which opacity doesn't inherit, so the old element-only visibility check always read it as "open" and the open/close edge never triggered. Detection now walks ancestors (`deepVisible`), so the panel collapses when Settings opens and restores on close as intended.
 
 ### Added
-- colonist-stats-tracker (1.25.0): **discard limit is auto-detected.** The hand-total "discard risk" badge now turns red when a player is ABOVE colonist's actual Card Discard Limit (read live from the Settings DOM — 7 on a 4-player table, 10 on a 2-player one), not a hard-coded 8. The risk tooltip names the limit. The 🗑️ stat tooltip was simplified to "Cards discarded (rolled 7)" (the old "hand over 7" was wrong when the limit isn't 7). +2 tests (111 total).
+- colonist-stats-tracker (1.25.0): **discard limit is auto-detected.** The hand-total "discard risk" badge now turns red when a player is ABOVE colonist's actual Card Discard Limit (read live from the Settings DOM — 7 on a 4-player table, 10 on a 2-player one), not a hard-coded 8. The risk tooltip names the limit. The 🗑️ stat tooltip was simplified to "Cards discarded (rolled 7)" (the old "hand over 7" was wrong when the limit isn't 7). +2 tests (110 total).
 
 ### Changed
 - colonist-stats-tracker (1.24.0): **left/right edge resize now changes width only (no zoom); dice fairness is a readable badge.**
