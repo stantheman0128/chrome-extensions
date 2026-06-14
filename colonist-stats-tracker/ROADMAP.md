@@ -24,6 +24,14 @@ _(nothing queued — see "Shipped from this roadmap" and "Candidate features" be
 
 ## Shipped from this roadmap
 
+### v1.31.0 (2026-06-15)
+- **Generic "colonist took over the screen" collapse (raised by Stan)** — the
+  panel collapses for ANY full-screen colonist view (Settings, Leave Game,
+  Pause/Resume, end screen), not just Settings. Detected class-agnostically by
+  whether the live board `<canvas>` is still at the viewport centre
+  (`boardHidden()`), since the max-z panel is always on top of colonist's UI.
+  Replaces the old class-matching dialog ghost tier (removed); trade ghost stays.
+
 ### v1.30.0 (2026-06-14)
 - **Cross-game aggregation ("your luck over time")** — a lifetime-stats block
   atop the popup history: games + win rate, an 11-bar lifetime dice histogram
@@ -199,9 +207,12 @@ a CSV export of the aggregated numbers, or a dice-fairness trend over time.
   player is read from the player panel (the row with `playerRow…` but not
   `opponentPlayerRow…`) instead of the avatar guess. The avatar remains a
   fallback only before the panel mounts.
-- Ghost mode (v1.15.0) uses a size+class heuristic to spot colonist dialogs; if
-  a dialog ever fails to trigger it (or something triggers it falsely), capture
-  that element's DOM so the selector can be pinned exactly.
+- ~~Ghost mode size+class heuristic for colonist dialogs.~~ Replaced in v1.31.0:
+  full-screen colonist views collapse the panel via the class-agnostic board-canvas
+  signal (`boardHidden()`); ghost mode now only fades for the trade creator. A
+  remaining gap: a SMALL dialog that overlaps the panel without hiding the board
+  centre no longer triggers anything (it used to fade) — re-add a geometric
+  fallback only if such a case actually shows up.
 - Expand-on-first-roll for spectators (lifecycle currently expands on game
   detection).
 - Automatic gap-detection trigger for the deep re-sync (currently manual via 🔄).
