@@ -9,24 +9,7 @@ file is excluded from the packaged `.zip`.
 
 ## Planned
 
-### Use colonist's own dice artwork for the dice-face view
-The digit ⇄ dice toggle currently draws its **own** SVG dice (rounded face + a light
-gradient sheen + real pips, with the 1 and 4 pips in red, Asian-dice style). A nice
-consistency win would be to use **colonist's real dice images** instead, so the panel
-matches the board exactly.
-
-Approach (in-game, self-healing — mirrors how the resource-card art is already handled):
-
-- When a roll message is parsed, cache each die image's live `src` into a `DICE_ICON`
-  map. The URLs carry a per-deploy content hash (e.g. `dice_3.<hash>.svg`), so they
-  must be read from the live game log, not hard-coded.
-- Render the cached image when available; **fall back to the built-in SVG dice**
-  otherwise.
-
-Why it's deferred: colonist's real dice assets aren't available in every context — the
-static `preview.html`, before the first roll of a game, or right after a colonist
-redeploy changes the hash (404). So the robust default must stay the self-drawn dice;
-the real-image path is an enhancement layered on top, not a replacement.
+_(nothing queued — see "Shipped from this roadmap" and "Candidate features" below)_
 
 ## Minor polish (low priority, TBD)
 
@@ -40,6 +23,12 @@ the real-image path is an enhancement layered on top, not a replacement.
   make it bullet-proof if it ever becomes noticeable.
 
 ## Shipped from this roadmap
+
+### v1.29.0 (2026-06-14)
+- **Real dice artwork for the dice-face view** — colonist's actual dice images,
+  cached self-healing from the roll log (`DICE_ICON`, per-deploy hash read live),
+  with the built-in SVG dice as the fallback for any face not yet seen
+  (preview.html / pre-first-roll / post-redeploy 404).
 
 ### v1.28.0 (2026-06-14)
 - **Settings detection fixed for real (evidence from Stan)** — colonist keeps the

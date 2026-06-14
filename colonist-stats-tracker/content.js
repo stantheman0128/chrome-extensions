@@ -38,6 +38,12 @@
     unknown: 'https://cdn.colonist.io/dist/assets/card_rescardback.03c18312a76028b0d9c9.svg',
   };
 
+  // Real dice face art (1-6), cached from the live roll log the same self-healing
+  // way as RESOURCE_ICON. Empty until the first roll is seen; the dice-face view
+  // falls back to the built-in SVG dice for any face not (yet) in here, so
+  // preview.html / pre-first-roll / a post-redeploy 404 all degrade gracefully.
+  const DICE_ICON = {};
+
   // i18n: panel strings follow the browser UI language via chrome.i18n
   // (_locales/en + zh_TW). The English fallbacks keep preview.html and the
   // Node tests working where chrome.i18n doesn't exist. {x} placeholders are
@@ -338,14 +344,15 @@
   }
 
   function diceFromImg(img) {
-    const txt = [
-      img.getAttribute('alt'),
-      img.className || '',
-      img.getAttribute('src') || '',
-    ].join(' ');
+    const rawSrc = img.getAttribute('src') || '';
+    const txt = [img.getAttribute('alt'), img.className || '', rawSrc].join(' ');
     const m = txt.match(/dice[_-]?(\d)/i);
-    if (m) return parseInt(m[1], 10);
-    return null;
+    if (!m) return null;
+    const n = parseInt(m[1], 10);
+    // Cache colonist's live dice art — but ONLY from a genuine dice image URL, so
+    // an alt/class "dice" match on some other <img> can't poison the cache.
+    if (n >= 1 && n <= 6 && /dice[_-]?\d/i.test(rawSrc)) DICE_ICON[n] = rawSrc;
+    return n;
   }
 
   // The avatar <img> sits inside the feedMessage but outside messagePart.
@@ -1713,6 +1720,18 @@
       `<rect x="1.5" y="1.5" width="19" height="19" rx="4.5" fill="url(#cstDieGrad)" ` +
       `stroke="#c9b079" stroke-width="1"/>${pips}</svg>`;
   }
+  // A single die face: colonist's real art if we've cached it (matches the board
+  // exactly), otherwise the self-drawn SVG above. alt = the value so it still
+  // reads if the URL 404s after a redeploy (CSP-safe, no inline error handler).
+  function dieFaceHTML(v, em) {
+    const src = DICE_ICON[v];
+    if (src) {
+      return `<img src="${escapeAttr(src)}" alt="${v}" ` +
+        `style="display:block;width:${em}em;height:${em}em;` +
+        `filter:drop-shadow(0 1px 1.5px rgba(40,30,10,.3));">`;
+    }
+    return dieFaceSVG(v, em);
+  }
   // The bottom-row value: a small, de-emphasised digit (the COUNT above is the
   // headline), or — when `faces` is on — the two physical dice that sum to it
   // (sized to sit comfortably inside a narrow column).
@@ -1721,7 +1740,7 @@
       return `<span style="font-size:0.82em;font-weight:600;font-variant-numeric:tabular-nums;color:${n === 7 ? THEME.bad : THEME.textDim};">${n}</span>`;
     }
     const [a, b] = DICE_PAIR[n];
-    return `<span style="display:inline-flex;gap:0.16em;align-items:center;justify-content:center;">${dieFaceSVG(a, 1.05)}${dieFaceSVG(b, 1.05)}</span>`;
+    return `<span style="display:inline-flex;gap:0.16em;align-items:center;justify-content:center;">${dieFaceHTML(a, 1.05)}${dieFaceHTML(b, 1.05)}</span>`;
   }
   // Flip the bottom value (digit ⇄ dice) in place with a springy fade — updating
   // ONLY the value spans (not a full render) so the bars/spacing never reflow.
@@ -2932,6 +2951,10 @@
       settingsOpen,
       discardLimit,
       updateSettingsPosture,
+      // Dice artwork (self-healing real-image cache + face renderer).
+      DICE_ICON,
+      diceFromImg,
+      dieFaceHTML,
       getUiState: () => uiState,
       // UI entry points (exposed so the jsdom smoke test can render the panel).
       createPanel,
