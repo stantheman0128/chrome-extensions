@@ -4,6 +4,12 @@ All notable changes in this repository are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- colonist-stats-tracker (1.26.0): **steal stats reworked — Knights vs Monopoly split, richer Cards-lost hover.**
+  - **Knights vs Monopoly.** The ⚔️/💔 columns now count **knight/robber steals only** (rolled-7 robber moves and Knight cards — one unknown card each, so the number reads as "times robbed"). Monopoly is tracked separately and shown on its own violet 🎺 line ("Mono 🧱×4 by Alice"), so a big Monopoly no longer inflates the steal totals. Column tooltips relabelled to "(Knights)".
+  - **Cards-lost hover** now reads "**stolen by {who} ×N**" (clearer than "to {who}"), lists Monopoly losses per perpetrator/resource, and ends with a **7s footer**: "🎲 7s rolled: N (Alice 3, Bob 2)" — how many 7s drove the robber and who rolled them (new per-roller tracking, persisted).
+  - The Monopoly handler records into the new `monoTook` / `monoLost` tallies instead of folding into the knight steal matrix. +3 tests (113 total).
+
 ### Fixed
 - colonist-stats-tracker (1.25.0): **Settings auto-collapse now actually fires.** colonist keeps the Settings modal (`gameSettingsContainer`) mounted at full size even when closed and hides it by fading a PARENT to `opacity:0` — which opacity doesn't inherit, so the old element-only visibility check always read it as "open" and the open/close edge never triggered. Detection now walks ancestors (`deepVisible`), so the panel collapses when Settings opens and restores on close as intended.
 

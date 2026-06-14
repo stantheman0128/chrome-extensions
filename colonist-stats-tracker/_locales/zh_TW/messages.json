@@ -84,10 +84,10 @@
     "message": "目前回合"
   },
   "statStole": {
-    "message": "偷到的牌（盜賊／騎士／壟斷卡）"
+    "message": "偷到的牌（騎士）— hover 看明細"
   },
   "statLost": {
-    "message": "被偷走的牌（盜賊／騎士／壟斷卡）"
+    "message": "被偷的牌（騎士）— hover 看被誰偷與 7 點"
   },
   "statDisc": {
     "message": "因擲出 7 而棄的牌"
@@ -125,8 +125,17 @@
   "stoleFromItem": {
     "message": "偷自 {who} ×{n}"
   },
-  "lostToItem": {
+  "lostByItem": {
     "message": "被 {who} 偷 ×{n}"
+  },
+  "monoLabel": {
+    "message": "壟斷"
+  },
+  "byWord": {
+    "message": "—"
+  },
+  "sevensRolled": {
+    "message": "擲出 7：共 {n} 次"
   },
   "discardEvents": {
     "message": "{n} 次棄牌"

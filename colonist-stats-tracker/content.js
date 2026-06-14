@@ -95,6 +95,7 @@
     ),
     totalRolls: 0,
     rollHistory: [],     // ordered dice sums — powers "rolls since last N"
+    sevenRollers: {},    // name -> how many 7s that player rolled
     currentTurn: null,   // last player to roll = whose turn it (probably) is
     lastRoller: null,    // who rolled last + when, to time turns (live only)
     lastRollTs: null,
@@ -156,8 +157,13 @@
   function tallyOf(name) {
     if (!state.tally[name]) {
       state.tally[name] = {
-        stole: 0, lost: 0,       // cards taken from others / lost to thieves
-        stoleFrom: {}, lostTo: {}, // per-opponent breakdown (name -> cards)
+        // KNIGHT/robber steals only (1 unknown card each) — Monopoly is tracked
+        // separately below so the ⚔️/💔 numbers read as "times robbed".
+        stole: 0, lost: 0,       // knight cards taken from others / lost to thieves
+        stoleFrom: {}, lostTo: {}, // per-opponent knight breakdown (name -> cards)
+        // Monopoly, kept apart so it can be labelled "who Mono'd what".
+        monoTook: {},            // resource -> cards I took via my own Monopoly
+        monoLost: {},            // thiefName -> { resource -> cards } lost to theirs
         discards: 0, discardCards: 0,
         gained: 0,               // cards gained from rolls / placements / YoP
         gainedRes: {},           // ...broken down per resource (feeds the hover pie)
@@ -170,6 +176,8 @@
     return state.tally[name];
   }
 
+  // Knight / robber steal (rolled-7 robber move OR a Knight card — same thing):
+  // one unknown card, so cards == events and the ⚔️/💔 totals read as "times".
   function recordSteal(thiefName, victimName, n) {
     if (!n) return;
     if (thiefName) {
@@ -181,6 +189,22 @@
       const v = tallyOf(victimName);
       v.lost += n;
       if (thiefName) v.lostTo[thiefName] = (v.lostTo[thiefName] || 0) + n;
+    }
+  }
+
+  // Monopoly — kept OUT of the knight tallies so it can be labelled "who Mono'd
+  // what". Recorded per (taker, victim, resource): the taker's monoTook and the
+  // victim's monoLost[taker].
+  function recordMonopoly(takerName, victimName, res, n) {
+    if (!n || !res) return;
+    if (takerName) {
+      const t = tallyOf(takerName);
+      t.monoTook[res] = (t.monoTook[res] || 0) + n;
+    }
+    if (victimName) {
+      const v = tallyOf(victimName);
+      const by = (v.monoLost[takerName] = v.monoLost[takerName] || {});
+      by[res] = (by[res] || 0) + n;
     }
   }
 
@@ -469,6 +493,8 @@
         state.diceCounts[sum] += 1;
         state.totalRolls += 1;
         state.rollHistory.push(sum);
+        // Who rolled the 7s (drives the robber) — shown in the Cards-lost hover.
+        if (sum === 7 && player) state.sevenRollers[player.name] = (state.sevenRollers[player.name] || 0) + 1;
         if (player) {
           state.currentTurn = player.name;
           // Time turns from live rolls only — a deep re-scrape replays the log
@@ -613,7 +639,7 @@
             const lostN = other.resources[r];
             if (lostN > 0) {
               other.resources[r] = 0;
-              recordSteal(player.name, other.name, lostN);
+              recordMonopoly(player.name, other.name, r, lostN);
             }
           }
         }
@@ -1446,7 +1472,7 @@
       const bdEl = e.target.closest && e.target.closest('[data-bd]');
       if (bdEl && host.contains(bdEl)) {
         const [who, kind] = bdEl.getAttribute('data-bd').split('|');
-        const html = kind === 'trade' ? tradeBreakdownHTML(who) : stealBreakdownHTML(who, kind);
+        const html = kind === 'trade' ? tradeBreakdownHTML(who) : stealReportHTML(who, kind);
         if (html) { tip.innerHTML = html; placeTip(e); return; }
       }
       const z = e.target.closest && e.target.closest('[data-tip]');
@@ -1837,8 +1863,8 @@
   // and builds stay TALLIED (and archived per game) but aren't displayed —
   // colonist's own dashboard already shows them; four columns breathe better.
   const STAT_COLS = [
-    { key: 's-stole', icon: '⚔️', tip: t('statStole', 'Cards stolen (robber, knight & Monopoly)') },
-    { key: 's-lost',  icon: '💔', tip: t('statLost', 'Cards lost to steals (robber, knight & Monopoly)') },
+    { key: 's-stole', icon: '⚔️', tip: t('statStole', 'Cards stolen (Knights) — hover for breakdown') },
+    { key: 's-lost',  icon: '💔', tip: t('statLost', 'Cards lost (Knights) — hover for who & 7s') },
     { key: 's-disc',  icon: '🗑️', tip: t('statDisc', 'Cards discarded (rolled 7)') },
     { key: 's-gain',  icon: '📥', tip: t('statGain', 'Cards gained') },
     { key: 's-turn',  icon: '⏱', tip: t('statTurn', 'Average turn length (live rolls only)') },
@@ -1931,24 +1957,67 @@
     }).join('');
   }
 
-  // Per-opponent breakdown for the steal columns — biggest offender first, one
-  // line each, with the opponent's name styled exactly like the player rows
-  // (their own game colour, bold). The localized template is escaped FIRST,
-  // then the {who}/{n} placeholders are swapped for our own markup, so the
-  // name styling survives any word order ("from {who} ×{n}" / "被 {who} 偷 ×{n}").
-  function stealBreakdownHTML(name, kind) {
-    const map = (state.tally[name] || {})[kind];
-    if (!map || !Object.keys(map).length) return '';
-    const tpl = escapeHtml(kind === 'stoleFrom'
-      ? t('stoleFromItem', 'from {who} ×{n}')
-      : t('lostToItem', 'to {who} ×{n}'));
-    const lines = Object.entries(map)
+  // An opponent's name in their own game colour, bold (reused across hovers).
+  function nameB(who) {
+    const p = state.players.get(who);
+    return `<b style="color:${escapeAttr((p && p.color) || THEME.accent)};">${escapeHtml(who)}</b>`;
+  }
+
+  // Per-opponent knight/robber lines — biggest first. The localized template is
+  // escaped FIRST, then {who}/{n} are swapped for our markup, so the name
+  // styling survives any word order ("from {who} ×{n}" / "被 {who} 偷 ×{n}").
+  function knightLines(map, tplKey, tplDefault) {
+    const tpl = escapeHtml(t(tplKey, tplDefault));
+    return Object.entries(map || {})
+      .filter(([, c]) => c > 0)
       .sort((a, b) => b[1] - a[1])
-      .map(([who, c]) => {
-        const p = state.players.get(who);
-        const whoHtml = `<b style="color:${escapeAttr((p && p.color) || THEME.accent)};">${escapeHtml(who)}</b>`;
-        return `<span style="white-space:nowrap;">${tpl.split('{who}').join(whoHtml).split('{n}').join(c)}</span>`;
-      });
+      .map(([who, c]) =>
+        `<span style="white-space:nowrap;">${tpl.split('{who}').join(nameB(who)).split('{n}').join(c)}</span>`);
+  }
+
+  const MONO = '#8a52c2';
+  // Monopoly lines, kept visually distinct (🎺, violet): what THIS player took
+  // (side 'took', map {res:n}) or lost to others (side 'lost', map {thief:{res:n}}).
+  function monoLines(name, side) {
+    const ty = state.tally[name] || {};
+    const lab = escapeHtml(t('monoLabel', 'Mono'));
+    if (side === 'took') {
+      return Object.entries(ty.monoTook || {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1])
+        .map(([res, n]) => `<span style="white-space:nowrap;color:${MONO};">🎺 ${lab} ${iconImg(res, 1.15)}×${n}</span>`);
+    }
+    const out = [];
+    for (const [who, byRes] of Object.entries(ty.monoLost || {})) {
+      for (const [res, n] of Object.entries(byRes)) {
+        if (n > 0) out.push(`<span style="white-space:nowrap;color:${MONO};">🎺 ${lab} ${iconImg(res, 1.15)}×${n} ${escapeHtml(t('byWord', 'by'))} ${nameB(who)}</span>`);
+      }
+    }
+    return out;
+  }
+
+  // Footer for the Cards-lost hover: how many 7s have been rolled and by whom
+  // (the 7s that drive the robber). Global, so it reads the same on any row.
+  function sevensFooterHTML() {
+    const total = state.diceCounts[7] || 0;
+    if (!total) return '';
+    const rollers = Object.entries(state.sevenRollers || {}).filter(([, c]) => c > 0)
+      .sort((a, b) => b[1] - a[1]).map(([who, c]) => `${nameB(who)} ${c}`).join('、');
+    const head = escapeHtml(t('sevensRolled', '7s rolled: {n}', { n: total }));
+    return `<span style="margin-top:2px;padding-top:2px;border-top:1px solid ${THEME.border};color:${THEME.textDim};white-space:nowrap;">🎲 ${head}${rollers ? ` (${rollers})` : ''}</span>`;
+  }
+
+  // Combined steal report for a Stats cell: knight breakdown + Monopoly lines,
+  // plus (on the lost side) the 7s footer. side = 'stole' | 'lost'.
+  function stealReportHTML(name, side) {
+    const ty = state.tally[name] || {};
+    let lines;
+    if (side === 'stole') {
+      lines = knightLines(ty.stoleFrom, 'stoleFromItem', 'from {who} ×{n}').concat(monoLines(name, 'took'));
+    } else {
+      lines = knightLines(ty.lostTo, 'lostByItem', 'stolen by {who} ×{n}').concat(monoLines(name, 'lost'));
+      const f = sevensFooterHTML();
+      if (f) lines.push(f);
+    }
+    if (!lines.length) return '';
     return `<span style="display:flex;flex-direction:column;gap:2px;">${lines.join('')}</span>`;
   }
 
@@ -2026,9 +2095,13 @@
       const ty = state.tally[p.name] || {};
       const tradeFed = ty.tradeGave ? Object.values(ty.tradeGave).reduce((s, n) => s + n, 0) : 0;
       const hasTrade = tradeFed > 0 || (ty.tradeGot && Object.keys(ty.tradeGot).length);
+      const hasStole = (ty.stoleFrom && Object.keys(ty.stoleFrom).length) ||
+        (ty.monoTook && Object.keys(ty.monoTook).length);
+      const hasLost = (ty.lostTo && Object.keys(ty.lostTo).length) ||
+        (ty.monoLost && Object.keys(ty.monoLost).length) || (state.diceCounts[7] > 0);
       const vals = {
-        's-stole': { v: ty.stole || 0, bd: ty.stoleFrom && Object.keys(ty.stoleFrom).length ? 'stoleFrom' : null },
-        's-lost':  { v: ty.lost || 0, bd: ty.lostTo && Object.keys(ty.lostTo).length ? 'lostTo' : null },
+        's-stole': { v: ty.stole || 0, bd: hasStole ? 'stole' : null },
+        's-lost':  { v: ty.lost || 0, bd: hasLost ? 'lost' : null },
         's-disc':  { v: ty.discardCards || 0, tip: ty.discards ? t('discardEvents', '{n} discard events', { n: ty.discards }) : '' },
         's-gain':  { v: ty.gained || 0, pie: ty.gained ? p.name : null },
         's-turn':  { v: ty.turns || 0, disp: ty.turns ? turnAvgText(ty) : '–',
@@ -2230,6 +2303,7 @@
   function resetState() {
     for (const k of Object.keys(state.diceCounts)) state.diceCounts[k] = 0;
     state.totalRolls = 0;
+    state.sevenRollers = {};
     state.players.clear();
     state.seenIndices = new Set();
     state.selfName = null;
@@ -2259,6 +2333,7 @@
         diceCounts: state.diceCounts,
         totalRolls: state.totalRolls,
         rollHistory: state.rollHistory,
+        sevenRollers: state.sevenRollers,
         currentTurn: state.currentTurn,
         gameStartTs: state.gameStartTs,
         gameEndTs: state.gameEndTs,
@@ -2285,6 +2360,7 @@
     state.totalRolls = d.totalRolls || 0;
     for (let n = 2; n <= 12; n++) state.diceCounts[n] = (d.diceCounts && d.diceCounts[n]) || 0;
     state.rollHistory = Array.isArray(d.rollHistory) ? d.rollHistory : [];
+    state.sevenRollers = (d.sevenRollers && typeof d.sevenRollers === 'object') ? d.sevenRollers : {};
     state.currentTurn = d.currentTurn || null;
     state.gameStartTs = Number.isFinite(d.gameStartTs) ? d.gameStartTs : null;
     state.gameEndTs = Number.isFinite(d.gameEndTs) ? d.gameEndTs : null;
@@ -2827,6 +2903,8 @@
       chiSquare,
       luckTier,
       recordTurn,
+      recordSteal,
+      stealReportHTML,
       tradeGhostOn,
       tradeCreatorOpen,
       settingsOpen,

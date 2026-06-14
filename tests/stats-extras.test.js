@@ -76,6 +76,40 @@ test('an executed trade accumulates per-opponent gave/got for both players', () 
   assert.equal(stan.tradeGave.Richia, 1, 'mirror: Stan fed Richia 1');
 });
 
+// ---- ④ Monopoly tracked apart from knight steals + 7-roller footer ----
+test('Monopoly is recorded apart from knight steals (monoTook / monoLost)', () => {
+  cst.resetState();
+  cst.getPlayer('StanTheMan01', '#CF4449');
+  const thant = cst.getPlayer('Thant', '#285FBD');
+  cst.giveResource(thant, 'brick', 4);
+  feed(F.monopoly_result); // "StanTheMan01 stole 4 [brick]"
+  assert.equal((cst.state.tally.StanTheMan01.monoTook || {}).brick, 4, 'taker monoTook brick ×4');
+  assert.equal(((cst.state.tally.Thant.monoLost || {}).StanTheMan01 || {}).brick, 4, 'victim monoLost to Stan');
+  assert.equal(cst.state.tally.StanTheMan01.stole || 0, 0, 'Monopoly stays OUT of the knight ⚔️ total');
+  assert.equal(cst.state.tally.Thant.lost || 0, 0, 'Monopoly stays OUT of the knight 💔 total');
+});
+
+test('a rolled 7 is attributed to its roller', () => {
+  cst.resetState();
+  feed(F.roll_2_5); // StanTheMan01 rolled 2 + 5 = 7
+  assert.equal(cst.state.diceCounts[7], 1);
+  assert.equal(cst.state.sevenRollers.StanTheMan01, 1);
+});
+
+test('the lost report combines knight breakdown, a Monopoly line, and the 7s footer', () => {
+  cst.resetState();
+  cst.getPlayer('StanTheMan01', '#CF4449');
+  const thant = cst.getPlayer('Thant', '#285FBD');
+  cst.giveResource(thant, 'brick', 4);
+  feed(F.roll_2_5);            // a 7, by StanTheMan01
+  feed(F.monopoly_result);     // Stan Mono's 4 brick off Thant
+  cst.recordSteal('StanTheMan01', 'Thant', 1); // a knight steal off Thant too
+  const html = cst.stealReportHTML('Thant', 'lost');
+  assert.match(html, /stolen by/i, 'knight "stolen by …" line');
+  assert.match(html, /Mono/i, 'Monopoly line');
+  assert.match(html, /7s rolled/i, '7s footer');
+});
+
 // ---- render wiring: the two new Stats columns show up ----
 test('the Stats view renders the ⏱ turn-time and 🤝 trade columns', async () => {
   cst.resetState();

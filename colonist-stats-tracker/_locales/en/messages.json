@@ -84,10 +84,10 @@
     "message": "current turn"
   },
   "statStole": {
-    "message": "Cards stolen (robber, knight & Monopoly)"
+    "message": "Cards stolen (Knights) — hover for breakdown"
   },
   "statLost": {
-    "message": "Cards lost to steals (robber, knight & Monopoly)"
+    "message": "Cards lost (Knights) — hover for who & 7s"
   },
   "statDisc": {
     "message": "Cards discarded (rolled 7)"
@@ -125,8 +125,17 @@
   "stoleFromItem": {
     "message": "from {who} ×{n}"
   },
-  "lostToItem": {
-    "message": "to {who} ×{n}"
+  "lostByItem": {
+    "message": "stolen by {who} ×{n}"
+  },
+  "monoLabel": {
+    "message": "Mono"
+  },
+  "byWord": {
+    "message": "by"
+  },
+  "sevensRolled": {
+    "message": "7s rolled: {n}"
   },
   "discardEvents": {
     "message": "{n} discard events"

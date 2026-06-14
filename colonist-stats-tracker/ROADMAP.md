@@ -41,6 +41,13 @@ the real-image path is an enhancement layered on top, not a replacement.
 
 ## Shipped from this roadmap
 
+### v1.26.0 (2026-06-14)
+- **Knights vs Monopoly split (raised by Stan)** — ⚔️/💔 count knight/robber
+  steals only (1 card each = "times robbed"); Monopoly tracked separately
+  (`monoTook`/`monoLost`) and shown on its own 🎺 line.
+- **Cards-lost hover** — "stolen by {who} ×N" + Monopoly lines + a 7s footer
+  (count + per-roller), backed by new per-roller 7 tracking.
+
 ### v1.25.0 (2026-06-14)
 - **Settings auto-collapse fixed (evidence from Stan)** — colonist keeps the
   Settings modal mounted and hides it via a parent `opacity:0`; detection now
