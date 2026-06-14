@@ -450,16 +450,21 @@
     const primary = firstPlayerRef(msgEl);
     const player = getPlayer(primary.name, primary.color);
 
-    // Identify the local human player. The avatar uses icon_player.svg for
-    // self and icon_bot.svg for bots; we record the first coloured name we
-    // see paired with icon_player.svg as `selfName`. Used by the "You stole
-    // [resource] from X" handler below.
-    // Skip "You stole … from <Victim>"-style lines: there the only coloured
-    // name is the victim, while the icon_player avatar belongs to the local
-    // human. Inferring selfName here would wrongly tag the victim as self.
-    if (!state.selfName && player && !text.startsWith('you ')) {
-      const avatar = msgEl.querySelector('img[src*="icon_player"]');
-      if (avatar) state.selfName = player.name;
+    // Identify the local player. The player panel is authoritative — your row is
+    // the one WITHOUT the `opponentPlayerRow` class (selfFromPanel) — so it wins
+    // and locks. Only before the panel exists do we fall back to the old avatar
+    // guess (first `icon_player` name), which is unreliable in multi-human games
+    // (you and other humans share that avatar) and would otherwise mis-tag an
+    // opponent as self, producing "stole from self / to self" steal paths.
+    if (!selfLocked) {
+      const sp = selfFromPanel();
+      if (sp) {
+        state.selfName = sp;
+        selfLocked = true;
+      } else if (!state.selfName && player && !text.startsWith('you ')) {
+        const avatar = msgEl.querySelector('img[src*="icon_player"]');
+        if (avatar) state.selfName = player.name;
+      }
     }
 
     // --- "You stole [resource] from X" — local player as thief ---
@@ -881,6 +886,8 @@
   // colonist's current discard limit, refreshed once per render() (so nameCell
   // doesn't re-query the Settings DOM per row).
   let discardCap = 7;
+  // Once selfName is fixed from the authoritative player panel we stop guessing.
+  let selfLocked = false;
   // At/above this panel width, auto-mode renders the bottom value as dice (vs a digit).
   const DICE_AUTO_W = 372;
   function diceFacesActive() {
@@ -1812,6 +1819,24 @@
   // player's avatar. Matched by stable data-attributes so it survives colonist's
   // CSS-hash renames. Returns [{name, avatar}] top-to-bottom, or null if the
   // panel isn't on the page (e.g. the lobby, or under jsdom in tests).
+  // The local player's own name from colonist's player panel. Every row carries
+  // a `playerRow…` class, but ONLY opponents also carry `opponentPlayerRow…`, so
+  // the row WITHOUT that marker is YOU. Far more reliable than the avatar guess:
+  // colonist gives you AND other humans the same `icon_player` avatar, which made
+  // the old heuristic tag an opponent as "self" in multi-human games (the cause
+  // of the "stole from self / to self" steal paths).
+  function selfFromPanel() {
+    for (const row of document.querySelectorAll('[data-player-color]')) {
+      const cls = (row.className || '').toString();
+      if (/playerRow/.test(cls) && !/opponentPlayerRow/.test(cls)) {
+        const nameEl = row.querySelector('[class*="username"]');
+        const n = nameEl ? (nameEl.textContent || '').trim() : '';
+        if (n) return n;
+      }
+    }
+    return null;
+  }
+
   function readPlayerPanel() {
     const seen = new Set();
     const out = [];
@@ -2307,6 +2332,7 @@
     state.players.clear();
     state.seenIndices = new Set();
     state.selfName = null;
+    selfLocked = false;
     state.paused = false;
     state.rollHistory = [];
     state.currentTurn = null;
@@ -2904,6 +2930,7 @@
       luckTier,
       recordTurn,
       recordSteal,
+      selfFromPanel,
       stealReportHTML,
       tradeGhostOn,
       tradeCreatorOpen,

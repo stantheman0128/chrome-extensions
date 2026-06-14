@@ -4,6 +4,9 @@ All notable changes in this repository are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- colonist-stats-tracker (1.27.0): **"self" is now identified reliably, killing the "stole from self / to self" steal paths.** colonist gives you AND other human players the same `icon_player` avatar, so the old "first icon_player name = me" guess could tag an opponent as self — and when you then stole, the steal was recorded against that opponent's own row (`from self / to self`). The local player is now read from the player panel, where your row is the one carrying `playerRow…` but NOT `opponentPlayerRow…` (`selfFromPanel`); this authoritative anchor wins over the avatar guess and locks once found, so steals attribute to the correct victim/thief. +3 tests (116 total).
+
 ### Changed
 - colonist-stats-tracker (1.26.0): **steal stats reworked — Knights vs Monopoly split, richer Cards-lost hover.**
   - **Knights vs Monopoly.** The ⚔️/💔 columns now count **knight/robber steals only** (rolled-7 robber moves and Knight cards — one unknown card each, so the number reads as "times robbed"). Monopoly is tracked separately and shown on its own violet 🎺 line ("Mono 🧱×4 by Alice"), so a big Monopoly no longer inflates the steal totals. Column tooltips relabelled to "(Knights)".

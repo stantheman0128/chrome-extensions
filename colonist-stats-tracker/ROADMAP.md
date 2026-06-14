@@ -41,6 +41,12 @@ the real-image path is an enhancement layered on top, not a replacement.
 
 ## Shipped from this roadmap
 
+### v1.27.0 (2026-06-14)
+- **Reliable self-detection (evidence from Stan)** — read the local player from
+  the player panel (your row has `playerRow…` but not `opponentPlayerRow…`),
+  replacing the avatar guess that mis-tagged opponents as self in multi-human
+  games and caused "stole from self / to self" steal paths. Resolves 3(b).
+
 ### v1.26.0 (2026-06-14)
 - **Knights vs Monopoly split (raised by Stan)** — ⚔️/💔 count knight/robber
   steals only (1 card each = "times robbed"); Monopoly tracked separately
@@ -179,12 +185,10 @@ biggest nemesis (who steals from you the most). Viewer: popup or a dedicated
 page. To brainstorm when enough games have accumulated.
 
 ### Deferred refinements from shipped features
-- **selfName heuristic in multi-human games.** The local player is inferred as
-  "the first coloured name whose message avatar is `icon_player.svg`" — solid
-  in bot games, but another human with the default avatar could be misread as
-  self, which would mis-attribute "(stole) from you" events. Worth verifying in
-  a multi-human game; a better anchor might be colonist's own profile/header
-  element if it exposes the username.
+- ~~**selfName heuristic in multi-human games.**~~ Resolved in v1.27.0: the local
+  player is read from the player panel (the row with `playerRow…` but not
+  `opponentPlayerRow…`) instead of the avatar guess. The avatar remains a
+  fallback only before the panel mounts.
 - Ghost mode (v1.15.0) uses a size+class heuristic to spot colonist dialogs; if
   a dialog ever fails to trigger it (or something triggers it falsely), capture
   that element's DOM so the selector can be pinned exactly.
