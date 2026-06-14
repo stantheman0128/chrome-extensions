@@ -25,6 +25,19 @@ test('settingsOpen detects the gameSettingsContainer (any deploy hash)', () => {
   closeSettings();
 });
 
+test('discardLimit reads colonist\'s Card Discard Limit (else defaults to 7)', () => {
+  closeSettings();
+  assert.equal(cst.discardLimit(), 7, 'no settings DOM → standard 7');
+  // colonist's settings: label/value rows pair up as siblings.
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="gameSettingsContainer-QwyaJ5Mz"><div class="container-x">' +
+    '<div class="label-a">VPs to Win</div><div class="value-a">10</div>' +
+    '<div class="label-a">Card Discard Limit</div><div class="value-a">10</div>' +
+    '</div></div>');
+  assert.equal(cst.discardLimit(), 10, 'reads the 2-player limit of 10');
+  closeSettings();
+});
+
 test('opening Settings collapses the panel; closing it expands again', () => {
   cst.resetState();
   cst.createPanel();

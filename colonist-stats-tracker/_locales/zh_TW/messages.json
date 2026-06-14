@@ -90,7 +90,10 @@
     "message": "被偷走的牌（盜賊／騎士／壟斷卡）"
   },
   "statDisc": {
-    "message": "擲出 7 的棄牌（手牌超過 7 張）"
+    "message": "因擲出 7 而棄的牌"
+  },
+  "tipHandRisk": {
+    "message": "超過 {n} 張棄牌上限 — 擲出 7 會棄一半"
   },
   "statGain": {
     "message": "獲得的牌"

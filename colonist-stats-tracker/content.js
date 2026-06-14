@@ -131,6 +131,23 @@
     return p;
   }
 
+  // colonist's "Card Discard Limit" (a rolled 7 forces players ABOVE it to
+  // discard half) — read live from the always-mounted Settings DOM, where the
+  // label/value rows pair up. Falls back to the standard 7 if unreadable. (It's
+  // 7 on a 4-player table, 10 on a 2-player one; reading the real value covers
+  // both without guessing from the headcount.)
+  function discardLimit() {
+    const labels = document.querySelectorAll('[class*="gameSettingsContainer"] [class*="label"]');
+    for (const lab of labels) {
+      if (/discard/i.test(lab.textContent || '')) {
+        const v = lab.nextElementSibling;
+        const n = v ? parseInt((v.textContent || '').trim(), 10) : NaN;
+        if (Number.isFinite(n) && n >= 5 && n <= 20) return n;
+      }
+    }
+    return 7;
+  }
+
   function playerTotal(p) {
     return RESOURCES.reduce((s, r) => s + p.resources[r], 0) + p.unknown;
   }
@@ -835,6 +852,9 @@
   // panel WIDTH without rescaling the text (the width→font zoom is reserved for
   // the bottom-right corner). The ResizeObserver checks this to skip the zoom.
   let pureWidthResize = false;
+  // colonist's current discard limit, refreshed once per render() (so nameCell
+  // doesn't re-query the Settings DOM per row).
+  let discardCap = 7;
   // At/above this panel width, auto-mode renders the bottom value as dice (vs a digit).
   const DICE_AUTO_W = 372;
   function diceFacesActive() {
@@ -1819,7 +1839,7 @@
   const STAT_COLS = [
     { key: 's-stole', icon: '⚔️', tip: t('statStole', 'Cards stolen (robber, knight & Monopoly)') },
     { key: 's-lost',  icon: '💔', tip: t('statLost', 'Cards lost to steals (robber, knight & Monopoly)') },
-    { key: 's-disc',  icon: '🗑️', tip: t('statDisc', 'Cards discarded on a rolled 7 (hand over 7)') },
+    { key: 's-disc',  icon: '🗑️', tip: t('statDisc', 'Cards discarded (rolled 7)') },
     { key: 's-gain',  icon: '📥', tip: t('statGain', 'Cards gained') },
     { key: 's-turn',  icon: '⏱', tip: t('statTurn', 'Average turn length (live rolls only)') },
     { key: 's-trade', icon: '🤝', tip: t('statTrade', 'Cards traded away (hover for who fed whom)') },
@@ -1846,14 +1866,17 @@
           border-radius:50%;overflow:hidden;background:${escapeAttr(p.color)};align-items:center;justify-content:center;">
           <img src="${escapeAttr(av)}" alt="" style="width:100%;height:100%;object-fit:contain;"></span>`
       : '';
-    // Discard risk: at 8+ cards a rolled 7 would cost half the hand, so the
-    // hand-total badge flips to the warning colour (same data, pure style).
+    // Discard risk: ABOVE the discard limit a rolled 7 costs half the hand, so
+    // the hand-total badge flips to the warning colour (same data, pure style).
     const total = playerTotal(p);
-    const risk = total >= 8;
+    const risk = total > discardCap;
+    const handTip = risk
+      ? t('tipHandRisk', 'Over the {n}-card discard limit — a 7 would discard half', { n: discardCap })
+      : t('tipHandTotal', 'Total cards in hand');
     return `<span style="display:flex;align-items:center;gap:4px;min-width:0;color:${escapeAttr(p.color)};font-weight:700;" ` +
       `data-tip="${escapeHtml(p.name)}${active ? ' — ' + t('currentTurn', 'current turn') : ''}">${avatar}` +
       `<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span>` +
-      `<span data-tip="${t('tipHandTotal', 'Total cards in hand')}" ` +
+      `<span data-tip="${escapeHtml(handTip)}" ` +
       `style="flex:0 0 auto;margin-right:7px;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
       `color:${risk ? '#fff' : THEME.text};background:${risk ? THEME.bad : '#fbf9f4'};` +
       `border:1px solid ${risk ? THEME.bad : THEME.border};border-radius:0.6em;padding:0 0.4em;">${total}</span></span>`;
@@ -2107,6 +2130,7 @@
 
   function render() {
     if (!panel) return;
+    discardCap = discardLimit();   // refresh once; nameCell reads it per row
     const d = panel.querySelector('#cst-dice');
     if (d) d.innerHTML = renderDiceBars();
     const r = panel.querySelector('#cst-resources');
@@ -2481,6 +2505,20 @@
       parseFloat(cs.opacity || '1') >= 0.1 ? cs : null;
   }
 
+  // Visible accounting for ANCESTORS too. colonist keeps some panels (e.g. the
+  // Settings modal) permanently mounted and hides them by fading a PARENT to
+  // opacity:0 — which opacity, unlike visibility, doesn't inherit, so checking
+  // the element alone (elVisible) wrongly reports it visible. Walk up to <body>.
+  function deepVisible(el) {
+    for (let cur = el; cur && cur.nodeType === 1 && cur !== document.body; cur = cur.parentElement) {
+      const cs = getComputedStyle(cur);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity || '1') < 0.05) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   // A colonist dialog/menu overlapping the panel (the 'full' tier).
   function dialogOverlapping(pr) {
     const vw = window.innerWidth, vh = window.innerHeight;
@@ -2582,11 +2620,12 @@
   let collapsedForSettings = false;
   function settingsOpen() {
     const el = document.querySelector('[class*="gameSettingsContainer"]');
-    if (!el || !elVisible(el)) return false;
+    // colonist leaves this mounted at full size even when closed (it fades a
+    // parent to opacity:0), so the deep-visible (ancestor) check is what tells
+    // open from closed; the on-screen-rect check guards against an off-screen
+    // parked copy. Under jsdom rects are 0×0 → trust deepVisible.
+    if (!el || !deepVisible(el)) return false;
     const r = el.getBoundingClientRect();
-    // Under jsdom every rect is 0×0 — trust elVisible there. In a real browser
-    // require it to actually occupy a chunk of the viewport, so a closed view
-    // that lingers in the DOM (zero-size or off-screen) doesn't count as open.
     if (r.width === 0 && r.height === 0) return true;
     return r.width > 80 && r.height > 80 &&
       r.right > 0 && r.bottom > 0 &&
@@ -2791,6 +2830,7 @@
       tradeGhostOn,
       tradeCreatorOpen,
       settingsOpen,
+      discardLimit,
       updateSettingsPosture,
       getUiState: () => uiState,
       // UI entry points (exposed so the jsdom smoke test can render the panel).

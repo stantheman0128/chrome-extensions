@@ -41,6 +41,13 @@ the real-image path is an enhancement layered on top, not a replacement.
 
 ## Shipped from this roadmap
 
+### v1.25.0 (2026-06-14)
+- **Settings auto-collapse fixed (evidence from Stan)** — colonist keeps the
+  Settings modal mounted and hides it via a parent `opacity:0`; detection now
+  walks ancestors (`deepVisible`) so the open/close edge fires.
+- **Discard limit auto-detect** — read colonist's Card Discard Limit from the
+  Settings DOM (7 @ 4p, 10 @ 2p) and drive the hand-total risk badge off it.
+
 ### v1.24.0 (2026-06-14)
 - **Edge resize = width only (raised by Stan)** — left/right edges change width
   without zooming (corner still zooms); held text size baked into fontScale.

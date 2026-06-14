@@ -90,7 +90,10 @@
     "message": "Cards lost to steals (robber, knight & Monopoly)"
   },
   "statDisc": {
-    "message": "Cards discarded on a rolled 7 (hand over 7)"
+    "message": "Cards discarded (rolled 7)"
+  },
+  "tipHandRisk": {
+    "message": "Over the {n}-card discard limit — a 7 would discard half"
   },
   "statGain": {
     "message": "Cards gained"

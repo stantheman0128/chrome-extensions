@@ -87,9 +87,11 @@ test('hand-total badge turns red at 8+ cards (discard risk), normal at 7', () =>
   cst.giveResource(safe, 'brick', 7); // exactly 7 — still safe
   cst.render();
 
-  const badge = (name) =>
-    document.querySelector(`[data-prow="${name}"] span[data-tip*="card"][data-tip*="hand"], ` +
-      `[data-prow="${name}"] span[data-tip="Total cards in hand"]`);
+  // The hand-total badge is the last span inside the name cell (row's 1st child).
+  const badge = (name) => {
+    const row = document.querySelector(`[data-prow="${name}"]`);
+    return row && row.firstElementChild ? row.firstElementChild.lastElementChild : null;
+  };
   const fatBadge = badge('FatHand');
   const safeBadge = badge('SafeHand');
   assert.ok(fatBadge && safeBadge, 'both hand-total badges rendered');
