@@ -1757,25 +1757,33 @@
 
   // The last ~12 rolls as a left→right strip (newest on the right, with an
   // accent ring; 7s flagged in red) so you can read the RUN of rolls during a
-  // turn/trade — not just the frequency histogram. Hidden until the first roll.
+  // turn/trade — not just the frequency histogram. The strip ALWAYS occupies its
+  // row (blank but full-height before the first roll) so the panel doesn't jump
+  // when the first chip appears.
   const ROLL_STRIP_N = 12;
+  const CHIP_BASE = 'display:inline-flex;align-items:center;justify-content:center;' +
+    'min-width:1.55em;height:1.55em;padding:0 0.2em;border-radius:0.35em;' +
+    'font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;';
   function renderRollStrip() {
     const recent = state.rollHistory.slice(-ROLL_STRIP_N);
-    if (!recent.length) return '';
-    const chips = recent.map((n, i) => {
-      const newest = i === recent.length - 1;
-      const seven = n === 7;
-      return `<span style="display:inline-flex;align-items:center;justify-content:center;` +
-        `min-width:1.55em;height:1.55em;padding:0 0.2em;border-radius:0.35em;` +
-        `font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
-        `background:${seven ? THEME.bad : '#fbf9f4'};color:${seven ? '#fff' : THEME.text};` +
-        `border:1px solid ${seven ? THEME.bad : THEME.border};` +
-        `${newest ? `box-shadow:0 0 0 2px ${THEME.accent}55;` : 'opacity:.9;'}">${n}</span>`;
-    }).join('');
-    return `<div data-tip="${t('tipLastRolls', 'Last {n} rolls (oldest → newest)', { n: recent.length })}" ` +
+    const empty = !recent.length;
+    const chips = empty
+      // One hidden chip reserves exactly the populated row's height.
+      ? `<span style="${CHIP_BASE}visibility:hidden;">0</span>`
+      : recent.map((n, i) => {
+        const newest = i === recent.length - 1;
+        const seven = n === 7;
+        return `<span style="${CHIP_BASE}` +
+          `background:${seven ? THEME.bad : '#fbf9f4'};color:${seven ? '#fff' : THEME.text};` +
+          `border:1px solid ${seven ? THEME.bad : THEME.border};` +
+          `${newest ? `box-shadow:0 0 0 2px ${THEME.accent}55;` : 'opacity:.9;'}">${n}</span>`;
+      }).join('');
+    const tip = empty ? '' : ` data-tip="${t('tipLastRolls', 'Last {n} rolls (oldest → newest)', { n: recent.length })}"`;
+    return `<div${tip} ` +
       `style="display:flex;gap:0.25em;align-items:center;justify-content:flex-end;` +
       `overflow:hidden;margin:0 0 0.6em;flex:0 0 auto;">` +
-      `<span style="color:${THEME.textDim};font-size:0.7em;margin-right:auto;white-space:nowrap;">${t('rollOrder', 'Roll order')}</span>${chips}</div>`;
+      `<span style="color:${THEME.textDim};font-size:0.7em;margin-right:auto;white-space:nowrap;` +
+      `${empty ? 'visibility:hidden;' : ''}">${t('rollOrder', 'Roll order')}</span>${chips}</div>`;
   }
 
   // Dice histogram bars (the section header lives in the static skeleton).

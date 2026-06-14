@@ -5,6 +5,7 @@ All notable changes in this repository are documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- colonist-stats-tracker (1.27.1): **the panel no longer jumps when the first roll lands.** The recent-rolls strip returned nothing until the first roll, then popped in and pushed the whole panel down. It now always occupies its row — blank but full-height (a hidden placeholder chip) before any roll — so the first chip slots in without a layout shift.
 - colonist-stats-tracker (1.27.0): **"self" is now identified reliably, killing the "stole from self / to self" steal paths.** colonist gives you AND other human players the same `icon_player` avatar, so the old "first icon_player name = me" guess could tag an opponent as self — and when you then stole, the steal was recorded against that opponent's own row (`from self / to self`). The local player is now read from the player panel, where your row is the one carrying `playerRow…` but NOT `opponentPlayerRow…` (`selfFromPanel`); this authoritative anchor wins over the avatar guess and locks once found, so steals attribute to the correct victim/thief. +3 tests (116 total).
 
 ### Changed

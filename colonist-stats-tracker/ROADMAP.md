@@ -41,6 +41,11 @@ the real-image path is an enhancement layered on top, not a replacement.
 
 ## Shipped from this roadmap
 
+### v1.27.1 (2026-06-14)
+- **No first-roll jump (raised by Stan)** — the recent-rolls strip now reserves
+  its row height (blank placeholder) before any roll, so the panel doesn't shift
+  when the first chip appears.
+
 ### v1.27.0 (2026-06-14)
 - **Reliable self-detection (evidence from Stan)** — read the local player from
   the player panel (your row has `playerRow…` but not `opponentPlayerRow…`),
