@@ -2335,9 +2335,11 @@
       evalLifecycle();
       maybeNewGame();
       updateTimer();
-      updateGhost();
+      // Posture (collapse) first, then ghost (fade): ghost must see the final
+      // collapsed state so it never fades a panel a full-screen view just shrank.
       updateSettingsPosture();
       updateBoardPosture();
+      updateGhost();
       // colonist sometimes REPLACES the log container node (reconnect /
       // re-render). Re-discover it every tick — otherwise the observer keeps
       // watching a detached node and updates silently stop. attachObserver()
@@ -2617,7 +2619,7 @@
   // click-through is when colonist itself covered it, never because you moved it.
   // =============================================================
   const GHOST_OPACITY = '0.18';
-  let ghosted = '';            // '' | 'light'
+  let ghosted = '';            // '' | 'full' | 'light'
   let prevTradeOverlap = false; // did a trade element overlap the panel last tick?
   let lastPanelXY = null;       // panel top-left last tick, to detect dragging
 
@@ -2634,6 +2636,43 @@
     const cs = getComputedStyle(el);
     return cs.display !== 'none' && cs.visibility !== 'hidden' &&
       parseFloat(cs.opacity || '1') >= 0.1 ? cs : null;
+  }
+
+  // A colonist dialog/menu overlapping the panel WHILE the board is still visible
+  // (the 'full' fade tier) — e.g. the in-game settings menu / a dropdown. (When
+  // colonist takes the WHOLE screen the board-canvas centre is gone and
+  // updateBoardPosture collapses instead, so this only needs the partial-overlap
+  // case.) Class names carry per-deploy hashes, so match stable prefixes.
+  function dialogOverlapping(pr) {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    if (!vw || !vh) return false;
+    const overlapsPanel = (r) => !(r.right < pr.left || r.left > pr.right ||
+                                   r.bottom < pr.top || r.top > pr.bottom);
+    const cands = document.querySelectorAll(
+      '[class*="modal"], [class*="dialog"], [class*="overlay"], [class*="settings"], ' +
+      '[class*="menu"], [class*="popover"], [class*="popup"], [class*="drawer"], ' +
+      '[role="dialog"], [role="menu"]');
+    for (const el of cands) {
+      if (el === panel || panel.contains(el) || el.contains(panel)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width * r.height < 24000) continue;         // ignore chips / tooltips
+      if (!overlapsPanel(r)) continue;
+      const cs = elVisible(el);
+      if (!cs) continue;
+      if (cs.position !== 'fixed' && cs.position !== 'absolute') continue;
+      return true;
+    }
+    return false;
+  }
+
+  // Pure tier selection (unit-tested; the overlap probes need a live browser).
+  // A collapsed panel is never faded — full-screen colonist views own that case
+  // via collapse, so fading the dice icon on top would be the old double-state.
+  function ghostKind({ panelCollapsed, dialogOverlap, tradeOn }) {
+    if (panelCollapsed) return '';
+    if (dialogOverlap) return 'full';   // a dialog/menu supersedes trade tracking
+    if (tradeOn) return 'light';
+    return '';
   }
 
   // True only while colonist's TRADE CREATOR is open. Its proposal/actions parts
@@ -2687,18 +2726,19 @@
       (Math.abs(pr.left - lastPanelXY.x) > 1 || Math.abs(pr.top - lastPanelXY.y) > 1);
     lastPanelXY = { x: pr.left, y: pr.top };
 
-    // Only the trade (light) tier remains here: colonist's trade creator is a
-    // BOTTOM strip that doesn't hide the board centre, so board-posture won't
-    // collapse for it — instead the panel fades + lets clicks through so the trade
-    // behind it stays usable. Every full-screen colonist view (Settings, Leave
-    // Game, Pause, end screen) is handled by updateBoardPosture (collapse).
-    let kind = '';
+    // Two fade tiers for things that overlap the panel WHILE the board is still
+    // visible: a dialog/menu (full) and the trade creator (light). Full-screen
+    // colonist views (Settings, Leave Game, Pause, end screen) hide the board
+    // centre and are COLLAPSED by updateBoardPosture instead — and since this runs
+    // AFTER the posture updates, an already-collapsed panel is never faded.
     const over = tradeOverlapping(pr);
-    if (tradeGhostOn({ over, moved, prevOverlap: prevTradeOverlap, alreadyLight: ghosted === 'light' })) {
-      kind = 'light';
-    }
+    const tradeOn = tradeGhostOn({ over, moved, prevOverlap: prevTradeOverlap, alreadyLight: ghosted === 'light' });
     prevTradeOverlap = over;
-    applyGhost(kind);
+    applyGhost(ghostKind({
+      panelCollapsed: uiState.panelCollapsed,
+      dialogOverlap: dialogOverlapping(pr),
+      tradeOn,
+    }));
   }
 
   // ---- Settings posture: collapse the panel out of the way while colonist's
@@ -2985,6 +3025,7 @@
       boardPostureAction,
       boardHidden,
       updateBoardPosture,
+      ghostKind,
       // Dice artwork (self-healing real-image cache + face renderer).
       DICE_ICON,
       diceFromImg,
@@ -3024,9 +3065,9 @@
       const now = Date.now();
       if (now - lastGhostCheck > 250) {
         lastGhostCheck = now;
-        updateGhost();
         updateSettingsPosture();   // collapse/restore within ~250ms of Settings open/close
         updateBoardPosture();      // ...and for any other full-screen colonist view
+        updateGhost();             // fade tiers last, after the collapse decisions
       }
     }).observe(document.documentElement, { childList: true, subtree: true });
   }

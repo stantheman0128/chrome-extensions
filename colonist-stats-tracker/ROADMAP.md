@@ -24,6 +24,14 @@ _(nothing queued — see "Shipped from this roadmap" and "Candidate features" be
 
 ## Shipped from this roadmap
 
+### v1.32.0 (2026-06-15)
+- **Settings-menu fade restored (1.31.0 regression, raised by Stan)** — a
+  dialog/menu that overlaps the panel without hiding the board centre fades
+  again. Full-screen views collapse (board-posture); ghost mode fades only the
+  partial-overlap case, and only while the panel is still open (posture runs
+  before ghost each tick, so a collapsed panel is never also faded). Tier choice
+  is the pure `ghostKind()`.
+
 ### v1.31.0 (2026-06-15)
 - **Generic "colonist took over the screen" collapse (raised by Stan)** — the
   panel collapses for ANY full-screen colonist view (Settings, Leave Game,
@@ -207,12 +215,12 @@ a CSV export of the aggregated numbers, or a dice-fairness trend over time.
   player is read from the player panel (the row with `playerRow…` but not
   `opponentPlayerRow…`) instead of the avatar guess. The avatar remains a
   fallback only before the panel mounts.
-- ~~Ghost mode size+class heuristic for colonist dialogs.~~ Replaced in v1.31.0:
-  full-screen colonist views collapse the panel via the class-agnostic board-canvas
-  signal (`boardHidden()`); ghost mode now only fades for the trade creator. A
-  remaining gap: a SMALL dialog that overlaps the panel without hiding the board
-  centre no longer triggers anything (it used to fade) — re-add a geometric
-  fallback only if such a case actually shows up.
+- Ghost / posture split (v1.31.0 + v1.32.0): full-screen colonist views COLLAPSE
+  the panel via the class-agnostic board-canvas signal (`boardHidden()`); a
+  dialog/menu or the trade creator that overlaps the panel without hiding the
+  board centre FADES it (`dialogOverlapping` + `tradeOverlapping`, tier chosen by
+  `ghostKind`). The dialog fade still uses a class+geometry heuristic, so if a
+  *new* menu type ever fails to fade, capture its DOM to extend the selector.
 - Expand-on-first-roll for spectators (lifecycle currently expands on game
   detection).
 - Automatic gap-detection trigger for the deep re-sync (currently manual via 🔄).
