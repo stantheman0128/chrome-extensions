@@ -10,32 +10,44 @@ const assert = require('node:assert/strict');
 const { cst, document } = require('./helpers/setup');
 const KeyboardEvent = global.window.KeyboardEvent;
 
+// colonist keeps the shell mounted but EMPTY when closed; OPEN means it has a
+// content child. openSettings injects content; openSettingsWithLimit adds the
+// Card Discard Limit row; closeSettings removes the shell entirely.
 const openSettings = () =>
-  document.body.insertAdjacentHTML('beforeend', '<div class="gameSettingsContainer-QwyaJ5Mz"></div>');
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="gameSettingsContainer-wPWRmX6U"><div class="gameSettingsContainer-QwyaJ5Mz"></div></div>');
+const openSettingsWithLimit = (n) =>
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="gameSettingsContainer-wPWRmX6U"><div class="contentContainer">' +
+    '<div class="label-a">VPs to Win</div><div class="value-a">10</div>' +
+    `<div class="label-a">Card Discard Limit</div><div class="value-a">${n}</div>` +
+    '</div></div>');
 const closeSettings = () => {
-  const el = document.querySelector('[class*="gameSettingsContainer"]');
-  if (el) el.remove();
+  document.querySelectorAll('[class*="gameSettingsContainer"]').forEach((el) => el.remove());
 };
 
-test('settingsOpen detects the gameSettingsContainer (any deploy hash)', () => {
+test('settingsOpen tracks the shell\'s content (empty = closed, populated = open)', () => {
   closeSettings();
-  assert.equal(cst.settingsOpen(), false, 'no settings container → false');
+  assert.equal(cst.settingsOpen(), false, 'no shell → closed');
+  document.body.insertAdjacentHTML('beforeend', '<div class="gameSettingsContainer-wPWRmX6U"></div>');
+  assert.equal(cst.settingsOpen(), false, 'mounted but EMPTY shell → still closed');
+  closeSettings();
   openSettings();
-  assert.equal(cst.settingsOpen(), true, 'visible gameSettingsContainer → true');
+  assert.equal(cst.settingsOpen(), true, 'shell with content → open');
   closeSettings();
 });
 
-test('discardLimit reads colonist\'s Card Discard Limit (else defaults to 7)', () => {
+test('discardLimit reads the Card Discard Limit when Settings is open, caches it, else headcount', () => {
+  cst.resetState();
   closeSettings();
-  assert.equal(cst.discardLimit(), 7, 'no settings DOM → standard 7');
-  // colonist's settings: label/value rows pair up as siblings.
-  document.body.insertAdjacentHTML('beforeend',
-    '<div class="gameSettingsContainer-QwyaJ5Mz"><div class="container-x">' +
-    '<div class="label-a">VPs to Win</div><div class="value-a">10</div>' +
-    '<div class="label-a">Card Discard Limit</div><div class="value-a">10</div>' +
-    '</div></div>');
-  assert.equal(cst.discardLimit(), 10, 'reads the 2-player limit of 10');
+  assert.equal(cst.discardLimit(), 7, 'closed, no players → standard 7');
+  openSettingsWithLimit(10);
+  assert.equal(cst.discardLimit(), 10, 'reads the value while Settings is open');
   closeSettings();
+  assert.equal(cst.discardLimit(), 10, 'still 10 after close — cached from when it was open');
+  cst.resetState();
+  cst.getPlayer('A', '#111'); cst.getPlayer('B', '#222');
+  assert.equal(cst.discardLimit(), 10, '2-player headcount fallback → 10');
 });
 
 test('opening Settings collapses the panel; closing it expands again', () => {

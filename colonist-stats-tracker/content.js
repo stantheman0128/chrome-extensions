@@ -96,6 +96,7 @@
     totalRolls: 0,
     rollHistory: [],     // ordered dice sums — powers "rolls since last N"
     sevenRollers: {},    // name -> how many 7s that player rolled
+    discardLimitValue: 0, // colonist's Card Discard Limit, cached when Settings was open (0 = unknown)
     currentTurn: null,   // last player to roll = whose turn it (probably) is
     lastRoller: null,    // who rolled last + when, to time turns (live only)
     lastRollTs: null,
@@ -133,20 +134,21 @@
   }
 
   // colonist's "Card Discard Limit" (a rolled 7 forces players ABOVE it to
-  // discard half) — read live from the always-mounted Settings DOM, where the
-  // label/value rows pair up. Falls back to the standard 7 if unreadable. (It's
-  // 7 on a 4-player table, 10 on a 2-player one; reading the real value covers
-  // both without guessing from the headcount.)
+  // discard half). The exact value lives in the Settings body, which colonist
+  // only mounts while Settings is OPEN — so we read it whenever it's available
+  // and cache it for the rest of the game. When it's never been open, fall back
+  // to the headcount rule (2-player tables use 10; everyone else 7).
   function discardLimit() {
     const labels = document.querySelectorAll('[class*="gameSettingsContainer"] [class*="label"]');
     for (const lab of labels) {
       if (/discard/i.test(lab.textContent || '')) {
         const v = lab.nextElementSibling;
         const n = v ? parseInt((v.textContent || '').trim(), 10) : NaN;
-        if (Number.isFinite(n) && n >= 5 && n <= 20) return n;
+        if (Number.isFinite(n) && n >= 5 && n <= 20) { state.discardLimitValue = n; return n; }
       }
     }
-    return 7;
+    if (state.discardLimitValue) return state.discardLimitValue;   // cached from an earlier open
+    return state.players.size === 2 ? 10 : 7;                       // headcount fallback (Stan's rule)
   }
 
   function playerTotal(p) {
@@ -2337,6 +2339,7 @@
     for (const k of Object.keys(state.diceCounts)) state.diceCounts[k] = 0;
     state.totalRolls = 0;
     state.sevenRollers = {};
+    state.discardLimitValue = 0;
     state.players.clear();
     state.seenIndices = new Set();
     state.selfName = null;
@@ -2368,6 +2371,7 @@
         totalRolls: state.totalRolls,
         rollHistory: state.rollHistory,
         sevenRollers: state.sevenRollers,
+        discardLimitValue: state.discardLimitValue,
         currentTurn: state.currentTurn,
         gameStartTs: state.gameStartTs,
         gameEndTs: state.gameEndTs,
@@ -2395,6 +2399,7 @@
     for (let n = 2; n <= 12; n++) state.diceCounts[n] = (d.diceCounts && d.diceCounts[n]) || 0;
     state.rollHistory = Array.isArray(d.rollHistory) ? d.rollHistory : [];
     state.sevenRollers = (d.sevenRollers && typeof d.sevenRollers === 'object') ? d.sevenRollers : {};
+    state.discardLimitValue = Number.isFinite(d.discardLimitValue) ? d.discardLimitValue : 0;
     state.currentTurn = d.currentTurn || null;
     state.gameStartTs = Number.isFinite(d.gameStartTs) ? d.gameStartTs : null;
     state.gameEndTs = Number.isFinite(d.gameEndTs) ? d.gameEndTs : null;
@@ -2615,20 +2620,6 @@
       parseFloat(cs.opacity || '1') >= 0.1 ? cs : null;
   }
 
-  // Visible accounting for ANCESTORS too. colonist keeps some panels (e.g. the
-  // Settings modal) permanently mounted and hides them by fading a PARENT to
-  // opacity:0 — which opacity, unlike visibility, doesn't inherit, so checking
-  // the element alone (elVisible) wrongly reports it visible. Walk up to <body>.
-  function deepVisible(el) {
-    for (let cur = el; cur && cur.nodeType === 1 && cur !== document.body; cur = cur.parentElement) {
-      const cs = getComputedStyle(cur);
-      if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity || '1') < 0.05) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   // A colonist dialog/menu overlapping the panel (the 'full' tier).
   function dialogOverlapping(pr) {
     const vw = window.innerWidth, vh = window.innerHeight;
@@ -2729,17 +2720,13 @@
   let settingsOpenPrev = false;
   let collapsedForSettings = false;
   function settingsOpen() {
+    // colonist keeps the Settings shell (gameSettingsContainer) mounted at full
+    // size with full visibility even when closed — it just EMPTIES it. The only
+    // thing that changes is whether it has content: 0 children = closed, the
+    // settings body mounted = open. (Verified against the live DOM in both
+    // states; every style/geometry signal was identical.)
     const el = document.querySelector('[class*="gameSettingsContainer"]');
-    // colonist leaves this mounted at full size even when closed (it fades a
-    // parent to opacity:0), so the deep-visible (ancestor) check is what tells
-    // open from closed; the on-screen-rect check guards against an off-screen
-    // parked copy. Under jsdom rects are 0×0 → trust deepVisible.
-    if (!el || !deepVisible(el)) return false;
-    const r = el.getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) return true;
-    return r.width > 80 && r.height > 80 &&
-      r.right > 0 && r.bottom > 0 &&
-      r.left < window.innerWidth && r.top < window.innerHeight;
+    return !!(el && el.children.length > 0);
   }
   function updateSettingsPosture() {
     if (!panel) return;

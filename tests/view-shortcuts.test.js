@@ -78,25 +78,38 @@ test('C key is ignored while typing in an input', () => {
   input.remove();
 });
 
-test('hand-total badge turns red at 8+ cards (discard risk), normal at 7', () => {
+// The hand-total badge is the last span inside the name cell (row's 1st child).
+const handBadge = (name) => {
+  const row = document.querySelector(`[data-prow="${name}"]`);
+  return row && row.firstElementChild ? row.firstElementChild.lastElementChild : null;
+};
+const isRed = (el) => /#c0533a/i.test((el && el.getAttribute('style')) || '');
+
+test('discard-risk badge follows the limit: 4-player table (limit 7) reddens above 7', () => {
   cst.resetState();
+  // 4 players → headcount rule gives a discard limit of 7.
   const fat = cst.getPlayer('FatHand', '#CF4449');
-  cst.giveResource(fat, 'grain', 5);
-  cst.giveResource(fat, 'lumber', 3); // 8 cards — a rolled 7 discards half
+  cst.giveResource(fat, 'grain', 5); cst.giveResource(fat, 'lumber', 3); // 8 cards
   const safe = cst.getPlayer('SafeHand', '#285FBD');
-  cst.giveResource(safe, 'brick', 7); // exactly 7 — still safe
+  cst.giveResource(safe, 'brick', 7); // exactly 7
+  cst.getPlayer('P3', '#228103');
+  cst.getPlayer('P4', '#CF6B2E');
   cst.render();
 
-  // The hand-total badge is the last span inside the name cell (row's 1st child).
-  const badge = (name) => {
-    const row = document.querySelector(`[data-prow="${name}"]`);
-    return row && row.firstElementChild ? row.firstElementChild.lastElementChild : null;
-  };
-  const fatBadge = badge('FatHand');
-  const safeBadge = badge('SafeHand');
-  assert.ok(fatBadge && safeBadge, 'both hand-total badges rendered');
-  assert.match(fatBadge.getAttribute('style') || '', /#c0533a/i,
-    '8+ cards: badge uses the warning colour');
-  assert.doesNotMatch(safeBadge.getAttribute('style') || '', /#c0533a/i,
-    '7 cards: badge stays normal');
+  assert.ok(handBadge('FatHand') && handBadge('SafeHand'), 'badges rendered');
+  assert.equal(isRed(handBadge('FatHand')), true, '8 cards > limit 7 → red');
+  assert.equal(isRed(handBadge('SafeHand')), false, '7 cards == limit → normal');
+});
+
+test('discard-risk badge follows the limit: 2-player table (limit 10) only reddens above 10', () => {
+  cst.resetState();
+  const a = cst.getPlayer('A', '#CF4449');   // 2 players → limit 10
+  for (const r of ['grain', 'lumber', 'brick', 'wool', 'ore']) cst.giveResource(a, r, 2); // 10 cards
+  const b = cst.getPlayer('B', '#285FBD');
+  for (const r of ['grain', 'lumber', 'brick', 'wool', 'ore']) cst.giveResource(b, r, 2);
+  cst.giveResource(b, 'grain', 1); // 11 cards
+  cst.render();
+
+  assert.equal(isRed(handBadge('A')), false, '10 cards == limit 10 → normal');
+  assert.equal(isRed(handBadge('B')), true, '11 cards > limit 10 → red');
 });

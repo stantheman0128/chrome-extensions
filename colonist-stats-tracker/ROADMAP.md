@@ -41,6 +41,14 @@ the real-image path is an enhancement layered on top, not a replacement.
 
 ## Shipped from this roadmap
 
+### v1.28.0 (2026-06-14)
+- **Settings detection fixed for real (evidence from Stan)** — colonist keeps the
+  `gameSettingsContainer` shell mounted/visible and only fills it with content
+  when open; detection now checks `children.length` (0 = closed). Earlier
+  opacity/ancestor guesses removed.
+- **Discard limit without opening Settings** — headcount rule (2p→10, else 7),
+  upgraded to colonist's exact value and cached whenever Settings is opened.
+
 ### v1.27.1 (2026-06-14)
 - **No first-roll jump (raised by Stan)** — the recent-rolls strip now reserves
   its row height (blank placeholder) before any roll, so the panel doesn't shift
