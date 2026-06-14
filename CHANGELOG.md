@@ -4,6 +4,9 @@ All notable changes in this repository are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- colonist-stats-tracker (1.33.0): **snappier collapse/fade reaction (raised by Stan).** The lag wasn't slow computation — it was the cadence we set: posture/ghost were checked on a fixed **250 ms** leading-edge throttle, so opening the Settings menu / a trade / collapsing / resuming could wait out most of that window before reacting. Replaced it with an **~80 ms trailing throttle**: an isolated change (the menu/trade you just opened) reacts right away, while colonist's constant in-game DOM churn still coalesces to at most one check per window. Two cost trims keep the higher cadence cheap: `boardHidden()` only does its "peek under the panel" style-recalc when the panel actually sits over a sample point (normally it's a corner widget, so it's skipped), and `updateGhost()` short-circuits while the panel is collapsed (no dialog/trade overlap scan when there's nothing to fade). No behaviour change, just latency. (137 tests.)
+
 ### Fixed
 - colonist-stats-tracker (1.32.0): **the in-game settings MENU fades again (regression from 1.31.0, raised by Stan).** Removing the old class-based dialog ghost tier in 1.31.0 meant a dropdown/menu that overlaps the panel *without* hiding the board centre (so board-posture doesn't collapse) got no response at all — exactly the gap that release flagged. The dialog/menu fade tier is restored, but now gated: full-screen views still COLLAPSE (board-posture), and ghost mode only FADES when the panel is still open. The posture updates now run *before* the ghost check each tick, so an already-collapsed panel is never also faded (no double-state). Tier selection is a pure, unit-tested function (`ghostKind`); the trade fade is unchanged. +5 tests (137 total).
 

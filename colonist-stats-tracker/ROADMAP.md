@@ -24,6 +24,15 @@ _(nothing queued — see "Shipped from this roadmap" and "Candidate features" be
 
 ## Shipped from this roadmap
 
+### v1.33.0 (2026-06-15)
+- **Snappier collapse/fade reaction (raised by Stan)** — the lag was the 250 ms
+  leading-edge throttle on the posture/ghost checks, not slow computation.
+  Replaced with an ~80 ms trailing throttle (isolated change reacts immediately,
+  bursts coalesce) plus two cost trims (`boardHidden` skips its peek-under recalc
+  unless the panel is over a sample point; `updateGhost` short-circuits while
+  collapsed). If the collapse/expand still feels slow, the next lever is the
+  0.25 s CSS transition in `setPanelCollapsed`.
+
 ### v1.32.0 (2026-06-15)
 - **Settings-menu fade restored (1.31.0 regression, raised by Stan)** — a
   dialog/menu that overlaps the panel without hiding the board centre fades

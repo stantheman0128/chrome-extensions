@@ -2335,11 +2335,7 @@
       evalLifecycle();
       maybeNewGame();
       updateTimer();
-      // Posture (collapse) first, then ghost (fade): ghost must see the final
-      // collapsed state so it never fades a panel a full-screen view just shrank.
-      updateSettingsPosture();
-      updateBoardPosture();
-      updateGhost();
+      runPostureGhost();   // 1s fallback; the MutationObserver reacts much faster
       // colonist sometimes REPLACES the log container node (reconnect /
       // re-render). Re-discover it every tick — otherwise the observer keeps
       // watching a detached node and updates silently stop. attachObserver()
@@ -2726,6 +2722,10 @@
       (Math.abs(pr.left - lastPanelXY.x) > 1 || Math.abs(pr.top - lastPanelXY.y) > 1);
     lastPanelXY = { x: pr.left, y: pr.top };
 
+    // A collapsed panel is never faded (full-screen views own that case) — skip
+    // the heavier dialog/trade overlap probes entirely while it's a dice icon.
+    if (uiState.panelCollapsed) { prevTradeOverlap = false; applyGhost(''); return; }
+
     // Two fade tiers for things that overlap the panel WHILE the board is still
     // visible: a dialog/menu (full) and the trade creator (light). Full-screen
     // colonist views (Settings, Leave Game, Pause, end screen) hide the board
@@ -2789,16 +2789,21 @@
     const W = window.innerWidth, H = window.innerHeight;
     if (!W || !H) return false;
     const pts = [[0.5, 0.5], [0.35, 0.4], [0.65, 0.4], [0.35, 0.6], [0.65, 0.6]];
+    const xy = pts.map(([fx, fy]) => [Math.round(W * fx), Math.round(H * fy)]);
+    // Only "peek under" our panel (a forced style recalc) if it actually covers a
+    // sample point — normally it's a corner widget clear of the centre, so skip it.
+    const pr = panel.getBoundingClientRect();
+    const overPanel = xy.some(([x, y]) => x >= pr.left && x <= pr.right && y >= pr.top && y <= pr.bottom);
     const prevPE = panel.style.pointerEvents;
-    panel.style.pointerEvents = 'none';      // see what's UNDER our always-on-top panel
+    if (overPanel) panel.style.pointerEvents = 'none';
     let total = 0, canvasHits = 0;
-    for (const [fx, fy] of pts) {
-      const el = document.elementFromPoint(Math.round(W * fx), Math.round(H * fy));
+    for (const [x, y] of xy) {
+      const el = document.elementFromPoint(x, y);
       if (!el) continue;
       total += 1;
       if (el.tagName === 'CANVAS' || (el.closest && el.closest('canvas'))) canvasHits += 1;
     }
-    panel.style.pointerEvents = prevPE;      // restore exactly (keeps any ghost state)
+    if (overPanel) panel.style.pointerEvents = prevPE;  // restore exactly (keeps ghost state)
     if (!total) return false;                // can't probe (e.g. jsdom) → assume visible
     return canvasHits === 0;                 // no central point is the board → it's hidden
   }
@@ -2828,6 +2833,27 @@
     boardHiddenPrev = hidden;
     if (action === 'collapse') { collapsedForBoard = true; setPanelCollapsed(true); }
     else if (action === 'expand') { collapsedForBoard = false; setPanelCollapsed(false); }
+  }
+
+  // Posture (collapse) + ghost (fade) run together. colonist mutates the DOM
+  // constantly during play, so reacting on EVERY mutation would be wasteful — but
+  // a fixed leading-edge throttle made an isolated change (opening a menu / trade)
+  // wait out the whole window. This throttle has a TRAILING edge: an isolated
+  // change reacts immediately, a burst coalesces to once per MIN_REACT_MS.
+  // Posture first, then ghost — the fade must see the final collapsed state.
+  const MIN_REACT_MS = 80;
+  let lastReact = 0, reactScheduled = null;
+  function runPostureGhost() {
+    if (reactScheduled) { clearTimeout(reactScheduled); reactScheduled = null; }
+    lastReact = Date.now();
+    updateSettingsPosture();
+    updateBoardPosture();
+    updateGhost();
+  }
+  function schedulePostureGhost() {
+    const since = Date.now() - lastReact;
+    if (since >= MIN_REACT_MS) runPostureGhost();
+    else if (!reactScheduled) reactScheduled = setTimeout(runPostureGhost, MIN_REACT_MS - since);
   }
 
   // ---- game clock ----
@@ -3052,23 +3078,17 @@
 
     // Re-attach on SPA navigation. seenIndices is reset per-container inside
     // attachObserver(), so on a path change we only need to re-discover the log.
-    // The same observer also drives ghost mode (throttled): a Settings dialog
-    // mounting should fade the panel within ~250 ms, not after the next tick.
+    // The same observer also drives posture/ghost: opening a menu / trade / the
+    // Settings page mutates the DOM, so schedulePostureGhost() reacts to it within
+    // ~MIN_REACT_MS (trailing-throttled so a burst of game mutations coalesces).
     let lastPath = location.pathname;
-    let lastGhostCheck = 0;
     new MutationObserver(() => {
       if (location.pathname !== lastPath) {
         lastPath = location.pathname;
         attachObserver();
         evalLifecycle();   // URL changed — re-evaluate the lobby/game posture now
       }
-      const now = Date.now();
-      if (now - lastGhostCheck > 250) {
-        lastGhostCheck = now;
-        updateSettingsPosture();   // collapse/restore within ~250ms of Settings open/close
-        updateBoardPosture();      // ...and for any other full-screen colonist view
-        updateGhost();             // fade tiers last, after the collapse decisions
-      }
+      schedulePostureGhost();
     }).observe(document.documentElement, { childList: true, subtree: true });
   }
 })();
