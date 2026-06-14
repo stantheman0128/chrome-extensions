@@ -4,6 +4,12 @@ All notable changes in this repository are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- colonist-stats-tracker (1.24.0): **left/right edge resize now changes width only (no zoom); dice fairness is a readable badge.**
+  - **Edge resize vs corner zoom.** Dragging a left/right edge now resizes the panel **width only** — the text size stays put and the columns just get more/less room — while the bottom-right corner still zooms everything (width drives font). The edge drag bakes the held text size into `fontScale` on release so it persists across reloads. (Top/bottom edges already changed height only.)
+  - **Dice fairness badge.** The raw `χ²12` readout became a colour-coded ⚖️ badge — **fair** (green) / **skewed** (amber, p<0.05) / **very skewed** (red, p<0.01) — with the χ² value, sample size and scale in the hover. Localized (en/zh).
+  - **Settings detection hardened.** `settingsOpen()` now also requires the `gameSettingsContainer` to actually occupy the viewport, so a settings view that lingers hidden in the DOM doesn't keep the panel from auto-collapsing.
+
 ### Added
 - colonist-stats-tracker (1.23.0): **the panel auto-collapses while colonist's Settings page is open.** Settings is a full-page in-place view (outer class `gameSettingsContainer…`, no URL change, not a fixed/absolute overlay), so it never tripped ghost mode — the old `[class*="settings"]` selector also missed it on case (the class is `gameSettings**C**ontainer`). The panel now collapses to the dice icon when Settings opens and expands again when it closes; if you'd already collapsed it yourself before opening Settings, it's left as-is (no surprise expand). +3 tests (108 total).
 

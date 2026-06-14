@@ -41,6 +41,13 @@ the real-image path is an enhancement layered on top, not a replacement.
 
 ## Shipped from this roadmap
 
+### v1.24.0 (2026-06-14)
+- **Edge resize = width only (raised by Stan)** — left/right edges change width
+  without zooming (corner still zooms); held text size baked into fontScale.
+- **Dice fairness badge** — ⚖️ fair/skewed/very-skewed colour badge replacing the
+  raw χ² number (value + scale in the hover).
+- **Settings detection hardened** — require the container to occupy the viewport.
+
 ### v1.23.0 (2026-06-13)
 - **Settings auto-collapse (raised by Stan)** — detect colonist's full-page
   Settings (`gameSettingsContainer…`) and collapse the dashboard to the dice icon

@@ -831,6 +831,10 @@
   // resView: the player table shows resource columns ('cards') or the live
   // event stats ('stats') — same players, same rows, switched via header tabs.
   const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, resView: 'cards', mode: 'large', fontScale: 1, diceMode: 'auto' };
+  // True only while a LEFT/RIGHT edge is being dragged: that gesture changes the
+  // panel WIDTH without rescaling the text (the width→font zoom is reserved for
+  // the bottom-right corner). The ResizeObserver checks this to skip the zoom.
+  let pureWidthResize = false;
   // At/above this panel width, auto-mode renders the bottom value as dice (vs a digit).
   const DICE_AUTO_W = 372;
   function diceFacesActive() {
@@ -1242,8 +1246,10 @@
       if (c) c.textContent = open ? '▾' : '▸';
     });
 
-    // Width drives font size. Update the font LIVE on every resize tick so the
-    // content tracks the drag instead of lagging; only the save is debounced.
+    // Width drives font size FROM THE CORNER (resize:both) — a wider corner-drag
+    // zooms everything. A LEFT/RIGHT EDGE drag instead changes only the width
+    // (pureWidthResize): the text stays put and the columns just get more room;
+    // that gesture saves the width + a compensating fontScale itself, on mouseup.
     if (typeof ResizeObserver !== 'undefined') {
       let rT, lastW = 0, lastFaces = null;
       new ResizeObserver(() => {
@@ -1251,12 +1257,14 @@
         const w = host.offsetWidth;
         if (w === lastW) return;
         lastW = w;
-        host.style.fontSize = fpx(w);
+        if (!pureWidthResize) host.style.fontSize = fpx(w);   // corner zoom only
         // In auto-mode, crossing the width threshold flips digits ⇄ dice live.
         const nowFaces = diceFacesActive();
         if (nowFaces !== lastFaces) { lastFaces = nowFaces; render(); }
-        clearTimeout(rT);
-        rT = setTimeout(() => updateActivePreset({ width: w }), 250);
+        if (!pureWidthResize) {
+          clearTimeout(rT);
+          rT = setTimeout(() => updateActivePreset({ width: w }), 250);
+        }
       }).observe(host);
     }
 
@@ -1505,6 +1513,14 @@
         const sx = e.clientX, sy = e.clientY;
         const start = { left: r.left, top: r.top, width: r.width, height: r.height };
         el.style.right = 'auto';
+        // Left/right edges change width WITHOUT zooming: hold the current text
+        // size during the drag, then bake it into fontScale on release so it
+        // sticks (and survives reload, where the font is recomputed from width).
+        const isWidth = (z.side === 'left' || z.side === 'right');
+        const startFontPx = isWidth
+          ? (parseFloat(getComputedStyle(el).fontSize) || fontFromWidth(start.width))
+          : 0;
+        if (isWidth) pureWidthResize = true;
         const move = (ev) => {
           const dx = ev.clientX - sx, dy = ev.clientY - sy;
           if (z.side === 'right') {
@@ -1524,6 +1540,16 @@
         const up = () => {
           window.removeEventListener('mousemove', move);
           window.removeEventListener('mouseup', up);
+          if (isWidth) {
+            pureWidthResize = false;
+            // Keep the text the same size at the NEW width: fontScale such that
+            // fpx(newWidth) === startFontPx. (fpx = fontFromWidth(w) * fontScale.)
+            const ff = fontFromWidth(el.getBoundingClientRect().width);
+            if (ff > 0 && startFontPx > 0) {
+              uiState.fontScale = startFontPx / ff;
+              saveUI({ fontScale: uiState.fontScale });
+            }
+          }
           updateActivePreset({
             left: Math.round(parseFloat(el.style.left) || start.left),
             top: Math.round(parseFloat(el.style.top) || start.top),
@@ -1587,6 +1613,17 @@
       chi += (diff * diff) / exp;
     }
     return chi;
+  }
+
+  // Map the χ² statistic (10 dof) to a human fairness band. The critical values
+  // are χ²₀.₀₅(10)=18.31 and χ²₀.₀₁(10)=23.21, so 'skewed' means the dice differ
+  // from fair at p<0.05 and 'verySkewed' at p<0.01. Null until chiSquare() is
+  // meaningful (enough rolls).
+  function luckTier(chi) {
+    if (chi == null) return null;
+    if (chi > 23.21) return 'verySkewed';
+    if (chi > 18.31) return 'skewed';
+    return 'fair';
   }
 
   // The "natural" two-dice pairing for each sum, used by the dice-faces view.
@@ -2079,14 +2116,21 @@
     if (rolls) {
       let html = escapeHtml(t('rollsCount', '{n} rolls', { n: state.totalRolls }));
       const chi = chiSquare();
-      if (chi != null) {
-        // χ²₀.₀₅(10) ≈ 18.3 — above it the dice are skewed at the p<0.05 level.
-        const skewed = chi > 18.3;
+      const tier = luckTier(chi);
+      if (tier) {
+        // A readable fairness badge (⚖️ + word) instead of a raw χ² number; the
+        // statistic + scale live in the hover for the curious.
+        const LUCK = {
+          fair:       { label: t('luckFair', 'fair dice'),   color: THEME.good },
+          skewed:     { label: t('luckSkewed', 'skewed'),    color: '#b5730a' },
+          verySkewed: { label: t('luckVerySkewed', 'very skewed'), color: THEME.bad },
+        }[tier];
         const tip = escapeHtml(t('tipLuck',
-          'Dice fairness χ²={x} (fair dice average ≈10; over 18.3 is skewed, p<0.05)',
-          { x: chi.toFixed(1) }));
-        html += ` <span data-tip="${tip}" style="font-weight:700;white-space:nowrap;` +
-          `color:${skewed ? '#b5730a' : THEME.textDim};">χ²${Math.round(chi)}</span>`;
+          'Dice fairness χ²={x} over {n} rolls (fair ≈10; over 18.3 skewed p<.05; over 23.2 very skewed p<.01)',
+          { x: chi.toFixed(1), n: state.totalRolls }));
+        html += ` <span data-tip="${tip}" style="white-space:nowrap;font-weight:700;font-size:0.92em;` +
+          `color:${LUCK.color};background:${LUCK.color}1f;border-radius:0.7em;padding:0 0.5em;">` +
+          `⚖️ ${escapeHtml(LUCK.label)}</span>`;
       }
       const cold = coldestSum();
       if (cold) {
@@ -2538,7 +2582,15 @@
   let collapsedForSettings = false;
   function settingsOpen() {
     const el = document.querySelector('[class*="gameSettingsContainer"]');
-    return !!(el && elVisible(el));
+    if (!el || !elVisible(el)) return false;
+    const r = el.getBoundingClientRect();
+    // Under jsdom every rect is 0×0 — trust elVisible there. In a real browser
+    // require it to actually occupy a chunk of the viewport, so a closed view
+    // that lingers in the DOM (zero-size or off-screen) doesn't count as open.
+    if (r.width === 0 && r.height === 0) return true;
+    return r.width > 80 && r.height > 80 &&
+      r.right > 0 && r.bottom > 0 &&
+      r.left < window.innerWidth && r.top < window.innerHeight;
   }
   function updateSettingsPosture() {
     if (!panel) return;
@@ -2734,6 +2786,7 @@
       buildGameRecord,
       coldestSum,
       chiSquare,
+      luckTier,
       recordTurn,
       tradeGhostOn,
       tradeCreatorOpen,

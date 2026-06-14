@@ -37,6 +37,14 @@ test('a fair distribution scores near zero; a degenerate one scores high', () =>
   assert.ok(skewed > 50, `degenerate dice should score high, got ${skewed}`);
 });
 
+test('luckTier bands the chi-square by the standard critical values', () => {
+  assert.equal(cst.luckTier(null), null, 'no value yet');
+  assert.equal(cst.luckTier(8), 'fair');
+  assert.equal(cst.luckTier(18.31), 'fair', 'at/below 18.31 is fair');
+  assert.equal(cst.luckTier(20), 'skewed', 'p<0.05');
+  assert.equal(cst.luckTier(25), 'verySkewed', 'p<0.01');
+});
+
 // ---- ② turn-time ----
 test('recordTurn attributes the inter-roll gap to the previous roller', () => {
   cst.resetState();

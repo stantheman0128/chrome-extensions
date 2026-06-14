@@ -108,7 +108,16 @@
     "message": "Trade flow (→ fed · ← got)"
   },
   "tipLuck": {
-    "message": "Dice fairness χ²={x} (fair dice average ≈10; over 18.3 is skewed, p<0.05)"
+    "message": "Dice fairness χ²={x} over {n} rolls (fair ≈10; over 18.3 skewed p<.05; over 23.2 very skewed p<.01)"
+  },
+  "luckFair": {
+    "message": "fair dice"
+  },
+  "luckSkewed": {
+    "message": "skewed"
+  },
+  "luckVerySkewed": {
+    "message": "very skewed"
   },
   "stoleFromItem": {
     "message": "from {who} ×{n}"
