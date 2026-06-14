@@ -146,6 +146,30 @@
   "popupHint": {
     "message": "即時追蹤擲骰分佈與各玩家手牌；資料只存在你這台裝置，斷線重整也會記得當前這局。"
   },
+  "sumTitle": {
+    "message": "📊 長期統計"
+  },
+  "sumGames": {
+    "message": "🎮 {n} 場"
+  },
+  "sumWin": {
+    "message": "🎮 {n} 場 · 🏆 勝率 {p}%（{w}/{t}）"
+  },
+  "sumDice": {
+    "message": "⚖️ 骰子{tier}（χ²={x} / 共 {n} 次）"
+  },
+  "sumIncome": {
+    "message": "📈 平均收入 {n} 張/場"
+  },
+  "sumSteal": {
+    "message": "⚔️ 每場偷 {s} · 💔 被偷 {l}"
+  },
+  "sumTurn": {
+    "message": "⏱ 平均回合 {d}"
+  },
+  "sumGame": {
+    "message": "🕐 每場平均 {d}"
+  },
   "histTitle": {
     "message": "📜 對局紀錄"
   },

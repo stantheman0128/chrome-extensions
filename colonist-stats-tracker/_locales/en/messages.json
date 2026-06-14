@@ -146,6 +146,30 @@
   "popupHint": {
     "message": "Tracks the dice distribution and every player's hand live. Data stays on this device; the current game survives disconnects and reloads."
   },
+  "sumTitle": {
+    "message": "📊 Lifetime stats"
+  },
+  "sumGames": {
+    "message": "🎮 {n} games"
+  },
+  "sumWin": {
+    "message": "🎮 {n} games · 🏆 {p}% win ({w}/{t})"
+  },
+  "sumDice": {
+    "message": "⚖️ Dice {tier} (χ²={x} / {n} rolls)"
+  },
+  "sumIncome": {
+    "message": "📈 Avg income {n} cards/game"
+  },
+  "sumSteal": {
+    "message": "⚔️ {s} robbed · 💔 {l} lost per game"
+  },
+  "sumTurn": {
+    "message": "⏱ Avg turn {d}"
+  },
+  "sumGame": {
+    "message": "🕐 Avg game {d}"
+  },
   "histTitle": {
     "message": "📜 Game history"
   },

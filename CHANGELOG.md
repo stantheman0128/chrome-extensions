@@ -5,6 +5,9 @@ All notable changes in this repository are documented in this file.
 ## [Unreleased]
 
 ### Added
+- colonist-stats-tracker (1.30.0): **cross-game "lifetime stats" in the popup ("your luck over time").** Above the game-history list, the popup now rolls up everything stored across your saved games (up to 50): total games + win rate, a compact 11-bar **lifetime dice histogram** with a ⚖️ fairness verdict (χ² over every roll you've recorded), your average income per game, average turn time, and average cards stolen/lost per game, plus average game length. Dice are summed across **every** saved game (spectated games count toward the dice but not your win rate/income, since you weren't playing); per-opponent "nemesis" stats are deliberately left out because the opponents differ from game to game. The aggregation is a pure function (`aggregate()`), unit-tested directly, with the popup's DOM bootstrap guarded so it loads under Node. +7 tests (128 total).
+
+### Added
 - colonist-stats-tracker (1.29.0): **the dice-face view now uses colonist's real dice artwork.** The digit⇄dice toggle drew its own SVG dice; it now prefers colonist's actual dice images so the panel matches the board exactly. The art is cached self-healing from the roll log (`DICE_ICON`, keyed by face value) the same way resource-card art already is — colonist's URLs carry a per-deploy content hash, so they're read live, never hard-coded — and only ever cached from a genuine dice image URL (an alt/class "dice" match on some other image can't poison it). The built-in SVG dice remain the fallback for every face not yet seen, so preview.html, the moment before the first roll, and a post-redeploy 404 all degrade gracefully. +4 tests (121 total).
 
 ### Fixed

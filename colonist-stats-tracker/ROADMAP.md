@@ -24,6 +24,13 @@ _(nothing queued — see "Shipped from this roadmap" and "Candidate features" be
 
 ## Shipped from this roadmap
 
+### v1.30.0 (2026-06-14)
+- **Cross-game aggregation ("your luck over time")** — a lifetime-stats block
+  atop the popup history: games + win rate, an 11-bar lifetime dice histogram
+  with a ⚖️ χ² fairness verdict, your avg income / turn time / steals-losses per
+  game, and avg game length. Pure `aggregate()` over the stored records, unit-
+  tested. Per-opponent "nemesis" intentionally omitted (opponents vary per game).
+
 ### v1.29.0 (2026-06-14)
 - **Real dice artwork for the dice-face view** — colonist's actual dice images,
   cached self-healing from the roll log (`DICE_ICON`, per-deploy hash read live),
@@ -180,11 +187,12 @@ Sorted roughly by value-per-effort; all build on data we already collect:
 4. ~~**Trade-flow matrix.**~~ Shipped in v1.22.0 (🤝 Stats column + gave/got hover).
 5. **Share card.** Export the end-of-game stats as an image for chat bragging.
 
-### Cross-game aggregation ("your luck over time")
-Per-game history (v1.14.0) stores the raw records; an aggregation view could sit
-on top: dice-distribution across all your games, win rate, average income,
-biggest nemesis (who steals from you the most). Viewer: popup or a dedicated
-page. To brainstorm when enough games have accumulated.
+### ~~Cross-game aggregation ("your luck over time")~~ — shipped v1.30.0
+Shipped as a lifetime-stats block atop the popup (games + win rate, lifetime dice
+histogram + χ² fairness, avg income / turn / steals-losses per game, avg game
+length). "Biggest nemesis" was intentionally dropped — the opponents differ from
+game to game, so aggregating their names is noise. Possible follow-ups if wanted:
+a CSV export of the aggregated numbers, or a dice-fairness trend over time.
 
 ### Deferred refinements from shipped features
 - ~~**selfName heuristic in multi-human games.**~~ Resolved in v1.27.0: the local
