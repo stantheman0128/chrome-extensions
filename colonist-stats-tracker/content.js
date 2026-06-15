@@ -179,6 +179,9 @@
         builds: 0,               // tracked + archived, not displayed
         turnMs: 0, turns: 0,     // total timed turn duration + count → average
         tradeGave: {}, tradeGot: {}, // executed-trade cards per opponent (flow)
+        // Per-number yield learned from CLEAN rolls (no block on that number):
+        // number -> { resource -> cards }. Feeds the block-loss derivation.
+        produces: {},
       };
     }
     return state.tally[name];
@@ -507,6 +510,7 @@
         state.diceCounts[sum] += 1;
         state.totalRolls += 1;
         state.rollHistory.push(sum);
+        lastRoll = sum;
         // Who rolled the 7s (drives the robber) — shown in the Cards-lost hover.
         if (sum === 7 && player) state.sevenRollers[player.name] = (state.sevenRollers[player.name] || 0) + 1;
         if (player) {
@@ -555,6 +559,16 @@
         ty.gained += total;
         for (const r of RESOURCES) {
           if (counts[r]) ty.gainedRes[r] = (ty.gainedRes[r] || 0) + counts[r];
+        }
+        // Learn the yield map ONLY from bare-"got" roll production (not initial
+        // "received starting resources", not YoP "took from bank"). Per-resource
+        // assignment: a partially-blocked roll simply omits the blocked resource,
+        // so it never clobbers a previously-learned clean value.
+        const isRollYield = lastRoll != null &&
+          !text.includes('received') && !text.includes('took from bank');
+        if (isRollYield) {
+          ty.produces[lastRoll] = ty.produces[lastRoll] || {};
+          for (const r of RESOURCES) if (counts[r]) ty.produces[lastRoll][r] = counts[r];
         }
         renderSoon();
         return;
@@ -897,6 +911,9 @@
   let discardCap = 7;
   // Once selfName is fixed from the authoritative player panel we stop guessing.
   let selfLocked = false;
+  // Most recent rolled sum (2..12). A bare "got" production message is attributed
+  // to this number to learn the yield map. Reset on new game.
+  let lastRoll = null;
   // At/above this panel width, auto-mode renders the bottom value as dice (vs a digit).
   const DICE_AUTO_W = 372;
   function diceFacesActive() {
@@ -2371,6 +2388,7 @@
     state.gameEndTs = null;
     state.tally = {};
     state.blocked = { count: 0, byKey: {} };
+    lastRoll = null;
     gameSig = '';
     lastLiveSig = '';
     lastCounts = null;  // don't shower "+N" floats diffing against the old game
