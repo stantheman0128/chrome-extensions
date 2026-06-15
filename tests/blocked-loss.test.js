@@ -42,3 +42,22 @@ test('block message records "N res" key (resource read from the tile image)', ()
   assert.equal(cst.state.blocked.count, 1);
   assert.equal(cst.state.blocked.byKey['11 wool'], 1);
 });
+
+test('block loss = Σ blocked-count × my yield for that number+resource', () => {
+  cst.resetState();
+  feed(fixtures.roll_2_2);              // Richia rolled 4
+  feed(fixtures.got_bot_brick_grain);   // produces[Richia][4] = {brick:1, grain:1}
+  cst.state.blocked.byKey['4 brick'] = 3;   // 3 blocks of 4-brick cost Richia 1 each
+  assert.equal(cst.blockLossOf('Richia'), 3);
+  cst.state.blocked.byKey['4 ore'] = 5;     // Richia gets no ore on 4 → costs nothing
+  assert.equal(cst.blockLossOf('Richia'), 3);
+});
+
+test('block loss backfills once the number warms up', () => {
+  cst.resetState();
+  cst.state.blocked.byKey['4 brick'] = 2;   // blocked BEFORE we know the yield
+  assert.equal(cst.blockLossOf('Richia'), 0);
+  feed(fixtures.roll_2_2);
+  feed(fixtures.got_bot_brick_grain);       // now produces[Richia][4].brick = 1
+  assert.equal(cst.blockLossOf('Richia'), 2); // retroactively credited
+});

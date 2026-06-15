@@ -2097,6 +2097,49 @@
     return `<span style="display:flex;flex-direction:column;gap:2px;">${lines.join('')}</span>`;
   }
 
+  // Cards a player would have collected but didn't, because the robber sat on a
+  // tile they build on. DERIVED (never accumulated) from the global blocked-tile
+  // counter × that player's learned yield for the tile's number+resource — so a
+  // tile blocked before its number warmed up is credited retroactively once the
+  // yield is learned. Numbers never rolled clean stay uncredited (honest floor).
+  function blockLossOf(name) {
+    const ty = state.tally[name] || {};
+    const prod = ty.produces || {};
+    let total = 0;
+    for (const [key, times] of Object.entries(state.blocked.byKey || {})) {
+      const sp = key.indexOf(' ');
+      if (sp < 0) continue;                       // legacy "tile"-only key: no resource
+      const num = +key.slice(0, sp);
+      const res = key.slice(sp + 1);
+      total += times * ((prod[num] && prod[num][res]) || 0);
+    }
+    return total;
+  }
+
+  // Hover for the block cell: one line per "N res ×times = cards", biggest first.
+  function blockReportHTML(name) {
+    const ty = state.tally[name] || {};
+    const prod = ty.produces || {};
+    const rows = [];
+    for (const [key, times] of Object.entries(state.blocked.byKey || {})) {
+      const sp = key.indexOf(' ');
+      if (sp < 0) continue;
+      const num = +key.slice(0, sp);
+      const res = key.slice(sp + 1);
+      const per = (prod[num] && prod[num][res]) || 0;
+      if (per * times <= 0) continue;             // not this player's tile
+      rows.push({ num, res, times, cards: per * times });
+    }
+    if (!rows.length) return '';
+    rows.sort((a, b) => b.cards - a.cards);
+    const lines = rows.map((r) =>
+      `<span style="white-space:nowrap;display:inline-flex;align-items:center;gap:3px;">` +
+      `${iconImg(r.res, 1.15)} <b>${r.num}</b> ×${r.times} = ${r.cards}</span>`);
+    const header = escapeHtml(t('blockReportTitle', 'Lost to robber-blocked tiles'));
+    return `<span style="display:flex;flex-direction:column;gap:2px;">` +
+      `<b style="margin-bottom:1px;">${header}</b>${lines.join('')}</span>`;
+  }
+
   // Average turn length for a player, compactly: "23s" or "1:05" past a minute.
   function turnAvgText(ty) {
     if (!ty || !ty.turns) return '–';
@@ -3065,6 +3108,8 @@
       recordSteal,
       selfFromPanel,
       stealReportHTML,
+      blockLossOf,
+      blockReportHTML,
       tradeGhostOn,
       tradeCreatorOpen,
       settingsOpen,
