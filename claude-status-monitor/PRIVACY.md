@@ -28,4 +28,4 @@ This extension **does not collect, transmit, or store any personal data**.
 
 ## Contact
 
-If you have questions about this privacy policy, please open an issue on the [GitHub repository](https://github.com/stantheman0128/stan-chrome-extensions).
+If you have questions about this privacy policy, please open an issue on the [GitHub repository](https://github.com/stantheman0128/chrome-extensions).

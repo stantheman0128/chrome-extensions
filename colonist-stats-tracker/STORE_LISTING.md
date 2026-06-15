@@ -65,7 +65,7 @@ per-player resource tally) on colonist.io game pages.
 
 **Privacy policy URL**
 ```
-https://github.com/stantheman0128/stan-chrome-extensions/blob/master/colonist-stats-tracker/PRIVACY.md
+https://github.com/stantheman0128/chrome-extensions/blob/master/colonist-stats-tracker/PRIVACY.md
 ```
 （⚠️ 需先 push，連結才會生效）
 

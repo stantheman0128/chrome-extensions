@@ -7,7 +7,7 @@
 ## 每個 Extension 的必要結構
 
 ```
-stan-chrome-extensions/
+chrome-extensions/
 └── your-extension-name/          ← 資料夾名稱用 kebab-case（小寫 + 連字號）
     ├── manifest.json             ← 必要：Extension 元數據
     ├── content.js                ← 必要（或其他邏輯檔案）
@@ -110,7 +110,7 @@ stan-chrome-extensions/
 **提示詞模板：**
 
 ```
-請在 `stan-chrome-extensions` 這個 GitHub Repo 的根目錄，
+請在 `chrome-extensions` 這個 GitHub Repo 的根目錄，
 新增一個名為 `[extension-name]` 的子目錄，並建立以下檔案：
 
 1. `manifest.json`（Manifest V3）：

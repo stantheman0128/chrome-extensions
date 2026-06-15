@@ -40,7 +40,7 @@ If this policy changes, the update will be published at this same URL with a new
 ## Contact
 
 Questions or concerns? Please open an issue:
-<https://github.com/stantheman0128/stan-chrome-extensions/issues>
+<https://github.com/stantheman0128/chrome-extensions/issues>
 
 ---
 
@@ -86,7 +86,7 @@ _最後更新：2026-06-04_
 ## 聯絡方式
 
 有任何疑問，請於此開 issue：
-<https://github.com/stantheman0128/stan-chrome-extensions/issues>
+<https://github.com/stantheman0128/chrome-extensions/issues>
 
 ---
 

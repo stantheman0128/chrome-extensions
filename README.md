@@ -13,11 +13,11 @@ A lightweight collection of Chrome extensions built on Manifest V3.
 
 | # | Extension | Version | Download |
 |---|---------|------|------|
-| 1 | [Claude Status Monitor](#ext-claude-status-monitor) | `1.0.2` | [![Download claude-status-monitor](https://img.shields.io/badge/Download-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
-| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.35.0` | [![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
-| 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | `1.0` | [![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
-| 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | `1.0` | [![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
-| 5 | [YouTube Precise Time](#ext-youtube-video-upload-time) | `9.10` | [![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
+| 1 | [Claude Status Monitor](#ext-claude-status-monitor) | `1.0.2` | [![Download claude-status-monitor](https://img.shields.io/badge/Download-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
+| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.35.0` | [![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
+| 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | `1.0` | [![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
+| 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | `1.0` | [![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
+| 5 | [YouTube Precise Time](#ext-youtube-video-upload-time) | `9.10` | [![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
 
 ---
 
@@ -54,7 +54,7 @@ Real-time Claude service status widget on Claude.ai (including Claude Code web),
 
 **Download**
 
-[![Download claude-status-monitor](https://img.shields.io/badge/Download-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/claude-status-monitor.zip)
+[![Download claude-status-monitor](https://img.shields.io/badge/Download-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/claude-status-monitor.zip)
 
 **Installation**
 1. Click the button above to download the `.zip` file and extract it
@@ -92,11 +92,11 @@ A floating in-game overlay for [colonist.io](https://colonist.io/) that tracks d
 
 ---
 
-**Disclaimer**: This is an unofficial, fan-made tool. It is **not affiliated with, endorsed by, or sponsored by** Colonist or colonist.io. "Colonist" and all game names and assets are the property of their respective owners. This extension collects and transmits no data ([privacy policy](https://github.com/stantheman0128/stan-chrome-extensions/blob/master/colonist-stats-tracker/PRIVACY.md)).
+**Disclaimer**: This is an unofficial, fan-made tool. It is **not affiliated with, endorsed by, or sponsored by** Colonist or colonist.io. "Colonist" and all game names and assets are the property of their respective owners. This extension collects and transmits no data ([privacy policy](https://github.com/stantheman0128/chrome-extensions/blob/master/colonist-stats-tracker/PRIVACY.md)).
 
 **Download**
 
-[![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/colonist-stats-tracker.zip)
+[![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip)
 
 **Installation**
 1. Click the button above to download the `.zip` file and extract it
@@ -127,7 +127,7 @@ One-click formatting optimization for Dcard articles, dramatically improving rea
 
 **Download**
 
-[![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
+[![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
 
 **Installation**
 1. Click the button above to download the `.zip` file and extract it
@@ -154,7 +154,7 @@ Automatically removes leftover UI elements that the Glasp extension injects into
 
 **Download**
 
-[![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
+[![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
 
 **Installation**
 1. Click the button above to download the `.zip` file and extract it
@@ -197,7 +197,7 @@ Replaces YouTube's vague relative timestamps (e.g., *"2 years ago"*) with precis
 
 **Download**
 
-[![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
+[![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
 
 **Installation**
 1. Click the button above to download the `.zip` file and extract it
@@ -210,7 +210,7 @@ Replaces YouTube's vague relative timestamps (e.g., *"2 years ago"*) with precis
 ## Project Structure
 
 ```
-stan-chrome-extensions/
+chrome-extensions/
 ├── claude-status-monitor/
 │   ├── DESCRIPTION.en.md
 │   ├── DESCRIPTION.md

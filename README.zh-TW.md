@@ -13,11 +13,11 @@
 
 | # | 擴充功能 | 版本 | 下載 |
 |---|---------|------|------|
-| 1 | [Claude 服務狀態監控](#ext-claude-status-monitor) | `1.0.2` | [![下載 claude-status-monitor](https://img.shields.io/badge/下載-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
-| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.35.0` | [![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
-| 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | `1.0` | [![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
-| 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | `1.0` | [![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
-| 5 | [YouTube 精確時間](#ext-youtube-video-upload-time) | `9.10` | [![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
+| 1 | [Claude 服務狀態監控](#ext-claude-status-monitor) | `1.0.2` | [![下載 claude-status-monitor](https://img.shields.io/badge/下載-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
+| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.35.0` | [![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
+| 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | `1.0` | [![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
+| 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | `1.0` | [![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
+| 5 | [YouTube 精確時間](#ext-youtube-video-upload-time) | `9.10` | [![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
 
 ---
 
@@ -52,7 +52,7 @@
 
 **一鍵下載**
 
-[![下載 claude-status-monitor](https://img.shields.io/badge/下載-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/claude-status-monitor.zip)
+[![下載 claude-status-monitor](https://img.shields.io/badge/下載-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/claude-status-monitor.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -89,11 +89,11 @@
 
 ---
 
-**免責聲明**：本工具為非官方的同好作品，與 Colonist／colonist.io **無隸屬關係**，亦未經其背書或贊助。「Colonist」及所有遊戲名稱與美術素材，版權均屬其各自所有者。本擴充功能不蒐集、不上傳任何資料（[隱私政策](https://github.com/stantheman0128/stan-chrome-extensions/blob/master/colonist-stats-tracker/PRIVACY.md)）。
+**免責聲明**：本工具為非官方的同好作品，與 Colonist／colonist.io **無隸屬關係**，亦未經其背書或贊助。「Colonist」及所有遊戲名稱與美術素材，版權均屬其各自所有者。本擴充功能不蒐集、不上傳任何資料（[隱私政策](https://github.com/stantheman0128/chrome-extensions/blob/master/colonist-stats-tracker/PRIVACY.md)）。
 
 **一鍵下載**
 
-[![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/colonist-stats-tracker.zip)
+[![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -123,7 +123,7 @@
 
 **一鍵下載**
 
-[![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
+[![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -150,7 +150,7 @@
 
 **一鍵下載**
 
-[![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
+[![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -193,7 +193,7 @@
 
 **一鍵下載**
 
-[![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/stan-chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
+[![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -206,7 +206,7 @@
 ## 專案結構
 
 ```
-stan-chrome-extensions/
+chrome-extensions/
 ├── claude-status-monitor/
 │   ├── DESCRIPTION.en.md
 │   ├── DESCRIPTION.md

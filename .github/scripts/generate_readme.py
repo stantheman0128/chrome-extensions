@@ -20,7 +20,7 @@ import json
 import os
 import sys
 
-REPO = "stantheman0128/stan-chrome-extensions"
+REPO = "stantheman0128/chrome-extensions"
 BASE_DOWNLOAD_URL = f"https://github.com/{REPO}/releases/latest/download"
 
 BADGE_COLORS = ["blue", "red", "green", "orange", "9B59B6"]
@@ -230,7 +230,7 @@ def generate_readme(extensions, lang="en"):
         lines += ["", "---", ""]
 
     # Project structure
-    lines += [f"## {L['project_structure']}", "", "```", "stan-chrome-extensions/"]
+    lines += [f"## {L['project_structure']}", "", "```", "chrome-extensions/"]
     for j, ext in enumerate(extensions):
         dir_name = ext["dir"]
         files = list_files(dir_name)
