@@ -2025,8 +2025,11 @@
   function renderCardsView() {
     const bank = bankRemaining();
     const iconCell = (r) => {
+      if (r === 'unknown') {
+        return `<span data-res="unknown" data-colhead="1" data-tip="${t('tipUnknownCards', 'Unknown (stolen) cards')}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">${iconImg('unknown', 1.85)}</span>`;
+      }
       const low = bank[r] <= 2;
-      return `<span data-res="${r}" data-tip="${t('bankLeft', 'Bank: {n} {res} left', { n: bank[r], res: RESOURCE_LABEL[r] })}" style="${HEAD_SLOT}border-radius:5px;">
+      return `<span data-res="${r}" data-colhead="1" data-tip="${t('bankLeft', 'Bank: {n} {res} left', { n: bank[r], res: RESOURCE_LABEL[r] })}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">
         <span style="position:relative;display:inline-block;line-height:0;">
           ${iconImg(r, 2.0)}
           <span style="position:absolute;top:-0.5em;right:-0.65em;min-width:1.2em;padding:0 0.25em;text-align:center;
@@ -2036,21 +2039,19 @@
         </span>
       </span>`;
     };
-    const head = tableHead(
-      RESOURCES.map(iconCell).join('') +
-      `<span data-res="unknown" data-tip="${t('tipUnknownCards', 'Unknown (stolen) cards')}" style="${HEAD_SLOT}border-radius:5px;">${iconImg('unknown', 1.85)}</span>`,
-      CARDS_GRID
-    );
+    const head = tableHead(uiState.resOrder.map(iconCell).join(''), CARDS_GRID);
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
     return head + players.map((p) => {
       const active = p.name === state.currentTurn;
       const actCls = active ? 'cst-active-cell' : '';
       const cells = nameCell(p, prof, active) +
-        RESOURCES.map((r) =>
-          `<span data-res="${r}" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}">${p.resources[r]}</span>`
-        ).join('') +
-        `<span data-res="unknown" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? '' : 'opacity:.4;'}">${p.unknown}</span>`;
+        uiState.resOrder.map((r) => {
+          if (r === 'unknown') {
+            return `<span data-res="unknown" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? '' : 'opacity:.4;'}">${p.unknown}</span>`;
+          }
+          return `<span data-res="${r}" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}">${p.resources[r]}</span>`;
+        }).join('');
       return rowShell(p, active, cells, CARDS_GRID);
     }).join('');
   }
@@ -2224,10 +2225,11 @@
     // The font-size lives on an INNER span: putting it on the cell itself would
     // scale the em-based HEAD_SLOT height with it, making the Stats header
     // taller than the Resources one (the height-jump bug).
-    const head = tableHead(STAT_COLS.map((c) =>
-      `<span data-res="${c.key}" data-tip="${c.tip}" style="${HEAD_SLOT}border-radius:5px;cursor:default;">` +
-      `<span style="font-size:1.5em;line-height:1;">${c.icon}</span></span>`
-    ).join(''), STATS_GRID);
+    const head = tableHead(uiState.statOrder.map((key) => {
+      const c = COL_BY_KEY[key];
+      return `<span data-res="${c.key}" data-colhead="1" data-tip="${c.tip}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">` +
+        `<span style="font-size:1.5em;line-height:1;">${c.icon}</span></span>`;
+    }).join(''), STATS_GRID);
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
     const rows = players.map((p) => {
@@ -2248,7 +2250,8 @@
           tip: ty.turns ? t('tipTurnAvg', 'Average over {n} timed turns', { n: ty.turns }) : '' },
         's-trade': { v: tradeFed, bd: hasTrade ? 'trade' : null },
       };
-      const cells = nameCell(p, prof, active) + STAT_COLS.map((c) => {
+      const cells = nameCell(p, prof, active) + uiState.statOrder.map((key) => {
+        const c = COL_BY_KEY[key];
         const { v, disp, tip, pie, bd } = vals[c.key];
         return `<span data-res="${c.key}" class="${actCls}" ` +
           `${pie ? `data-pie="${escapeHtml(pie)}" ` : ''}` +
@@ -2301,9 +2304,10 @@
     // Only the columns of the CURRENT view get floats (the other view's cells
     // aren't in the DOM). In the stats view, an INCREASE of lost/discarded is
     // bad news — colour by what the change means, not by its sign.
-    const keys = uiState.resView === 'stats'
-      ? STAT_COLS.map((c) => c.key)
-      : [...RESOURCES, 'unknown'];
+    // Follow the rendered per-view order (statOrder/resOrder) so the float key
+    // set never drifts from the columns actually on screen; each float still
+    // locates its cell by data-res below, so the order itself is incidental.
+    const keys = uiState.resView === 'stats' ? uiState.statOrder : uiState.resOrder;
     const BAD_UP = { 's-block': true, 's-lost': true, 's-disc': true };
     // A player absent from the previous snapshot is treated as a zero baseline:
     // players are always created at 0 cards, so their first gain is a real +N.

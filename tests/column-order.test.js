@@ -25,3 +25,28 @@ test('legacy stat order with s-stole is reconciled to include s-block, drop s-st
   assert.ok(out.includes('s-block'));
   assert.equal(out.length, 6);
 });
+
+const { document } = require('./helpers/setup');
+
+function headKeys() {
+  return [...document.querySelectorAll('#cst-res-wrap [data-colhead]')]
+    .map((el) => el.getAttribute('data-res'));
+}
+
+test('stats header renders in statOrder', () => {
+  cst.resetState();
+  cst.createPanel();
+  cst.getUiState().resView = 'stats';
+  cst.getUiState().statOrder = ['s-trade', 's-block', 's-lost', 's-disc', 's-gain', 's-turn'];
+  cst.render();
+  assert.deepEqual(headKeys(), ['s-trade', 's-block', 's-lost', 's-disc', 's-gain', 's-turn']);
+});
+
+test('cards header renders in resOrder (unknown reorderable)', () => {
+  cst.resetState();
+  cst.createPanel();
+  cst.getUiState().resView = 'cards';
+  cst.getUiState().resOrder = ['unknown', 'lumber', 'brick', 'wool', 'grain', 'ore'];
+  cst.render();
+  assert.deepEqual(headKeys(), ['unknown', 'lumber', 'brick', 'wool', 'grain', 'ore']);
+});
