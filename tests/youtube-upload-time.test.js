@@ -207,3 +207,61 @@ test('resetShortsTitleMiss restarts the streak (success in between)', () => {
   });
   assert.equal(warns.length, 0);
 });
+
+// ---------- createMissTracker (shared factory) ----------
+
+test('createMissTracker stays silent before the threshold, warns once after', () => {
+  const tracker = yt.createMissTracker('Test target', () => ['sel-a', 'sel-b']);
+  const warns = captureWarns(() => {
+    tracker.note(0);
+    tracker.note(yt.MISS_WARN_AFTER_MS - 1);            // 仍在容忍期
+    tracker.note(yt.MISS_WARN_AFTER_MS);                // 跨過門檻 → 警告
+    tracker.note(yt.MISS_WARN_AFTER_MS + 10000);        // 同一段不重複
+  });
+  assert.equal(warns.length, 1);
+  assert.match(warns[0].join(' '), /Test target/);
+});
+
+test('createMissTracker reset restarts the streak', () => {
+  const tracker = yt.createMissTracker('Test target', () => []);
+  const warns = captureWarns(() => {
+    tracker.note(0);
+    tracker.reset();
+    tracker.note(yt.MISS_WARN_AFTER_MS + 1); // 重新計時，尚未連續滿門檻
+  });
+  assert.equal(warns.length, 0);
+});
+
+test('two trackers warn independently (no shared state)', () => {
+  const a = yt.createMissTracker('A', () => []);
+  const b = yt.createMissTracker('B', () => []);
+  const warns = captureWarns(() => {
+    a.note(0);
+    a.note(yt.MISS_WARN_AFTER_MS); // A 警告
+    b.note(yt.MISS_WARN_AFTER_MS); // B 才剛開始，不該警告
+  });
+  assert.equal(warns.length, 1);
+  assert.match(warns[0].join(' '), /\bA\b/);
+});
+
+// ---------- watch page info-target miss warning ----------
+
+test('noteWatchInfoMiss stays silent during normal render delay', () => {
+  yt.resetWatchInfoMiss();
+  const warns = captureWarns(() => {
+    yt.noteWatchInfoMiss(1000);
+    yt.noteWatchInfoMiss(1000 + yt.MISS_WARN_AFTER_MS - 1);
+  });
+  assert.equal(warns.length, 0);
+});
+
+test('noteWatchInfoMiss warns exactly once after the threshold elapses', () => {
+  yt.resetWatchInfoMiss();
+  const warns = captureWarns(() => {
+    yt.noteWatchInfoMiss(1000);
+    yt.noteWatchInfoMiss(1000 + yt.MISS_WARN_AFTER_MS);
+    yt.noteWatchInfoMiss(1000 + yt.MISS_WARN_AFTER_MS * 2);
+  });
+  assert.equal(warns.length, 1);
+  assert.match(warns[0].join(' '), /[Ww]atch page info/);
+});

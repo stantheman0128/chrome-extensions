@@ -37,6 +37,9 @@ const processingQueue = new Set();
 const processedMark = 'data-exact-date-processed';
 let activeRequests = 0;
 const MAX_CONCURRENT = 12;
+// 預抓提前量：卡片離視窗還有這麼遠就開始抓日期，
+// 讓使用者捲到時數字已就緒（換取一些「最終沒滑到」影片的背景請求）
+const PREFETCH_MARGIN = '800px';
 
 // === DOM 選擇器回退機制 ===
 // YouTube 經常更改 DOM 結構，使用多重選擇器確保穩定性
@@ -46,14 +49,6 @@ function findElement(selectors, context = document) {
         if (el) return el;
     }
     return null;
-}
-
-function findElementWithWarn(selectors, label, context = document) {
-    const el = findElement(selectors, context);
-    if (!el) {
-        console.warn(`[YT Upload Time] Could not find ${label} with any known selector:`, selectors);
-    }
-    return el;
 }
 
 // === 核心功能：時區與時間轉換器 ===
@@ -265,17 +260,22 @@ function injectWatchPageDate() {
     });
 }
 
+const WATCH_INFO_SELECTORS = [
+    'ytd-watch-metadata #info',
+    'ytd-watch-metadata #description-inner #info',
+    'ytd-watch-metadata #info-container',
+    '#above-the-fold #info',
+    'ytd-video-primary-info-renderer #info',
+    'ytd-watch-metadata #owner',                       // 備用：owner 區塊
+    'ytd-watch-metadata',                               // 最後手段：整個 metadata 區塊
+];
+
 function renderWatchBadge(videoId, rawIso) {
-    const infoTarget = findElementWithWarn([
-        'ytd-watch-metadata #info',
-        'ytd-watch-metadata #description-inner #info',
-        'ytd-watch-metadata #info-container',
-        '#above-the-fold #info',
-        'ytd-video-primary-info-renderer #info',
-        'ytd-watch-metadata #owner',                       // 備用：owner 區塊
-        'ytd-watch-metadata',                               // 最後手段：整個 metadata 區塊
-    ], 'watch page info target');
-    if (!infoTarget) return;
+    // 找不到時保持安靜：資訊區塊在換頁後要數秒才渲染，
+    // 由 watchInfoMiss 判斷是否「久到不正常」才警告一次（與 Shorts 標題同機制）
+    const infoTarget = findElement(WATCH_INFO_SELECTORS);
+    if (!infoTarget) { noteWatchInfoMiss(); return; }
+    resetWatchInfoMiss();
 
     let descTag = document.getElementById('yt-exact-date-watch-desc');
     if (!descTag) {
@@ -328,27 +328,45 @@ function findActiveShortsTitle() {
     return findElement(SHORTS_TITLE_SELECTORS);
 }
 
-// 連續找不到標題超過這個時間才警告（正常渲染延遲實測約 4~5 秒）
-const SHORTS_TITLE_WARN_AFTER_MS = 20000;
-let shortsTitleMissSince = null; // 本次連續 miss 的起始時間戳
-let shortsTitleWarned = false;   // 每段連續 miss 只警告一次
+// === 共用「連續 miss」計時器 ===
+// YouTube 的元素在換頁後常要數秒才非同步渲染，期間每次掃描都找不到屬正常，
+// 不該每次都對 console 噴警告（會把真正的「選擇器壞了」訊號淹沒）。
+// 改成：連續找不到超過門檻時間才警告一次；一旦成功 reset 就重新計時。
+const MISS_WARN_AFTER_MS = 20000; // 容忍門檻（正常渲染延遲實測約 4~5 秒）
 
-function noteShortsTitleMiss(now = Date.now()) {
-    if (shortsTitleMissSince === null) shortsTitleMissSince = now;
-    if (!shortsTitleWarned && now - shortsTitleMissSince >= SHORTS_TITLE_WARN_AFTER_MS) {
-        shortsTitleWarned = true;
-        console.warn(
-            '[YT Upload Time] Shorts title element still missing after ' +
-            Math.round((now - shortsTitleMissSince) / 1000) +
-            's — YouTube DOM 可能已改版，選擇器需要更新:', SHORTS_TITLE_SELECTORS
-        );
-    }
+function createMissTracker(label, getDetail) {
+    let since = null;  // 本段連續 miss 的起始時間戳
+    let warned = false; // 每段連續 miss 只警告一次
+    return {
+        note(now = Date.now()) {
+            if (since === null) since = now;
+            if (!warned && now - since >= MISS_WARN_AFTER_MS) {
+                warned = true;
+                console.warn(
+                    `[YT Upload Time] ${label} still missing after ` +
+                    Math.round((now - since) / 1000) +
+                    's — YouTube DOM 可能已改版，選擇器需要更新:', getDetail()
+                );
+            }
+        },
+        reset() {
+            since = null;
+            warned = false;
+        },
+    };
 }
 
-function resetShortsTitleMiss() {
-    shortsTitleMissSince = null;
-    shortsTitleWarned = false;
-}
+const shortsTitleMiss = createMissTracker('Shorts title element', () => SHORTS_TITLE_SELECTORS);
+const watchInfoMiss = createMissTracker('Watch page info target', () => WATCH_INFO_SELECTORS);
+
+// 具名包裝：維持既有呼叫點與測試 API
+function noteShortsTitleMiss(now) { shortsTitleMiss.note(now); }
+function resetShortsTitleMiss() { shortsTitleMiss.reset(); }
+function noteWatchInfoMiss(now) { watchInfoMiss.note(now); }
+function resetWatchInfoMiss() { watchInfoMiss.reset(); }
+
+// 向後相容：舊測試引用此常數名
+const SHORTS_TITLE_WARN_AFTER_MS = MISS_WARN_AFTER_MS;
 
 function injectShortsWatchDate() {
     const shortsMatch = window.location.pathname.match(/^\/shorts\/([^/?#]+)/);
@@ -362,25 +380,24 @@ function injectShortsWatchDate() {
         existing.remove();
     }
 
+    // 先決定日期來源，「不等標題渲染」：
+    // 只信任「可驗證屬於這支影片」的頁面日期（head meta 僅在整頁載入的第一支
+    // Short 有效，滑動切換後不可信），其次吃 cache。
+    const pageDate = getPageDateForVideo(videoId, videoId === INITIAL_VIDEO_ID);
+    if (pageDate) cacheRaw(videoId, pageDate);
+    const known = pageDate || (dateCache.has(videoId) ? dateCache.get(videoId) : null);
+
     const titleEl = findActiveShortsTitle();
-    if (!titleEl) { noteShortsTitleMiss(); return; }
-    resetShortsTitleMiss();
-
-    // 只信任「可驗證屬於這支影片」的頁面日期；
-    // head meta 僅在整頁載入的第一支 Short 有效，滑動切換後不可信
-    const rawDate = getPageDateForVideo(videoId, videoId === INITIAL_VIDEO_ID);
-    if (rawDate) {
-        cacheRaw(videoId, rawDate);
-        _doInjectShortsWatchBadge(titleEl, videoId, rawDate);
-        return;
+    if (titleEl) {
+        resetShortsTitleMiss();
+        if (known) { _doInjectShortsWatchBadge(titleEl, videoId, known); return; }
+    } else {
+        noteShortsTitleMiss();
     }
 
-    if (dateCache.has(videoId)) {
-        _doInjectShortsWatchBadge(titleEl, videoId, dateCache.get(videoId));
-        return;
-    }
-
-    _fetchAndInjectShortsWatchDate(videoId);
+    // 日期未知 → 立刻背景抓（與標題渲染並行，而非等標題出現才開始）；
+    // 抓回來後 _fetchAndInjectShortsWatchDate 會自己再找一次標題注入。
+    if (!known) _fetchAndInjectShortsWatchDate(videoId);
 }
 
 async function _fetchAndInjectShortsWatchDate(videoId) {
@@ -408,25 +425,39 @@ function _doInjectShortsWatchBadge(titleEl, videoId, rawIso) {
 }
 
 // ==========================================
-// SPA 換頁事件：清除所有舊 badge 與 processedMark
-// 讓下一次掃描重新注入（badge 另有 data-video-id 比對作雙保險，
-// 涵蓋 Shorts 上下滑等不觸發此事件的切換方式）
+// SPA 換頁 / Shorts 上下滑：URL 一變就「立即」反應
+// 不等 300ms 掃描節流，讓新影片/Short 的日期抓取盡早開跑。
 // ==========================================
-function onNavigateFinish() {
-    // Watch page badge
+let lastSeenUrl = (typeof window !== 'undefined') ? window.location.href : '';
+
+function handleNavigation() {
+    // 清除屬於上一頁的 badge 與卡片標記
+    // （badge 另有 data-video-id 比對作雙保險，涵蓋不觸發任何事件的切換方式）
     const oldTag = document.getElementById('yt-exact-date-watch-desc');
     if (oldTag) oldTag.remove();
-
-    // Shorts watch page badge
     const oldShortsTag = document.getElementById('yt-exact-date-shorts-watch');
     if (oldShortsTag) oldShortsTag.remove();
-
-    // 清除所有影片卡片上的舊標記和舊 badge
-    // YouTube SPA 換頁後會原地更新卡片內容，若不清除則不會重新注入
     document.querySelectorAll('[' + processedMark + ']').forEach(el => {
         el.removeAttribute(processedMark);
         el.querySelectorAll('.yt-exact-date-grid').forEach(b => b.remove());
     });
+
+    // 新頁面 → miss 計時重新開始
+    resetShortsTitleMiss();
+    resetWatchInfoMiss();
+
+    // 立即啟動當前影片/Short 的日期抓取（fetch 在此刻就開跑，
+    // 不必等下一輪 300ms 掃描）；grid 卡片照常交給排程掃描。
+    injectWatchPageDate();
+    injectShortsWatchDate();
+    scheduleScan();
+}
+
+// URL 變了才動作（便宜的字串比對，未變則立即 return）
+function onUrlMaybeChanged() {
+    if (window.location.href === lastSeenUrl) return;
+    lastSeenUrl = window.location.href;
+    handleNavigation();
 }
 
 // ==========================================
@@ -659,7 +690,8 @@ function boot() {
     // 啟動時執行一次清理
     cleanupStaleCache();
 
-    document.addEventListener('yt-navigate-finish', onNavigateFinish);
+    // YouTube SPA 換頁事件（一般影片頁切換多半會觸發）
+    document.addEventListener('yt-navigate-finish', onUrlMaybeChanged);
 
     observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -667,10 +699,15 @@ function boot() {
                 fetchExactDateForVideo(entry.target);
             }
         });
-    }, { rootMargin: '300px' });
+    }, { rootMargin: PREFETCH_MARGIN });
 
-    // 主要：YouTube 新增 DOM 節點時立即觸發
-    const domMutationObserver = new MutationObserver(scheduleScan);
+    // 主要：YouTube 新增 DOM 節點時觸發。
+    // Shorts 上下滑只換內容、不一定發 navigate-finish 事件，但一定會churn DOM，
+    // 所以在這裡先做便宜的 URL 比對搶快（變了就立即抓），再排一般掃描。
+    const domMutationObserver = new MutationObserver(() => {
+        onUrlMaybeChanged();
+        scheduleScan();
+    });
     domMutationObserver.observe(document.body, { childList: true, subtree: true });
 
     // 安全網：3 秒掃一次
@@ -690,8 +727,12 @@ if (typeof module !== 'undefined' && module.exports !== undefined) {
         getPageDateForVideo,
         displayDate,
         findActiveShortsTitle,
+        createMissTracker,
         noteShortsTitleMiss,
         resetShortsTitleMiss,
+        noteWatchInfoMiss,
+        resetWatchInfoMiss,
+        MISS_WARN_AFTER_MS,
         SHORTS_TITLE_WARN_AFTER_MS,
     };
 } else {

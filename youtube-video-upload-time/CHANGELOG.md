@@ -1,5 +1,29 @@
 # Changelog
 
+## [9.9] - 2026-06-15
+
+### Changed
+- **Shorts date appears faster (fetch-on-arrival).** Two changes to cut the lag after scrolling to a new Short:
+  - **Instant reaction to URL change.** A new `onUrlMaybeChanged()` (a cheap string compare) runs on both `yt-navigate-finish` and every DOM mutation, so the moment you land on a new Short / video the date fetch kicks off immediately instead of waiting up to 300ms for the next throttled scan. Robust for Shorts vertical scrolling, which doesn't reliably fire navigation events but always churns the DOM.
+  - **Fetch decoupled from title render.** `injectShortsWatchDate()` previously returned early when the title overlay wasn't rendered yet (it renders ~4-5s after navigation), so the ~1s date fetch only *started* after the title appeared — serialized. The fetch now starts as soon as the Short's video ID is known and runs in parallel with the title rendering; the badge is injected once both are ready.
+- **Note on true "preload the next Short":** investigated the live 2026-06 Shorts DOM and confirmed it's not feasible without fragile internal-API interception — only one reel is mounted, `ytInitialData` carries no upcoming IDs, and no preload/prefetch hints expose the next video. The next Short's ID simply doesn't exist in the page until YouTube fetches it on a real scroll gesture. So this ships the achievable "land → fetch immediately, overlapped" win instead.
+
+## [9.8] - 2026-06-15
+
+### Changed
+- **Earlier prefetch for snappier perceived loading.** The grid's `IntersectionObserver` rootMargin widened 300px → 800px (`PREFETCH_MARGIN`), so a card's exact date is fetched well before it scrolls into view and is usually already shown by the time you reach it. Trade-off: a few cards you never scroll to may get fetched in the background. (The underlying cost — one fetch per uncached video — is inherent to reading exact dates from each watch page; cached videos remain instant.)
+
+## [9.7] - 2026-06-15
+
+### Fixed
+- **Watch page "Could not find watch page info target" console spam**: `renderWatchBadge()` still used the old warn-every-call `findElementWithWarn`, so on a `/watch` page the warning fired on every scan tick during the few seconds the info block takes to render — the same false-alarm pattern v9.6 fixed for Shorts, but on the watch path. It now warns at most once per 20s streak of consecutive misses.
+
+### Changed
+- Extracted the v9.6 Shorts time-based warn-once logic into a shared `createMissTracker(label, getDetail)` factory; the Shorts title tracker and the new watch-info tracker are both instances of it. Removed the now-unused `findElementWithWarn`; watch-info selectors moved to a named `WATCH_INFO_SELECTORS` const.
+
+### Added
+- Tests (5): the shared `createMissTracker` factory (silent-before-threshold, warn-once, reset, independent instances) and the watch-info tracker's silent-delay / warn-once behaviour.
+
 ## [9.6] - 2026-06-12
 
 ### Fixed
