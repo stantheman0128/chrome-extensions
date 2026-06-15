@@ -22,7 +22,50 @@ _(nothing queued — see "Shipped from this roadmap" and "Candidate features" be
   on the correct mode; only the in-between frame can flicker. A generation token would
   make it bullet-proof if it ever becomes noticeable.
 
+### Deferred from the v1.35.0 code review (real, but needs a test + manual verify)
+
+These were verified real but NOT shipped in 1.35.0 because each needs more than a
+surgical edit (new test coverage and/or live-browser verification):
+
+- **Skip rebuilding collapsed sections' innerHTML in `render()`.** A real saving
+  (the dice + resources HTML are rebuilt into zero-height containers on every log
+  event even when collapsed), but it needs a "dirty flag" plus a refresh wired into
+  both expand paths (the fold handler and `setPanelCollapsed`), and a new
+  collapsed→expanded test — otherwise expanding shows stale data.
+- **`boardHidden()` early-break.** Stop the 5-point hit-test loop on the first
+  canvas hit (the common "board visible" case). Logically sound, but `boardHidden`
+  has no test coverage (needs a real browser), so it needs manual verification that
+  overlays still collapse the panel.
+
+Checked and intentionally NOT changed: the bare "won the game" winner-substring
+(the only test-safe tightening is a no-op in practice); the broad `dialogOverlapping`
+selector (its `getComputedStyle` ordering is already optimal and narrowing the
+selector risks missing a per-deploy colonist dialog class). A "collapse the 3
+per-tick player-panel scans" idea was a false positive — there are only 2 and they
+can't share a result.
+
 ## Shipped from this roadmap
+
+### v1.35.0 (2026-06-15)
+- **Internal cleanup + hot-path efficiency (no behaviour change).** A 5-dimension
+  code review (each finding adversarially re-verified against the real code)
+  surfaced 14 safe, behaviour-preserving wins; all shipped together, 160 tests
+  still green. Highlights:
+  - **Perf:** the 1 s tick now skips the full log re-scan + panel reconcile once
+    the game has ENDED or in the lobby (it only ever mattered during play;
+    `attachObserver` stays outside the gate so "play again" is still detected) —
+    the largest sustained per-tick cost. `settingsOpen()` is probed once per
+    posture pass (was twice). `renderStatsView` derives each player's block-loss
+    once. `rollHistory` is capped at 256 (bounds memory + the persisted blob).
+  - **DRY / dead code:** removed the never-called `newGameReset` and the
+    redundant `CARDS_GRID`/`STATS_GRID` aliases (both were just `TABLE_GRID`, and
+    invited a future split that would reintroduce the tab-switch height jump).
+    Extracted shared helpers `zeroResources()`, `takeLargestKnown()`,
+    `rectsOverlap()`, `setGameSig()` for logic that was hand-written 2–4× each.
+  - **Defensive:** an executed-trade line with only one coloured participant can
+    no longer fall through to the gain branch and double-count.
+  - **Consistency:** fixed the stale `state.tally` field-list comment; unified
+    the Monopoly violet with the stats-column violet.
 
 ### v1.34.0 (2026-06-15)
 - **Robber-blocked card loss (raised by Stan)** — new ⛔ Stats column showing the

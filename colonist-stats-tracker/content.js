@@ -15,6 +15,15 @@
   // =============================================================
 
   const RESOURCES = ['lumber', 'brick', 'wool', 'grain', 'ore'];
+
+  // A fresh { lumber:0, brick:0, … } each call (callers mutate it in place),
+  // derived from RESOURCES so the five count buckets can never drift from the
+  // canonical resource list.
+  function zeroResources() {
+    const o = {};
+    for (const r of RESOURCES) o[r] = 0;
+    return o;
+  }
   const RESOURCE_LABEL = {
     lumber: '🌲',
     brick: '🧱',
@@ -113,7 +122,7 @@
     // Live per-player event tally (steals / discards / income / dev cards) and
     // the global robber-blocked-yield counter — colonist only shows these on
     // the end-of-game summary; we surface them live in the Stats section.
-    tally: {},   // name -> { stole, lost, stoleFrom:{}, lostTo:{}, discards, discardCards, gained, devCards }
+    tally: {},   // name -> per-player event tally; see tallyOf() for the full shape
     blocked: { count: 0, byKey: {} }, // byKey: "6 brick" -> times blocked
     gameStartTs: null, // ms epoch — when the current game's clock started
     gameEndTs: null,   // set when the winner line is seen; freezes the clock
@@ -129,7 +138,7 @@
       p = {
         name,
         color: color || '#888',
-        resources: { lumber: 0, brick: 0, wool: 0, grain: 0, ore: 0 },
+        resources: zeroResources(),
         unknown: 0,
       };
       state.players.set(name, p);
@@ -301,20 +310,28 @@
     for (const [type, n] of Object.entries(cost)) takeResource(p, type, n);
   }
 
+  // Remove one card from a player's LARGEST known resource pile (ties broken by
+  // RESOURCES order). Returns false if they hold no known cards. Shared by
+  // transferUnknown (an untyped steal) and reconcileTotal (trimming an over-count)
+  // so the argmax-then-decrement lives in one place.
+  function takeLargestKnown(p) {
+    let best = null;
+    for (const r of RESOURCES) {
+      if (p.resources[r] > 0 && (best === null || p.resources[r] > p.resources[best])) best = r;
+    }
+    if (best === null) return false;
+    p.resources[best] -= 1;
+    return true;
+  }
+
   function transferUnknown(fromP, toP) {
     if (!fromP || !toP) return;
     if (fromP.unknown > 0) {
       fromP.unknown -= 1;
     } else {
-      // Pull a random-ish card from their known pool into our unknown pool.
-      // Pick the type with the highest count to minimise surprise.
-      let best = null;
-      for (const r of RESOURCES) {
-        if (fromP.resources[r] > 0 && (!best || fromP.resources[r] > fromP.resources[best])) {
-          best = r;
-        }
-      }
-      if (best) fromP.resources[best] -= 1;
+      // No unknown card to move — pull from their largest known pile instead, so
+      // the stolen card becomes one of our unknowns (minimises surprise).
+      takeLargestKnown(fromP);
     }
     toP.unknown += 1;
   }
@@ -365,7 +382,7 @@
   }
 
   function countResources(msgEl) {
-    const counts = { lumber: 0, brick: 0, wool: 0, grain: 0, ore: 0 };
+    const counts = zeroResources();
     let total = 0;
     getMessagePart(msgEl).querySelectorAll('img').forEach((img) => {
       const r = resourceFromImg(img);
@@ -515,6 +532,11 @@
         state.diceCounts[sum] += 1;
         state.totalRolls += 1;
         state.rollHistory.push(sum);
+        // Only the last ~12 feed the roll strip and rollsSince() just needs the
+        // most recent occurrence of each sum (2/12 recur ~every 36 rolls), so a
+        // 256 cap is ample and keeps memory + the persisted blob bounded on very
+        // long / abandoned tables.
+        if (state.rollHistory.length > 256) state.rollHistory = state.rollHistory.slice(-256);
         lastRoll = sum;
         // Who rolled the 7s (drives the robber) — shown in the Cards-lost hover.
         if (sum === 7 && player) state.sevenRollers[player.name] = (state.sevenRollers[player.name] || 0) + 1;
@@ -549,6 +571,10 @@
         renderSoon();
         return;
       }
+      // Trade SHAPE claimed even when a participant isn't coloured (refs < 2):
+      // never fall through to the generic " got " gain branch, which would count
+      // the given-away AND received cards as a net gain (double-count).
+      return;
     }
 
     // --- Gained resources (initial placement, roll yield, Year of Plenty) ---
@@ -699,8 +725,8 @@
   // Split resource images in a trade message into "given away" and
   // "received" piles, based on the word "for" (or "and took") in text.
   function splitTradeResources(msgEl) {
-    const give = { lumber: 0, brick: 0, wool: 0, grain: 0, ore: 0 };
-    const recv = { lumber: 0, brick: 0, wool: 0, grain: 0, ore: 0 };
+    const give = zeroResources();
+    const recv = zeroResources();
     let bucket = give;
     const walker = document.createTreeWalker(msgEl, NodeFilter.SHOW_ALL);
     while (walker.nextNode()) {
@@ -2095,8 +2121,6 @@
   // and lets a wider cell like "1:05" bulge its column): this pins all six to the
   // exact same width regardless of content.
   const TABLE_GRID = 'minmax(120px,2.6fr) repeat(6, minmax(0, 0.8fr))';
-  const CARDS_GRID = TABLE_GRID;
-  const STATS_GRID = TABLE_GRID;
   const HEAD_SLOT = 'height:2.3em;display:flex;align-items:center;justify-content:center;';
 
   function nameCell(p, prof, active) {
@@ -2155,7 +2179,7 @@
         </span>
       </span>`;
     };
-    const head = tableHead(uiState.resOrder.map(iconCell).join(''), CARDS_GRID);
+    const head = tableHead(uiState.resOrder.map(iconCell).join(''), TABLE_GRID);
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
     return head + players.map((p) => {
@@ -2168,7 +2192,7 @@
           }
           return `<span data-res="${r}" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}">${p.resources[r]}</span>`;
         }).join('');
-      return rowShell(p, active, cells, CARDS_GRID);
+      return rowShell(p, active, cells, TABLE_GRID);
     }).join('');
   }
 
@@ -2190,7 +2214,7 @@
         `<span style="white-space:nowrap;">${tpl.split('{who}').join(nameB(who)).split('{n}').join(c)}</span>`);
   }
 
-  const MONO = '#8a52c2';
+  const MONO = '#8a67c2';   // matches the stats-column violet (rgb 138,103,194)
   // Monopoly lines, kept visually distinct (🎺, violet): what THIS player took
   // (side 'took', map {res:n}) or lost to others (side 'lost', map {thief:{res:n}}).
   function monoLines(name, side) {
@@ -2297,9 +2321,7 @@
     const lines = [...who]
       .sort((a, b) => (gave[b] || 0) - (gave[a] || 0))
       .map((opp) => {
-        const p = state.players.get(opp);
-        const nameHtml = `<b style="color:${escapeAttr((p && p.color) || THEME.accent)};">${escapeHtml(opp)}</b>`;
-        return `<span style="white-space:nowrap;">${nameHtml} ` +
+        return `<span style="white-space:nowrap;">${nameB(opp)} ` +
           `<span style="color:#9c3018;">→${gave[opp] || 0}</span> ` +
           `<span style="color:#1f6b1f;">←${got[opp] || 0}</span></span>`;
       });
@@ -2345,7 +2367,7 @@
       const c = COL_BY_KEY[key];
       return `<span data-res="${c.key}" data-colhead="1" data-tip="${c.tip}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">` +
         `<span style="font-size:1.5em;line-height:1;">${c.icon}</span></span>`;
-    }).join(''), STATS_GRID);
+    }).join(''), TABLE_GRID);
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
     const rows = players.map((p) => {
@@ -2354,11 +2376,12 @@
       const ty = state.tally[p.name] || {};
       const tradeFed = ty.tradeGave ? Object.values(ty.tradeGave).reduce((s, n) => s + n, 0) : 0;
       const hasTrade = tradeFed > 0 || (ty.tradeGot && Object.keys(ty.tradeGot).length);
-      const hasBlock = blockLossOf(p.name) > 0;
+      const bl = blockLossOf(p.name);
+      const hasBlock = bl > 0;
       const hasLost = (ty.lostTo && Object.keys(ty.lostTo).length) ||
         (ty.monoLost && Object.keys(ty.monoLost).length) || (state.diceCounts[7] > 0);
       const vals = {
-        's-block': { v: blockLossOf(p.name), bd: hasBlock ? 'block' : null },
+        's-block': { v: bl, bd: hasBlock ? 'block' : null },
         's-lost':  { v: ty.lost || 0, bd: hasLost ? 'lost' : null },
         's-disc':  { v: ty.discardCards || 0, tip: ty.discards ? t('discardEvents', '{n} discard events', { n: ty.discards }) : '' },
         's-gain':  { v: ty.gained || 0, pie: ty.gained ? p.name : null },
@@ -2375,7 +2398,7 @@
           `${tip ? `data-tip="${escapeHtml(tip)}" ` : ''}` +
           `style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${v ? '' : `color:${THEME.textDim};opacity:.4;`}">${disp != null ? escapeHtml(disp) : v}</span>`;
       }).join('');
-      return rowShell(p, active, cells, STATS_GRID);
+      return rowShell(p, active, cells, TABLE_GRID);
     }).join('');
     // (The robber-blocked breakdown line was dropped by request — the events
     // are still tallied and archived per game, just not displayed here.)
@@ -2546,9 +2569,15 @@
       // re-render). Re-discover it every tick — otherwise the observer keeps
       // watching a detached node and updates silently stop. attachObserver()
       // is a cheap no-op while the container is unchanged.
-      if (!rescraping) attachObserver();
-      if (observedContainer && observedContainer.isConnected) scanExisting(observedContainer);
-      if (syncFromPanel()) renderSoon();
+      if (!rescraping) attachObserver();   // stays outside the gate — detects the "play again" container in ENDED
+      // The MutationObserver already catches live row additions; this per-tick
+      // full re-scan + panel reconcile is only a fallback for the *recycling*
+      // virtual list, which can only change during play. Skipping it once the
+      // game has ENDED (or in the lobby) drops the largest sustained per-tick cost.
+      if (lifecycle === LIFE.PLAYING) {
+        if (observedContainer && observedContainer.isConnected) scanExisting(observedContainer);
+        if (syncFromPanel()) renderSoon();
+      }
     }, 1000);
 
   }
@@ -2557,6 +2586,10 @@
   // and the previous tick's live roster (so a roster change must settle before we act).
   let gameSig = '';
   let lastLiveSig = '';
+  // gameSig and lastLiveSig move together everywhere EXCEPT maybeNewGame's
+  // "new game settled" branch (which sets gameSig but tracks lastLiveSig to the
+  // live tick). This helper makes the paired writes explicit.
+  function setGameSig(sig) { gameSig = sig; lastLiveSig = sig; }
 
   // Reset all tracked stats. Shared by new-game detection, the panel, and tests.
   function resetState() {
@@ -2578,8 +2611,7 @@
     state.tally = {};
     state.blocked = { count: 0, byKey: {} };
     lastRoll = null;
-    gameSig = '';
-    lastLiveSig = '';
+    setGameSig('');
     lastCounts = null;  // don't shower "+N" floats diffing against the old game
   }
 
@@ -2641,10 +2673,7 @@
         name: p.name,
         color: p.color || '#888',
         unknown: p.unknown || 0,
-        resources: {
-          lumber: res.lumber || 0, brick: res.brick || 0, wool: res.wool || 0,
-          grain: res.grain || 0, ore: res.ore || 0,
-        },
+        resources: Object.fromEntries(RESOURCES.map((r) => [r, res[r] || 0])),
       });
     }
     justRestored = state.players.size > 0;
@@ -2671,8 +2700,7 @@
       if (state.players.size && [...state.players.keys()].some((n) => !liveNames.has(n))) {
         startNextGame();
       }
-      gameSig = liveSig;
-      lastLiveSig = liveSig;
+      setGameSig(liveSig);
       return;
     }
 
@@ -2682,19 +2710,6 @@
       gameSig = liveSig;
     }
     lastLiveSig = liveSig;
-  }
-
-  // Manual "this is a new game": clear tracking and re-read the current game.
-  function newGameReset() {
-    resetState();
-    lifecycle = inGameNow() ? LIFE.PLAYING : LIFE.LOBBY;
-    const live = readPlayerPanel();
-    gameSig = live ? rosterSig(live) : '';
-    lastLiveSig = gameSig;
-    if (observedContainer) scanExisting(observedContainer);
-    syncFromPanel();
-    persistState();
-    if (panel) render();
   }
 
   // =============================================================
@@ -2844,6 +2859,11 @@
       parseFloat(cs.opacity || '1') >= 0.1 ? cs : null;
   }
 
+  // Pure AABB overlap test — shared by dialogOverlapping and tradeOverlapping.
+  function rectsOverlap(a, b) {
+    return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+  }
+
   // A colonist dialog/menu overlapping the panel WHILE the board is still visible
   // (the 'full' fade tier) — e.g. the in-game settings menu / a dropdown. (When
   // colonist takes the WHOLE screen the board-canvas centre is gone and
@@ -2852,8 +2872,6 @@
   function dialogOverlapping(pr) {
     const vw = window.innerWidth, vh = window.innerHeight;
     if (!vw || !vh) return false;
-    const overlapsPanel = (r) => !(r.right < pr.left || r.left > pr.right ||
-                                   r.bottom < pr.top || r.top > pr.bottom);
     const cands = document.querySelectorAll(
       '[class*="modal"], [class*="dialog"], [class*="overlay"], [class*="settings"], ' +
       '[class*="menu"], [class*="popover"], [class*="popup"], [class*="drawer"], ' +
@@ -2862,7 +2880,7 @@
       if (el === panel || panel.contains(el) || el.contains(panel)) continue;
       const r = el.getBoundingClientRect();
       if (r.width * r.height < 24000) continue;         // ignore chips / tooltips
-      if (!overlapsPanel(r)) continue;
+      if (!rectsOverlap(r, pr)) continue;
       const cs = elVisible(el);
       if (!cs) continue;
       if (cs.position !== 'fixed' && cs.position !== 'absolute') continue;
@@ -2899,13 +2917,11 @@
   // reserve — so parking the panel over the bottom bar no longer masks the edge.
   function tradeOverlapping(pr) {
     if (!tradeCreatorOpen()) return false;
-    const overlapsPanel = (r) => !(r.right < pr.left || r.left > pr.right ||
-                                   r.bottom < pr.top || r.top > pr.bottom);
     for (const el of document.querySelectorAll('[class*="tradeCreator"]')) {
       if (el === panel || panel.contains(el) || el.contains(panel)) continue;
       const r = el.getBoundingClientRect();
       if (r.width * r.height < 4000) continue;          // skip slivers
-      if (!overlapsPanel(r)) continue;
+      if (!rectsOverlap(r, pr)) continue;
       if (!elVisible(el)) continue;
       return true;
     }
@@ -2970,12 +2986,11 @@
     const el = document.querySelector('[class*="gameSettingsContainer"]');
     return !!(el && el.children.length > 0);
   }
-  function updateSettingsPosture() {
+  function updateSettingsPosture(isOpen = settingsOpen()) {
     if (!panel) return;
-    const open = settingsOpen();
-    if (open === settingsOpenPrev) return;   // edge-triggered, like the lifecycle
-    settingsOpenPrev = open;
-    if (open) {
+    if (isOpen === settingsOpenPrev) return;   // edge-triggered, like the lifecycle
+    settingsOpenPrev = isOpen;
+    if (isOpen) {
       if (!uiState.panelCollapsed) { collapsedForSettings = true; setPanelCollapsed(true); }
     } else if (collapsedForSettings) {
       collapsedForSettings = false;
@@ -3028,13 +3043,13 @@
 
   let boardHiddenPrev = false;
   let collapsedForBoard = false;
-  function updateBoardPosture() {
+  function updateBoardPosture(isSettingsOpen = settingsOpen()) {
     if (!panel) return;
     // Lifecycle owns lobby/ended posture; only manage in-game overlays. Reset our
     // edge state when not playing so we re-evaluate cleanly when play resumes.
     if (lifecycle !== LIFE.PLAYING) { boardHiddenPrev = false; collapsedForBoard = false; return; }
     // Settings has its own (DOM-shell) posture — don't double-handle it.
-    if (settingsOpen()) return;
+    if (isSettingsOpen) return;
     const hidden = boardHidden();
     const action = boardPostureAction({
       hidden, prevHidden: boardHiddenPrev,
@@ -3056,8 +3071,9 @@
   function runPostureGhost() {
     if (reactScheduled) { clearTimeout(reactScheduled); reactScheduled = null; }
     lastReact = Date.now();
-    updateSettingsPosture();
-    updateBoardPosture();
+    const isSettingsOpen = settingsOpen();   // one probe, shared by both posture checks
+    updateSettingsPosture(isSettingsOpen);
+    updateBoardPosture(isSettingsOpen);
     updateGhost();
   }
   function schedulePostureGhost() {
@@ -3137,8 +3153,7 @@
       resetState();
       state.gameStartTs = keep.start;
       state.gameEndTs = keep.end;
-      gameSig = keep.sig;
-      lastLiveSig = keep.sig;
+      setGameSig(keep.sig);
       lifecycle = keep.life;
 
       const sc = scrollableOf(container);
@@ -3187,15 +3202,7 @@
     const fromUnknown = Math.min(p.unknown, excess);
     p.unknown -= fromUnknown;
     excess -= fromUnknown;
-    while (excess > 0) {
-      let best = null;
-      for (const r of RESOURCES) {
-        if (p.resources[r] > 0 && (best === null || p.resources[r] > p.resources[best])) best = r;
-      }
-      if (best === null) break;
-      p.resources[best] -= 1;
-      excess -= 1;
-    }
+    while (excess > 0 && takeLargestKnown(p)) excess -= 1;
     return true;
   }
 
@@ -3234,7 +3241,6 @@
       reconcileTotal,
       syncFromPanel,
       maybeNewGame,
-      newGameReset,
       persistState,
       restoreState,
       // Lifecycle / timer (auto collapse-expand state machine).
