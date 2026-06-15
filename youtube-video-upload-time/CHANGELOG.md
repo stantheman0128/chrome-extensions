@@ -1,5 +1,10 @@
 # Changelog
 
+## [9.10] - 2026-06-15
+
+### Fixed
+- **Chrome Web Store upload rejection: en description too long (223 > 132 chars).** The `en` locale's `extensionDescription` predated our work and exceeded the store's 132-char manifest description limit. Trimmed to 130 chars ("Show precise YouTube upload dates, down to the second on videos & Shorts. Works on home, subscriptions, history, playlists & more."). zh_TW (73 chars) and both names were already within limits.
+
 ## [9.9] - 2026-06-15
 
 ### Changed

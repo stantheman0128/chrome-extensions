@@ -3,6 +3,6 @@
     "message": "YouTube Precise Time"
   },
   "extensionDescription": {
-    "message": "Show precise upload dates (down to the second) on YouTube. Stream-based fetching + persistent cache for minimal resource usage. Supports all pages: home, recommendations, subscriptions, history, playlists, Shorts, and more."
+    "message": "Show precise YouTube upload dates, down to the second on videos & Shorts. Works on home, subscriptions, history, playlists & more."
   }
 }
