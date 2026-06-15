@@ -906,7 +906,7 @@
   // pair to breathe (else digits); 'faces'/'digits' are sticky manual overrides.
   // resView: the player table shows resource columns ('cards') or the live
   // event stats ('stats') — same players, same rows, switched via header tabs.
-  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, resView: 'cards', mode: 'large', fontScale: 1, diceMode: 'auto' };
+  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, resView: 'cards', mode: 'large', fontScale: 1, diceMode: 'auto', resOrder: ['lumber', 'brick', 'wool', 'grain', 'ore', 'unknown'], statOrder: ['s-block', 's-lost', 's-disc', 's-gain', 's-turn', 's-trade'] };
   // True only while a LEFT/RIGHT edge is being dragged: that gesture changes the
   // panel WIDTH without rescaling the text (the width→font zoom is reserved for
   // the bottom-right corner). The ResizeObserver checks this to skip the zoom.
@@ -1185,7 +1185,9 @@
     uiState.resCollapsed = false;
     uiState.fontScale = 1;
     uiState.diceMode = 'auto';
-    saveUI({ presets: DEFAULT_PRESETS, diceCollapsed: false, resCollapsed: false, fontScale: 1, diceMode: 'auto' });
+    uiState.resOrder = RES_ORDER_DEF.slice();
+    uiState.statOrder = STAT_ORDER_DEF.slice();
+    saveUI({ presets: DEFAULT_PRESETS, diceCollapsed: false, resCollapsed: false, fontScale: 1, diceMode: 'auto', resOrder: RES_ORDER_DEF.slice(), statOrder: STAT_ORDER_DEF.slice() });
     panel.querySelector('#cst-body').style.display = 'flex';
     panel.querySelectorAll('.cst-chev').forEach((c) => { c.textContent = '▾'; });
     applySectionInit();
@@ -1207,6 +1209,8 @@
     uiState.diceCollapsed = !!ui.diceCollapsed;
     uiState.resCollapsed = !!ui.resCollapsed;
     uiState.resView = ui.resView === 'stats' ? 'stats' : 'cards';
+    uiState.resOrder = reconcileOrder(ui.resOrder, RES_ORDER_DEF);
+    uiState.statOrder = reconcileOrder(ui.statOrder, STAT_ORDER_DEF);
     uiState.fontScale = ui.fontScale || 1;
     uiState.diceMode = ui.diceMode || 'auto';
     uiState.mode = 'large';                       // auto-enlarge to the large preset on appear
@@ -1948,6 +1952,22 @@
     { key: 's-turn',  icon: '⏱', tip: t('statTurn', 'Average turn length (live rolls only)') },
     { key: 's-trade', icon: '🤝', tip: t('statTrade', 'Cards traded away (hover for who fed whom)') },
   ];
+
+  // Canonical column orders (the drag-reorder baseline). RES order includes the
+  // unknown/stolen-card column so it reorders like any other.
+  const RES_ORDER_DEF = ['lumber', 'brick', 'wool', 'grain', 'ore', 'unknown'];
+  const STAT_ORDER_DEF = STAT_COLS.map((c) => c.key);
+  const COL_BY_KEY = STAT_COLS.reduce((m, c) => { m[c.key] = c; return m; }, {});
+
+  // Keep a saved order forward-compatible across versions that add/remove a
+  // column: keep saved keys that still exist (in their saved order), then append
+  // any canonical key the save is missing. Garbage/empty input → canonical.
+  function reconcileOrder(saved, canonical) {
+    const ok = new Set(canonical);
+    const kept = (Array.isArray(saved) ? saved : []).filter((k) => ok.has(k));
+    for (const k of canonical) if (!kept.includes(k)) kept.push(k);
+    return kept;
+  }
 
   // Wide player column (avatar + name + hand total) + the value columns.
   // Header cells in BOTH views sit in the same fixed-height slot, so switching
@@ -3129,6 +3149,7 @@
       diceFromImg,
       dieFaceHTML,
       getUiState: () => uiState,
+      reconcileOrder,
       // UI entry points (exposed so the jsdom smoke test can render the panel).
       createPanel,
       render,
