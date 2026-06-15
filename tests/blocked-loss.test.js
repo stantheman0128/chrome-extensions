@@ -35,3 +35,10 @@ test('Year-of-Plenty take is NOT learned as a yield', () => {
   const ty = cst.state.tally['StanTheMan01'] || {};
   assert.equal(ty.produces == null || ty.produces[4] == null, true);
 });
+
+test('block message records "N res" key (resource read from the tile image)', () => {
+  cst.resetState();
+  feed(fixtures.blocked_by_robber);    // prob_11 + generated_tile_wool
+  assert.equal(cst.state.blocked.count, 1);
+  assert.equal(cst.state.blocked.byKey['11 wool'], 1);
+});

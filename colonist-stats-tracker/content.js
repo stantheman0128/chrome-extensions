@@ -451,7 +451,12 @@
         if (m) num = parseInt(m[1], 10);
       }
       let res = null;
-      for (const r of RESOURCES) if (text.includes(r)) { res = r; break; }
+      getMessagePart(msgEl).querySelectorAll('img').forEach((img) => {
+        const blob = (img.getAttribute('src') || '') + ' ' + (img.getAttribute('alt') || '');
+        const m = blob.match(/generated_tile_(\w+)/i) || blob.match(/\b(lumber|brick|wool|grain|ore)\b/i);
+        if (m && RESOURCES.includes(m[1].toLowerCase())) res = m[1].toLowerCase();
+      });
+      if (!res) for (const r of RESOURCES) if (text.includes(r)) { res = r; break; }
       state.blocked.count += 1;
       const key = `${num != null ? num + ' ' : ''}${res || 'tile'}`;
       state.blocked.byKey[key] = (state.blocked.byKey[key] || 0) + 1;
