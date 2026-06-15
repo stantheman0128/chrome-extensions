@@ -83,8 +83,8 @@
   "currentTurn": {
     "message": "current turn"
   },
-  "statBlock": { "message": "Cards lost to robber-blocked tiles (precise after warm-up)" },
-  "blockReportTitle": { "message": "Lost to robber-blocked tiles" },
+  "statBlock": { "message": "Cards blocked" },
+  "blockReportTitle": { "message": "Cards blocked" },
   "statLost": {
     "message": "Cards lost (Knights) — hover for who & 7s"
   },

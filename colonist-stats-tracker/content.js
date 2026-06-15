@@ -882,7 +882,10 @@
   // emoji if the URL ever 404s, keeping us CSP-safe (no inline error handlers).
   function iconImg(r, em) {
     const w = (em * 0.7125).toFixed(3);
-    return `<img src="${escapeAttr(RESOURCE_ICON[r])}" alt="${RESOURCE_LABEL[r]}" ` +
+    // draggable="false": these card icons double as the column-drag handles in the
+    // Resources header. A native <img> drag would hijack our pointer reorder
+    // gesture (Stats columns use text emoji and were unaffected).
+    return `<img src="${escapeAttr(RESOURCE_ICON[r])}" alt="${RESOURCE_LABEL[r]}" draggable="false" ` +
       `style="height:${em}em;width:${w}em;vertical-align:middle;">`;
   }
 
@@ -2043,7 +2046,7 @@
   // and builds stay TALLIED (and archived per game) but aren't displayed —
   // colonist's own dashboard already shows them; four columns breathe better.
   const STAT_COLS = [
-    { key: 's-block', icon: '⛔', tip: t('statBlock', 'Cards lost to robber-blocked tiles (precise after warm-up)') },
+    { key: 's-block', icon: '⛔', tip: t('statBlock', 'Cards blocked') },
     { key: 's-lost',  icon: '💔', tip: t('statLost', 'Cards lost (Knights) — hover for who & 7s') },
     { key: 's-disc',  icon: '🗑️', tip: t('statDisc', 'Cards discarded (rolled 7)') },
     { key: 's-gain',  icon: '📥', tip: t('statGain', 'Cards gained') },
@@ -2263,7 +2266,7 @@
     const lines = rows.map((r) =>
       `<span style="white-space:nowrap;display:inline-flex;align-items:center;gap:3px;">` +
       `${iconImg(r.res, 1.15)} <b>${r.num}</b> ×${r.times} = ${r.cards}</span>`);
-    const header = escapeHtml(t('blockReportTitle', 'Lost to robber-blocked tiles'));
+    const header = escapeHtml(t('blockReportTitle', 'Cards blocked'));
     return `<span style="display:flex;flex-direction:column;gap:2px;">` +
       `<b style="margin-bottom:1px;">${header}</b>${lines.join('')}</span>`;
   }

@@ -57,3 +57,19 @@ test('reorderKeys moves a key forward and backward', () => {
   assert.deepEqual(cst.reorderKeys(a, 3, 1), ['a', 'd', 'b', 'c']);
   assert.deepEqual(cst.reorderKeys(a, 1, 1), ['a', 'b', 'c', 'd']);
 });
+
+// Regression: the Resources header uses <img> card icons (Stats uses text emoji).
+// A browser <img> is natively draggable by default, so pressing+dragging a
+// resource icon starts a native image drag that hijacks our pointer-based column
+// reorder — Resources columns become un-reorderable while Stats stay fine. The
+// fix is draggable="false" on the icon images. (jsdom can't simulate native DnD,
+// so we lock the invariant: header icons must not be natively draggable.)
+test('card header icons are not natively draggable', () => {
+  cst.resetState();
+  cst.createPanel();
+  cst.getUiState().resView = 'cards';
+  cst.render();
+  const img = document.querySelector('#cst-res-wrap [data-colhead] img');
+  assert.ok(img, 'a card header icon image exists');
+  assert.equal(img.getAttribute('draggable'), 'false');
+});

@@ -83,8 +83,8 @@
   "currentTurn": {
     "message": "目前回合"
   },
-  "statBlock": { "message": "被搶匪卡田少收的牌（暖機後精準）" },
-  "blockReportTitle": { "message": "被搶匪卡田的損失" },
+  "statBlock": { "message": "被卡掉的牌" },
+  "blockReportTitle": { "message": "被卡掉的牌" },
   "statLost": {
     "message": "被偷的牌（騎士）— hover 看被誰偷與 7 點"
   },
