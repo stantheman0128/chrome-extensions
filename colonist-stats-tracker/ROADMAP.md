@@ -24,6 +24,23 @@ _(nothing queued — see "Shipped from this roadmap" and "Candidate features" be
 
 ## Shipped from this roadmap
 
+### v1.34.0 (2026-06-15)
+- **Robber-blocked card loss (raised by Stan)** — new ⛔ Stats column showing the
+  cards you *would* have collected but lost to the robber sitting on a tile you
+  build on. Pure log-derived (colonist's board is a canvas — no geometry to read):
+  each player's per-number yield is learned from clean (un-blocked) rolls, and loss
+  is the **derived** sum `blocked-count × your yield for that number+resource`, so a
+  tile blocked before its number warmed up is credited retroactively (backfill is
+  automatic). Honest floor: a tile never once rolled clean stays uncredited. The
+  hover breaks it down per `N res ×times = cards`. Replaces the ⚔️ "cards stolen"
+  column (which only mirrored 💔 "cards lost" — same cards, opposite side; redundant
+  in 2-player games). The lifetime popup aggregates block-loss too.
+- **Drag-reorder columns (raised by Stan)** — both the Resources and Stats tables
+  reorder by dragging a column's **header icon** (4px threshold to start; the whole
+  column slides live; release to drop). Order persists per view and resets with
+  "Restore defaults". `reconcileOrder()` keeps saved orders forward-compatible when
+  columns are added/removed across versions.
+
 ### v1.33.0 (2026-06-15)
 - **Snappier collapse/fade reaction (raised by Stan)** — the lag was the 250 ms
   leading-edge throttle on the posture/ghost checks, not slow computation.
