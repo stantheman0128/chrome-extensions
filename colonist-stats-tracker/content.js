@@ -1560,6 +1560,14 @@
   function wireColumnDrag(host) {
     let d = null; // active drag context
 
+    // Authoritatively kill any native HTML5 drag (card image OR a stray text
+    // selection) that starts on a column header. draggable="false" only covers
+    // images; cancelling dragstart covers every source, so the browser never
+    // shows the "no-drop" 🚫 cursor or hijacks our pointer reorder.
+    host.addEventListener('dragstart', (e) => {
+      if (e.target.closest && e.target.closest('[data-colhead]')) e.preventDefault();
+    });
+
     host.addEventListener('pointerdown', (e) => {
       const head = e.target.closest && e.target.closest('[data-colhead]');
       if (!head || !host.contains(head)) return;

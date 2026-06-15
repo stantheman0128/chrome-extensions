@@ -73,3 +73,18 @@ test('card header icons are not natively draggable', () => {
   assert.ok(img, 'a card header icon image exists');
   assert.equal(img.getAttribute('draggable'), 'false');
 });
+
+// A native drag starting on a header (image OR text selection) must be cancelled
+// at dragstart — else the browser shows a no-drop 🚫 cursor and steals the
+// pointer reorder. draggable="false" alone doesn't cover selection drags.
+test('native dragstart on a column header is prevented', () => {
+  cst.resetState();
+  cst.createPanel();
+  cst.getUiState().resView = 'cards';
+  cst.render();
+  const head = document.querySelector('#cst-res-wrap [data-colhead]');
+  assert.ok(head, 'a header cell exists');
+  const ev = new window.Event('dragstart', { bubbles: true, cancelable: true });
+  head.dispatchEvent(ev);
+  assert.equal(ev.defaultPrevented, true);
+});
