@@ -919,6 +919,7 @@
   // Most recent rolled sum (2..12). A bare "got" production message is attributed
   // to this number to learn the yield map. Reset on new game.
   let lastRoll = null;
+  let dragging = false;   // true while a column is being dragged (suppresses tooltips/highlight)
   // At/above this panel width, auto-mode renders the bottom value as dice (vs a digit).
   const DICE_AUTO_W = 372;
   function diceFacesActive() {
@@ -1525,6 +1526,7 @@
       placeTip(e);
     });
     host.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+    wireColumnDrag(host);
 
     // Click the bottom value → flip digits ⇄ dice (a sticky manual override of the
     // auto-by-width default), with a springy fade swap. Only the value spans are
@@ -1544,6 +1546,100 @@
     applySectionInit();
     updateViewTabs();
     if (uiState.panelCollapsed) setPanelCollapsed(true);
+  }
+
+  // Drag-reorder the value columns by their header icons. Press an icon and move
+  // past a small threshold to start; the whole column (header + every row cell,
+  // selected by its shared data-res) follows the pointer while the others slide
+  // to make room. On release the order array is updated, persisted, re-rendered.
+  function wireColumnDrag(host) {
+    let d = null; // active drag context
+
+    host.addEventListener('pointerdown', (e) => {
+      const head = e.target.closest && e.target.closest('[data-colhead]');
+      if (!head || !host.contains(head)) return;
+      const wrap = host.querySelector('#cst-res-wrap');
+      if (!wrap || !wrap.contains(head)) return;
+      const view = uiState.resView;                       // 'cards' | 'stats'
+      const order = (view === 'stats' ? uiState.statOrder : uiState.resOrder).slice();
+      const key = head.getAttribute('data-res');
+      const fromIdx = order.indexOf(key);
+      if (fromIdx < 0) return;
+      const heads = order.map((k) => wrap.querySelector(`[data-colhead][data-res="${k}"]`));
+      if (heads.some((h) => !h)) return;
+      const centers = heads.map((h) => {
+        const r = h.getBoundingClientRect();
+        return r.left + r.width / 2;
+      });
+      const step = centers.length > 1 ? (centers[1] - centers[0]) : 40;
+      d = { view, order, key, fromIdx, toIdx: fromIdx, startX: e.clientX, started: false, wrap, step, centers };
+      try { head.setPointerCapture(e.pointerId); } catch (_) {}
+      e.preventDefault();
+      e.stopPropagation();                                // don't start a panel move
+    });
+
+    host.addEventListener('pointermove', (e) => {
+      if (!d) return;
+      const dx = e.clientX - d.startX;
+      if (!d.started) {
+        if (Math.abs(dx) < 4) return;                     // below threshold: still a click
+        d.started = true;
+        dragging = true;
+      }
+      const draggedCentre = d.centers[d.fromIdx] + dx;
+      let toIdx = 0;
+      for (let i = 0; i < d.centers.length; i++) if (draggedCentre > d.centers[i]) toIdx = i;
+      d.toIdx = Math.max(0, Math.min(d.order.length - 1, toIdx));
+      applyColumnShift(d, dx);
+    });
+
+    function endDrag() {
+      if (!d) return;
+      const ctx = d; d = null;
+      clearColumnShift(ctx.wrap);
+      if (ctx.started && ctx.toIdx !== ctx.fromIdx) {
+        const next = reorderKeys(ctx.order, ctx.fromIdx, ctx.toIdx);
+        if (ctx.view === 'stats') { uiState.statOrder = next; saveUI({ statOrder: next }); }
+        else { uiState.resOrder = next; saveUI({ resOrder: next }); }
+        render();
+      }
+      dragging = false;
+    }
+    host.addEventListener('pointerup', endDrag);
+    host.addEventListener('pointercancel', endDrag);
+  }
+
+  // Translate each column group so the dragged one follows the pointer and the
+  // others open a gap. Columns are selected by their shared data-res (header +
+  // body cells), scoped to the table wrap.
+  function applyColumnShift(d, dx) {
+    for (let i = 0; i < d.order.length; i++) {
+      const k = d.order[i];
+      let tx = 0;
+      if (i === d.fromIdx) {
+        tx = dx;
+      } else if (d.fromIdx < d.toIdx && i > d.fromIdx && i <= d.toIdx) {
+        tx = -d.step;
+      } else if (d.fromIdx > d.toIdx && i < d.fromIdx && i >= d.toIdx) {
+        tx = d.step;
+      }
+      const cells = d.wrap.querySelectorAll(`[data-res="${k}"]`);
+      cells.forEach((c) => {
+        c.style.transition = (i === d.fromIdx) ? 'none' : 'transform .15s ease';
+        c.style.transform = tx ? `translateX(${tx}px)` : '';
+        c.style.position = (i === d.fromIdx && tx) ? 'relative' : '';
+        c.style.zIndex = (i === d.fromIdx && tx) ? '5' : '';
+      });
+    }
+  }
+
+  function clearColumnShift(wrap) {
+    wrap.querySelectorAll('[data-res]').forEach((c) => {
+      c.style.transition = '';
+      c.style.transform = '';
+      c.style.position = '';
+      c.style.zIndex = '';
+    });
   }
 
   function makeDraggable(el, handle) {
@@ -1967,6 +2063,13 @@
     const kept = (Array.isArray(saved) ? saved : []).filter((k) => ok.has(k));
     for (const k of canonical) if (!kept.includes(k)) kept.push(k);
     return kept;
+  }
+
+  function reorderKeys(arr, from, to) {
+    const next = arr.slice();
+    const [k] = next.splice(from, 1);
+    next.splice(Math.max(0, Math.min(next.length, to)), 0, k);
+    return next;
   }
 
   // Wide player column (avatar + name + hand total) + the value columns.
@@ -3154,6 +3257,7 @@
       dieFaceHTML,
       getUiState: () => uiState,
       reconcileOrder,
+      reorderKeys,
       // UI entry points (exposed so the jsdom smoke test can render the panel).
       createPanel,
       render,

@@ -50,3 +50,10 @@ test('cards header renders in resOrder (unknown reorderable)', () => {
   cst.render();
   assert.deepEqual(headKeys(), ['unknown', 'lumber', 'brick', 'wool', 'grain', 'ore']);
 });
+
+test('reorderKeys moves a key forward and backward', () => {
+  const a = ['a', 'b', 'c', 'd'];
+  assert.deepEqual(cst.reorderKeys(a, 0, 2), ['b', 'c', 'a', 'd']);
+  assert.deepEqual(cst.reorderKeys(a, 3, 1), ['a', 'd', 'b', 'c']);
+  assert.deepEqual(cst.reorderKeys(a, 1, 1), ['a', 'b', 'c', 'd']);
+});
