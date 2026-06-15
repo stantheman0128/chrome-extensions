@@ -48,12 +48,12 @@ test('UI renders the full panel: dice bars + %, merged resources/bank, player ro
   assert.equal(tabs.length, 2);
   panel.querySelector('[data-resview="stats"]').click();
   await sleep(320);   // the switch slide-fades (render happens ~160ms in)
-  assert.equal(resources.querySelectorAll('span[data-res="s-stole"]').length, 3,
+  assert.equal(resources.querySelectorAll('span[data-res="s-block"]').length, 3,
     'stats header + one cell per player');
   assert.match(resources.textContent, /StanTheMan01/);
   panel.querySelector('[data-resview="cards"]').click();
   await sleep(320);
-  assert.equal(resources.querySelectorAll('span[data-res="s-stole"]').length, 0,
+  assert.equal(resources.querySelectorAll('span[data-res="s-block"]').length, 0,
     'back to the resource columns');
 
   // Foldable sections each expose a data-fold header (dice + resources).

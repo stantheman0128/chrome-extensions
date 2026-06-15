@@ -10,7 +10,7 @@ global.localStorage = {
   removeItem: (k) => store.delete(k),
 };
 
-const { cst, makeMessage, feed } = require('./helpers/setup');
+const { cst, makeMessage, feed, document } = require('./helpers/setup');
 const { fixtures } = require('./fixtures/game-log');
 
 test('clean roll teaches the yield map for the gainer', () => {
@@ -60,4 +60,15 @@ test('block loss backfills once the number warms up', () => {
   feed(fixtures.roll_2_2);
   feed(fixtures.got_bot_brick_grain);       // now produces[Richia][4].brick = 1
   assert.equal(cst.blockLossOf('Richia'), 2); // retroactively credited
+});
+
+test('Stats view shows the block column and not the stolen column', () => {
+  cst.resetState();
+  cst.createPanel();
+  cst.getUiState().resView = 'stats';
+  cst.render();
+  const wrap = document.querySelector('#cst-res-wrap');
+  assert.ok(wrap, 'res wrap exists');
+  assert.ok(wrap.querySelector('[data-res="s-block"]'), 'has s-block column');
+  assert.equal(wrap.querySelector('[data-res="s-stole"]'), null, 'no s-stole column');
 });

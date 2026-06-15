@@ -16,7 +16,7 @@ function pressKey(key, target) {
 }
 
 const inStatsView = () =>
-  !!document.querySelector('#cst-resources [data-res="s-stole"]');
+  !!document.querySelector('#cst-resources [data-res="s-block"]');
 
 test('S and R keys switch between the Stats and Resources views', async () => {
   cst.resetState();

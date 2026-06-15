@@ -1510,7 +1510,9 @@
       const bdEl = e.target.closest && e.target.closest('[data-bd]');
       if (bdEl && host.contains(bdEl)) {
         const [who, kind] = bdEl.getAttribute('data-bd').split('|');
-        const html = kind === 'trade' ? tradeBreakdownHTML(who) : stealReportHTML(who, kind);
+        const html = kind === 'trade' ? tradeBreakdownHTML(who)
+          : kind === 'block' ? blockReportHTML(who)
+          : stealReportHTML(who, kind);
         if (html) { tip.innerHTML = html; placeTip(e); return; }
       }
       const z = e.target.closest && e.target.closest('[data-tip]');
@@ -1929,7 +1931,7 @@
     grain: '238,194,60', ore: '143,179,166', unknown: '47,111,159',
     // Stats columns glow in a violet no other panel element uses, so the
     // hover reads as "stats", not as any particular resource.
-    's-stole': '138,103,194', 's-lost': '138,103,194',
+    's-block': '138,103,194', 's-lost': '138,103,194',
     's-disc': '138,103,194', 's-gain': '138,103,194',
     's-turn': '138,103,194', 's-trade': '138,103,194',
   };
@@ -1939,7 +1941,7 @@
   // and builds stay TALLIED (and archived per game) but aren't displayed —
   // colonist's own dashboard already shows them; four columns breathe better.
   const STAT_COLS = [
-    { key: 's-stole', icon: '⚔️', tip: t('statStole', 'Cards stolen (Knights) — hover for breakdown') },
+    { key: 's-block', icon: '⛔', tip: t('statBlock', 'Cards lost to robber-blocked tiles (precise after warm-up)') },
     { key: 's-lost',  icon: '💔', tip: t('statLost', 'Cards lost (Knights) — hover for who & 7s') },
     { key: 's-disc',  icon: '🗑️', tip: t('statDisc', 'Cards discarded (rolled 7)') },
     { key: 's-gain',  icon: '📥', tip: t('statGain', 'Cards gained') },
@@ -2214,12 +2216,11 @@
       const ty = state.tally[p.name] || {};
       const tradeFed = ty.tradeGave ? Object.values(ty.tradeGave).reduce((s, n) => s + n, 0) : 0;
       const hasTrade = tradeFed > 0 || (ty.tradeGot && Object.keys(ty.tradeGot).length);
-      const hasStole = (ty.stoleFrom && Object.keys(ty.stoleFrom).length) ||
-        (ty.monoTook && Object.keys(ty.monoTook).length);
+      const hasBlock = blockLossOf(p.name) > 0;
       const hasLost = (ty.lostTo && Object.keys(ty.lostTo).length) ||
         (ty.monoLost && Object.keys(ty.monoLost).length) || (state.diceCounts[7] > 0);
       const vals = {
-        's-stole': { v: ty.stole || 0, bd: hasStole ? 'stole' : null },
+        's-block': { v: blockLossOf(p.name), bd: hasBlock ? 'block' : null },
         's-lost':  { v: ty.lost || 0, bd: hasLost ? 'lost' : null },
         's-disc':  { v: ty.discardCards || 0, tip: ty.discards ? t('discardEvents', '{n} discard events', { n: ty.discards }) : '' },
         's-gain':  { v: ty.gained || 0, pie: ty.gained ? p.name : null },
@@ -2258,7 +2259,7 @@
       snap[p.name] = {
         lumber: p.resources.lumber, brick: p.resources.brick, wool: p.resources.wool,
         grain: p.resources.grain, ore: p.resources.ore, unknown: p.unknown,
-        's-stole': t.stole || 0, 's-lost': t.lost || 0, 's-disc': t.discardCards || 0,
+        's-block': blockLossOf(p.name), 's-lost': t.lost || 0, 's-disc': t.discardCards || 0,
         's-gain': t.gained || 0,
       };
     }
@@ -2283,7 +2284,7 @@
     const keys = uiState.resView === 'stats'
       ? STAT_COLS.map((c) => c.key)
       : [...RESOURCES, 'unknown'];
-    const BAD_UP = { 's-lost': true, 's-disc': true };
+    const BAD_UP = { 's-block': true, 's-lost': true, 's-disc': true };
     // A player absent from the previous snapshot is treated as a zero baseline:
     // players are always created at 0 cards, so their first gain is a real +N.
     // (This is why the snake-draft pivot — created and gaining within one render
@@ -2291,7 +2292,7 @@
     // "shower" after a reset/restore/deep-rescrape is prevented by the
     // `if (!prev) return` guard above, NOT by skipping new rows here.
     const ZERO = { lumber: 0, brick: 0, wool: 0, grain: 0, ore: 0, unknown: 0,
-      's-stole': 0, 's-lost': 0, 's-disc': 0, 's-gain': 0 };
+      's-block': 0, 's-lost': 0, 's-disc': 0, 's-gain': 0 };
     for (const [name, cur] of Object.entries(lastCounts)) {
       const old = prev[name] || ZERO;
       const row = rows.find((el) => el.getAttribute('data-prow') === name);
