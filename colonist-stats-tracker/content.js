@@ -2643,6 +2643,9 @@
       })),
       tally: JSON.parse(JSON.stringify(state.tally)),
       blocked: JSON.parse(JSON.stringify(state.blocked)),
+      blockLoss: [...state.players.keys()].reduce((m, n) => {
+        m[n] = blockLossOf(n); return m;
+      }, {}),
     };
   }
 

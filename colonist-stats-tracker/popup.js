@@ -67,7 +67,7 @@ function aggregate(history) {
   let diceTotal = 0;
   let played = 0, wins = 0;
   let durSum = 0, durCount = 0;
-  let incomeSum = 0, turnMsSum = 0, turnsSum = 0, stoleSum = 0, lostSum = 0;
+  let incomeSum = 0, turnMsSum = 0, turnsSum = 0, lostSum = 0, blockLossSum = 0;
 
   for (const g of list) {
     const dc = (g && g.diceCounts) || {};
@@ -86,8 +86,8 @@ function aggregate(history) {
     incomeSum += +t.gained || 0;
     turnMsSum += +t.turnMs || 0;
     turnsSum  += +t.turns  || 0;
-    stoleSum  += +t.stole  || 0;
     lostSum   += +t.lost   || 0;
+    blockLossSum += +(g.blockLoss && g.blockLoss[self]) || 0;
   }
 
   const chi = chiSquareLife(diceCounts, diceTotal);
@@ -104,7 +104,7 @@ function aggregate(history) {
     fairness: luckTier(chi),
     avgIncome: played ? incomeSum / played : null,
     avgTurnMs: turnsSum ? turnMsSum / turnsSum : null,
-    avgSteals: played ? stoleSum / played : null,
+    avgBlockLoss: played ? blockLossSum / played : null,
     avgLosses: played ? lostSum / played : null,
   };
 }
@@ -221,8 +221,8 @@ function boot() {
           M('sumIncome', { n: fmtNum(agg.avgIncome) }) || `📈 平均收入 ${fmtNum(agg.avgIncome)} 張/場`));
       }
       summaryEl.appendChild(line(
-        M('sumSteal', { s: fmtNum(agg.avgSteals), l: fmtNum(agg.avgLosses) })
-        || `⚔️ 每場偷 ${fmtNum(agg.avgSteals)} · 💔 被偷 ${fmtNum(agg.avgLosses)}`));
+        M('lifeBlockLoss', { b: fmtNum(agg.avgBlockLoss), l: fmtNum(agg.avgLosses) })
+        || `🚫 avg blocked −${fmtNum(agg.avgBlockLoss)} · 💔 lost ${fmtNum(agg.avgLosses)}`));
       if (agg.avgTurnMs != null) {
         summaryEl.appendChild(line(
           M('sumTurn', { d: fmtDuration(agg.avgTurnMs) }) || `⏱ 平均回合 ${fmtDuration(agg.avgTurnMs)}`));
@@ -261,7 +261,8 @@ function boot() {
       det.textContent = (g.players || []).map((p) => {
         const t = (g.tally && g.tally[p.name]) || {};
         const bits = [M('histHand', { n: handTotal(p) }) || `${handTotal(p)} cards`];
-        if (t.stole) bits.push(M('histStole', { n: t.stole }) || `stole ${t.stole}`);
+        const bl = (g.blockLoss && g.blockLoss[p.name]) || 0;
+        if (bl) bits.push(M('histBlock', { n: bl }) || `blocked −${bl}`);
         if (t.lost) bits.push(M('histLost', { n: t.lost }) || `lost ${t.lost}`);
         return `${p.name}${p.name === g.winner ? ' 🏆' : ''}：${bits.join('、')}`;
       }).join('\n');

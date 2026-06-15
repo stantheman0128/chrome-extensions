@@ -160,9 +160,7 @@
   "sumIncome": {
     "message": "📈 Avg income {n} cards/game"
   },
-  "sumSteal": {
-    "message": "⚔️ {s} robbed · 💔 {l} lost per game"
-  },
+  "lifeBlockLoss": { "message": "🚫 Avg blocked −{b} · 💔 lost {l}" },
   "sumTurn": {
     "message": "⏱ Avg turn {d}"
   },
@@ -181,9 +179,7 @@
   "histHand": {
     "message": "{n} cards in hand"
   },
-  "histStole": {
-    "message": "stole {n}"
-  },
+  "histBlock": { "message": "blocked −{n}" },
   "histLost": {
     "message": "lost {n}"
   },

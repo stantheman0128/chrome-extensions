@@ -160,9 +160,7 @@
   "sumIncome": {
     "message": "📈 平均收入 {n} 張/場"
   },
-  "sumSteal": {
-    "message": "⚔️ 每場偷 {s} · 💔 被偷 {l}"
-  },
+  "lifeBlockLoss": { "message": "🚫 平均被卡田 −{b} · 💔 被偷 {l}" },
   "sumTurn": {
     "message": "⏱ 平均回合 {d}"
   },
@@ -181,9 +179,7 @@
   "histHand": {
     "message": "{n} 張手牌"
   },
-  "histStole": {
-    "message": "偷到 {n}"
-  },
+  "histBlock": { "message": "被卡田 −{n}" },
   "histLost": {
     "message": "被偷 {n}"
   },
