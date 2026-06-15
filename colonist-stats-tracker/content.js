@@ -1433,6 +1433,7 @@
       return null;
     };
     wrap.addEventListener('mousemove', (e) => {
+      if (dragging) return;
       const hit = columnAt(e.clientX);
       if (!hit) { clearColHL(); return; }
       const rgb = RES_HL[hit.res] || '47,111,159';
@@ -1506,6 +1507,7 @@
     // (the dice zones above own their richer HTML content, so skip them here).
     // [data-pie] cells (gained cards) get a live per-resource pie instead.
     host.addEventListener('mousemove', (e) => {
+      if (dragging) { tip.style.display = 'none'; return; }
       if (e.target.closest && e.target.closest('[data-dietip]')) return;
       const pieEl = e.target.closest && e.target.closest('[data-pie]');
       if (pieEl && host.contains(pieEl)) {
@@ -1574,7 +1576,6 @@
       const step = centers.length > 1 ? (centers[1] - centers[0]) : 40;
       d = { view, order, key, fromIdx, toIdx: fromIdx, startX: e.clientX, started: false, wrap, step, centers };
       try { head.setPointerCapture(e.pointerId); } catch (_) {}
-      e.preventDefault();
       e.stopPropagation();                                // don't start a panel move
     });
 
@@ -1585,6 +1586,7 @@
         if (Math.abs(dx) < 4) return;                     // below threshold: still a click
         d.started = true;
         dragging = true;
+        e.preventDefault();
       }
       const draggedCentre = d.centers[d.fromIdx] + dx;
       let toIdx = 0;
