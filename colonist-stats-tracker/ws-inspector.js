@@ -33,6 +33,11 @@
       const u8 = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data.buffer || data);
       const obj = mp ? mp.decode(u8) : null;
       push({ t: now(), dir, kind: 'bin', id: (obj && obj.id != null) ? obj.id : null, data: obj });
+      // Relay game-state frames to the content script (board model); skip the
+      // 1/sec heartbeat (id 136) and outgoing pings.
+      if (dir === 'in' && obj && obj.id === '130') {
+        try { window.postMessage({ __cstWS: 'state', msg: obj }, '*'); } catch (e2) {}
+      }
     } catch (e) {
       push({ t: now(), dir, kind: 'bin', error: String(e), bytesHex: hex(data) });
     }

@@ -16,6 +16,31 @@
 
   const RESOURCES = ['lumber', 'brick', 'wool', 'grain', 'ore'];
 
+  // ---- live game model from the WebSocket (board-model migration) ----
+  // ws-inspector.js (main world) relays decoded id=130 frames; board.js turns the
+  // full state + diffs into an exact model. Used for ⛔ today; the log keeps
+  // running as the oracle. Absent under Node (board.js isn't required there).
+  const wsBoard = (typeof __cstBoard !== 'undefined') ? __cstBoard.createBoard() : null;
+  if (wsBoard && typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('message', (e) => {
+      if (!e.data || e.data.__cstWS !== 'state') return;
+      const m = e.data.msg;
+      if (!m || m.id !== '130' || !m.data) return;
+      const d = m.data;
+      try {
+        if (d.type === 4) __cstBoard.applyFullState(wsBoard, d.payload);
+        else if (d.type === 91 && d.payload) __cstBoard.applyDiff(wsBoard, d.payload.diff);
+      } catch (err) { /* malformed frame — ignore, the log keeps us safe */ }
+    });
+  }
+  function wsColorOf(name) {
+    if (!wsBoard) return null;
+    for (const k of Object.keys(wsBoard.colorToName)) {
+      if (wsBoard.colorToName[k] === name) return parseInt(k, 10);
+    }
+    return null;
+  }
+
   // A fresh { lumber:0, brick:0, … } each call (callers mutate it in place),
   // derived from RESOURCES so the five count buckets can never drift from the
   // canonical resource list.
@@ -2479,6 +2504,23 @@
   }
 
   function blockLossOf(name) {
+    // The WebSocket board model is exact and live; prefer it when ready, but keep
+    // the estimate running and log any divergence (the migration oracle).
+    if (wsBoard && __cstBoard.ready(wsBoard)) {
+      const color = wsColorOf(name);
+      if (color != null) {
+        const ws = __cstBoard.blockedLossOf(wsBoard, color);
+        const est = estimateBlockLoss(name);
+        if (ws !== est) { try { console.debug('[CST] ⛔ oracle: WS', ws, 'vs est', est, 'for', name); } catch (e) {} }
+        return ws;
+      }
+    }
+    return estimateBlockLoss(name);
+  }
+
+  // The log-only estimate (endgame-exact when captured, else the differential).
+  // Kept as the oracle / fallback during the WS migration.
+  function estimateBlockLoss(name) {
     // Once colonist's authoritative end-of-game number is captured, it wins.
     if (state.endgameBlocked && state.endgameBlocked[name] != null) return state.endgameBlocked[name];
     const ty = state.tally[name] || {};
