@@ -213,7 +213,7 @@
         // Monopoly, kept apart so it can be labelled "who Mono'd what".
         monoTook: {},            // resource -> cards I took via my own Monopoly
         monoLost: {},            // thiefName -> { resource -> cards } lost to theirs
-        discards: 0, discardCards: 0,
+        discards: 0, discardCards: 0, discardRes: {}, //棄牌:次數/張數/各資源細分
         gained: 0,               // cards gained from rolls / placements / YoP
         gainedRes: {},           // ...broken down per resource (feeds the hover pie)
         devCards: 0,             // tracked + archived, not displayed (dashboard has it)
@@ -1011,7 +1011,7 @@
   // pair to breathe (else digits); 'faces'/'digits' are sticky manual overrides.
   // resView: the player table shows resource columns ('cards') or the live
   // event stats ('stats') — same players, same rows, switched via header tabs.
-  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, resView: 'cards', mode: 'large', fontScale: 1, diceMode: 'auto', resOrder: ['lumber', 'brick', 'wool', 'grain', 'ore', 'unknown'], statOrder: ['s-block', 's-lost', 's-disc', 's-gain', 's-turn', 's-trade'], highlights: [], diceHighlights: [] };
+  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, resView: 'cards', mode: 'large', fontScale: 1, diceMode: 'auto', resOrder: ['lumber', 'brick', 'wool', 'grain', 'ore', 'unknown'], statOrder: ['s-block', 's-lost', 's-disc', 's-gain', 's-turn', 's-stolen'], highlights: [], diceHighlights: [] };
   // True only while a LEFT/RIGHT edge is being dragged: that gesture changes the
   // panel WIDTH without rescaling the text (the width→font zoom is reserved for
   // the bottom-right corner). The ResizeObserver checks this to skip the zoom.
@@ -1374,11 +1374,11 @@
       <div id="cst-header" style="display:flex;align-items:center;justify-content:space-between;gap:6px;
            padding:8px 11px;cursor:move;background:${THEME.bgAlt};border-bottom:1px solid ${THEME.border};
            border-radius:10px 10px 0 0;position:sticky;top:0;z-index:1;">
-        <strong style="font-size:1.05em;color:${THEME.accent};white-space:nowrap;display:flex;align-items:center;gap:6px;">
+        <strong style="font-size:1.05em;color:${THEME.accent};white-space:nowrap;display:flex;align-items:center;gap:7px;">
           <span id="cst-glyph" data-tip="${t('tipCollapse', 'Click to collapse / expand')}" style="cursor:pointer;display:inline-block;transition:transform .35s ease, font-size .25s ease, filter .15s ease;">🎲</span>
-          <span id="cst-title">Colonist Stats</span>
+          <span id="cst-title" style="font-size:1.16em;font-weight:800;letter-spacing:.2px;color:${THEME.text};">Colonist Stats</span>
           <span id="cst-timer" data-tip="${t('tipTimer', 'Time since this game started')}"
-                style="color:${THEME.textDim};font-size:0.74em;font-weight:600;font-variant-numeric:tabular-nums;"></span>
+                style="color:${THEME.textDim};font-size:0.72em;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;align-self:center;position:relative;top:.5px;"></span>
         </strong>
         <div id="cst-controls" style="display:flex;gap:4px;align-items:center;">
           ${ctrlBtn('cst-resync', ICON_SYNC, t('tipResync', 'Deep re-sync: re-read the whole game log from the top'))}
@@ -1646,6 +1646,7 @@
         const [who, kind] = bdEl.getAttribute('data-bd').split('|');
         const html = kind === 'trade' ? tradeBreakdownHTML(who)
           : kind === 'block' ? blockReportHTML(who)
+          : kind === 'disc' ? discReportHTML(who)
           : stealReportHTML(who, kind);
         if (html) { tip.innerHTML = html; placeTip(e); return; }
       }
@@ -2197,7 +2198,7 @@
     // hover reads as "stats", not as any particular resource.
     's-block': '138,103,194', 's-lost': '138,103,194',
     's-disc': '138,103,194', 's-gain': '138,103,194',
-    's-turn': '138,103,194', 's-trade': '138,103,194',
+    's-turn': '138,103,194', 's-stolen': '138,103,194',
   };
 
   // The live-stats columns (the Stats view of the player table). Keys double
@@ -2210,40 +2211,48 @@
       `stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;">${paths}</svg>`;
   }
 
-  // Stat columns prefer colonist's own artwork (asset = stable base name; the URL
-  // is harvested live because it carries a per-deploy hash). svg is the fallback.
+  // ---- self-drawn stat icons: unified line-art + a corner +/- badge ----
+  // Matches the dashboard: currentColor stroke (tracks the panel text colour) plus
+  // a small corner badge — THEME.good "+" (gain) / THEME.bad "−" (loss) / none
+  // (neutral). Plain paths only (no gradient ids → no clash when inlined).
+  const sDot = (x, y) => `<circle cx="${x}" cy="${y}" r="1.2" fill="currentColor" stroke="none"/>`;
+  const sRobber = '<circle cx="16" cy="9" r="3.1"/><path d="M10.5 22.4C10.5 15 12.6 12.7 16 12.7s5.5 2.3 5.5 9.7Z"/>';
+  function statBadge(kind) {
+    if (kind === '+') return `<circle cx="25" cy="25" r="6.4" fill="${THEME.good}" stroke="none"/><path d="M25 22V28M22 25H28" stroke="#fff" stroke-width="2.2"/>`;
+    if (kind === '-') return `<circle cx="25" cy="25" r="6.4" fill="${THEME.bad}" stroke="none"/><path d="M22 25H28" stroke="#fff" stroke-width="2.2"/>`;
+    return '';
+  }
+  function statIcon(inner, badge) {
+    return `<svg viewBox="0 0 32 32" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;">${inner}${statBadge(badge)}</svg>`;
+  }
+  // 卡田=賊(小)+問號牌 ・ 棄牌=兩骰湊7 ・ 獲得=骰子+卡牌 ・ 回合=沙漏 ・ 被偷/偷到=賊
+  const ICON_BLOCK = '<circle cx="10" cy="10.5" r="2.5"/><path d="M6 21C6 15.7 7.6 14 10 14s4 1.7 4 7Z"/>'
+    + '<rect x="15" y="11" width="9.2" height="11.6" rx="1.6"/>'
+    + '<path d="M17.6 14.9a1.9 1.9 0 0 1 3.4 1.2c0 1.3-1.7 1.3-1.7 2.5"/>'
+    + '<circle cx="19.4" cy="20.4" r=".85" fill="currentColor" stroke="none"/>';
+  const ICON_DISC = '<rect x="3.5" y="6" width="11.5" height="11.5" rx="2.4"/>'
+    + sDot(6.3, 8.8) + sDot(9.25, 11.75) + sDot(12.2, 14.7)
+    + '<rect x="14.5" y="11" width="11.5" height="11.5" rx="2.4"/>'
+    + sDot(17.3, 13.8) + sDot(23.2, 13.8) + sDot(17.3, 19.7) + sDot(23.2, 19.7);
+  const ICON_GAIN = '<rect x="3" y="7.5" width="12.5" height="12.5" rx="2.6"/>'
+    + sDot(6.6, 11.1) + sDot(11.9, 11.1) + sDot(6.6, 16.4) + sDot(11.9, 16.4)
+    + '<rect x="16" y="8.5" width="9.5" height="13" rx="1.6" transform="rotate(9 20.75 15)"/>';
+  const ICON_HOURGLASS = '<path d="M9 5H23M9 27H23M11 5c0 6.5 5 8.8 5 11s-5 4.5-5 11M21 5c0 6.5-5 8.8-5 11s5 4.5 5 11"/>';
+
+  // Stat columns — fully self-drawn, no colonist asset dependency. Each is one
+  // unified line-art glyph + a corner +/- badge so the row reads at a glance.
   const STAT_COLS = [
-    { key: 's-block', asset: 'stat_rolling_loss',     svg: fbSvg('<circle cx="12" cy="8" r="3.5"/><path d="M8 19C8 13 9.5 11 12 11s4 2 4 8Z"/><path d="M6.5 19h11"/>'),                                              tip: t('statBlock', 'Cards blocked') },
-    { key: 's-lost',  asset: 'stat_robbing_loss',     svg: fbSvg('<rect x="5" y="7" width="8" height="11" rx="1.5"/><path d="M15.5 12.5h4.5"/><path d="M17.5 10l2.5 2.5-2.5 2.5"/>'),                              tip: t('statLost', 'Cards lost (Knights) — hover for who & 7s') },
-    { key: 's-disc',  asset: 'card_rescardoverlimit', svg: fbSvg('<path d="M6 8h12"/><path d="M9.5 8V6h5v2"/><path d="M7.5 8l.8 11a1 1 0 0 0 1 .9h5.4a1 1 0 0 0 1-.9l.8-11"/><path d="M10.5 11v6M13.5 11v6"/>'), tip: t('statDisc', 'Cards discarded (rolled 7)') },
-    { key: 's-gain',  asset: 'stat_res_gain',         svg: fbSvg('<path d="M5 13v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/><path d="M5 13h4l1.5 2h3l1.5-2h4"/><path d="M12 4v6M9.5 7.5l2.5 2.5 2.5-2.5"/>'),         tip: t('statGain', 'Cards gained') },
-    { key: 's-turn',  asset: 'icon_hourglass',        svg: fbSvg('<circle cx="12" cy="12" r="8"/><path d="M12 7v5l3.5 2"/>'),                                                                                     tip: t('statTurn', 'Average turn length (live rolls only)') },
-    { key: 's-trade', asset: 'stat_trade_loss',       svg: fbSvg('<path d="M6 9.5h12"/><path d="M15 6.5l3 3-3 3"/><path d="M18 14.5H6"/><path d="M9 11.5l-3 3 3 3"/>'),                                            tip: t('statTrade', 'Cards traded away (hover for who fed whom)') },
+    { key: 's-block',  svg: statIcon(ICON_BLOCK, '-'),      tip: t('statBlock', 'Cards blocked') },
+    { key: 's-lost',   svg: statIcon(sRobber, '-'),         tip: t('statLost', 'Cards lost (Knights) — hover for who & 7s') },
+    { key: 's-disc',   svg: statIcon(ICON_DISC, '-'),       tip: t('statDisc', 'Cards discarded (rolled 7)') },
+    { key: 's-gain',   svg: statIcon(ICON_GAIN, '+'),       tip: t('statGain', 'Cards gained') },
+    { key: 's-turn',   svg: statIcon(ICON_HOURGLASS, null), tip: t('statTurn', 'Average turn length (live rolls only)') },
+    { key: 's-stolen', svg: statIcon(sRobber, '+'),         tip: t('statStolen', 'Cards stolen (Knights) — hover for from whom') },
   ];
 
-  // Colonist icon URL cache (base name → live URL). Hardcoding is impossible (the
-  // per-deploy hash), so we harvest from whatever colonist has already rendered.
-  const ASSET_KEY = 'colonist-stats-tracker:icons';
-  let assetUrls = (() => { try { return JSON.parse(localStorage.getItem(ASSET_KEY)) || {}; } catch (_) { return {}; } })();
-  function harvestIcons() {
-    const want = STAT_COLS.map((c) => c.asset).filter(Boolean);
-    if (want.every((b) => assetUrls[b])) return;   // all found — stop scanning
-    let changed = false;
-    document.querySelectorAll('img').forEach((im) => {
-      const src = im.getAttribute('src') || '';
-      for (const b of want) {
-        if (!assetUrls[b] && src.indexOf('/' + b + '.') !== -1) { assetUrls[b] = src; changed = true; }
-      }
-    });
-    if (changed) {
-      try { localStorage.setItem(ASSET_KEY, JSON.stringify(assetUrls)); } catch (_) {}
-      renderSoon();
-    }
-  }
-  // A stat header icon: colonist's cached image if we've harvested it, else the svg.
+  // A stat header icon — fully self-drawn now (the colonist-asset harvest/bundle
+  // path was retired in favour of the unified self-drawn icon set above).
   function statIconHTML(c) {
-    const url = c.asset && assetUrls[c.asset];
-    if (url) return `<img src="${escapeAttr(url)}" alt="" style="width:1em;height:1em;object-fit:contain;vertical-align:middle;pointer-events:none;">`;
     return c.svg;
   }
 
@@ -2582,6 +2591,19 @@
       `<b style="margin-bottom:1px;">${header}</b>${lines.join('')}</span>`;
   }
 
+  // The 🗑 hover: which resources were discarded (rolled-7 over-limit), headed by
+  // the number of discard events. Fed by the WS type-55 cardEnums breakdown.
+  function discReportHTML(name) {
+    const ty = state.tally[name] || {};
+    const res = ty.discardRes || {};
+    const lines = RESOURCES.filter((r) => res[r] > 0).map((r) =>
+      `<span style="white-space:nowrap;display:inline-flex;align-items:center;gap:2px;">${iconImg(r, 1.2)}×${res[r]}</span>`);
+    if (!lines.length) return '';
+    const header = escapeHtml(t('discardEvents', '{n} discard events', { n: ty.discards || 0 }));
+    return `<span style="display:flex;flex-direction:column;gap:3px;"><b>${header}</b>` +
+      `<span style="display:flex;flex-wrap:wrap;gap:3px 8px;color:${THEME.textDim};">${lines.join('')}</span></span>`;
+  }
+
   // Average turn length for a player, compactly: "23s" or "1:05" past a minute.
   function turnAvgText(ty) {
     if (!ty || !ty.turns) return '–';
@@ -2653,20 +2675,23 @@
       const active = p.name === state.currentTurn;
       const actCls = active ? 'cst-active-cell' : '';
       const ty = state.tally[p.name] || {};
-      const tradeFed = ty.tradeGave ? Object.values(ty.tradeGave).reduce((s, n) => s + n, 0) : 0;
-      const hasTrade = tradeFed > 0 || (ty.tradeGot && Object.keys(ty.tradeGot).length);
+      const stoleN = ty.stole || 0;
+      const hasStole = stoleN > 0 || (ty.stoleFrom && Object.keys(ty.stoleFrom).length) ||
+        (ty.monoTook && Object.keys(ty.monoTook).length);
       const bl = blockLossOf(p.name);
       const hasBlock = bl > 0;
       const hasLost = (ty.lostTo && Object.keys(ty.lostTo).length) ||
         (ty.monoLost && Object.keys(ty.monoLost).length) || (state.diceCounts[7] > 0);
+      const hasDisc = ty.discardRes && Object.keys(ty.discardRes).length;
       const vals = {
         's-block': { v: bl, bd: hasBlock ? 'block' : null },
         's-lost':  { v: ty.lost || 0, bd: hasLost ? 'lost' : null },
-        's-disc':  { v: ty.discardCards || 0, tip: ty.discards ? t('discardEvents', '{n} discard events', { n: ty.discards }) : '' },
+        's-disc':  { v: ty.discardCards || 0, bd: hasDisc ? 'disc' : null,
+          tip: (!hasDisc && ty.discards) ? t('discardEvents', '{n} discard events', { n: ty.discards }) : '' },
         's-gain':  { v: ty.gained || 0, pie: ty.gained ? p.name : null },
         's-turn':  { v: ty.turns || 0, disp: ty.turns ? turnAvgText(ty) : '–',
           tip: ty.turns ? t('tipTurnAvg', 'Average over {n} timed turns', { n: ty.turns }) : '' },
-        's-trade': { v: tradeFed, bd: hasTrade ? 'trade' : null },
+        's-stolen': { v: stoleN, bd: hasStole ? 'stole' : null },
       };
       const cells = nameCell(p, prof, active) + uiState.statOrder.map((key) => {
         const c = COL_BY_KEY[key];
@@ -2855,7 +2880,6 @@
       // virtual list, which can only change during play. Skipping it once the
       // game has ENDED (or in the lobby) drops the largest sustained per-tick cost.
       if (lifecycle === LIFE.PLAYING) {
-        harvestIcons();   // collect colonist icon URLs as they render (until all cached)
         if (observedContainer && observedContainer.isConnected) scanExisting(observedContainer);
         // Prefer the WebSocket hands when the board is ready; else the DOM panel.
         let synced;
@@ -2867,7 +2891,6 @@
         }
         if (synced) renderSoon();
       } else if (lifecycle === LIFE.ENDED) {
-        harvestIcons();   // the Victory table renders the stat_* icons — grab them here
         if (!auditPrinted) { auditPrinted = true; try { console.log(buildAuditReport()); } catch (e) { /* ignore */ } }
         // The Victory table can render a beat after the winner log line, so the
         // capture in buildGameRecord may have been too early. Keep trying until
@@ -3641,6 +3664,9 @@
       const ty = tallyOf(name);
       if (ty.discards !== s.discards) { ty.discards = s.discards; changed = true; }
       if (ty.discardCards !== s.discardCards) { ty.discardCards = s.discardCards; changed = true; }
+      const dr = {};
+      for (const r of Object.keys(s.discardRes)) dr[RESOURCES[parseInt(r, 10) - 1]] = s.discardRes[r];
+      if (JSON.stringify(ty.discardRes || {}) !== JSON.stringify(dr)) { ty.discardRes = dr; changed = true; }
       // Gained: WS total + per-resource (board keys by resId, tally by name). The
       // log derives gained from got/received/took-from-bank; if WS comes in LOWER
       // a source is unaccounted for (e.g. setup) — flag it as an oracle while we
@@ -3829,8 +3855,6 @@
       getUiState: () => uiState,
       toggleCellHighlight,
       toggleDiceHighlight,
-      harvestIcons,
-      getAssetUrls: () => assetUrls,
       reconcileOrder,
       reorderKeys,
       // UI entry points (exposed so the jsdom smoke test can render the panel).

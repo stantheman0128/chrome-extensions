@@ -120,14 +120,14 @@ test('the 7s footer shows the count but no longer names who rolled them', () => 
 });
 
 // ---- render wiring: the two new Stats columns show up ----
-test('the Stats view renders the ⏱ turn-time and 🤝 trade columns', async () => {
+test('the Stats view renders the ⏱ turn-time and ⚔️ stolen columns', async () => {
   cst.resetState();
   cst.getPlayer('P1', '#CF4449');
   cst.getPlayer('P2', '#285FBD');
   cst.recordTurn('P1', 0);
   cst.recordTurn('P2', 20000);         // P1's turn lasted 20s
-  cst.state.tally.P1.tradeGave = { P2: 3 };
-  cst.state.tally.P1.tradeGot = { P2: 1 };
+  cst.state.tally.P1.stole = 3;
+  cst.state.tally.P1.stoleFrom = { P2: 3 };
 
   cst.createPanel();
   cst.render();
@@ -136,11 +136,11 @@ test('the Stats view renders the ⏱ turn-time and 🤝 trade columns', async ()
 
   const panel = document.querySelector('#colonist-stats-tracker');
   assert.ok(panel.querySelector('[data-res="s-turn"]'), 'turn-time column header present');
-  assert.ok(panel.querySelector('[data-res="s-trade"]'), 'trade column header present');
+  assert.ok(panel.querySelector('[data-res="s-stolen"]'), 'stolen column header present');
 
   const row = panel.querySelector('[data-prow="P1"]');
   assert.match(row.querySelector('[data-res="s-turn"]').textContent, /20s/, 'P1 avg turn shows 20s');
-  const tradeCell = row.querySelector('[data-res="s-trade"]');
-  assert.equal(tradeCell.getAttribute('data-bd'), 'P1|trade', 'trade cell wires the hover');
-  assert.match(tradeCell.textContent, /3/, 'trade cell shows 3 cards fed');
+  const stoleCell = row.querySelector('[data-res="s-stolen"]');
+  assert.equal(stoleCell.getAttribute('data-bd'), 'P1|stole', 'stolen cell wires the hover');
+  assert.match(stoleCell.textContent, /3/, 'stolen cell shows 3 cards stolen');
 });

@@ -46,6 +46,7 @@ test('syncStatsFromWS maps discards into tally and preserves log-only fields', (
   assert.equal(cst.syncStatsFromWS(), true, 'something changed');
   assert.equal(cst.state.tally['StanTheMan01'].discardCards, 3, 'discardCards from WS');
   assert.equal(cst.state.tally['StanTheMan01'].discards, 1, 'one discard event');
+  assert.deepEqual(cst.state.tally['StanTheMan01'].discardRes, { lumber: 1, brick: 1, wool: 1 }, 'discardRes resId→name');
   assert.equal(cst.state.tally['StanTheMan01'].lost, 3, 'log-only "lost" preserved');
   assert.equal(cst.state.tally['StanTheMan01'].lostTo.Bot, 3, 'log-only "lostTo" preserved');
 });

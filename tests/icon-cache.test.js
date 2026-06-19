@@ -1,10 +1,9 @@
 'use strict';
 
-// Stat-column icons prefer colonist's own artwork. We can't hardcode the CDN URLs
-// (they carry a per-deploy hash), so harvestIcons collects them from the live DOM
-// by their stable base name (stat_rolling_loss, stat_robbing_loss, stat_res_gain,
-// stat_trade_loss, …) and caches them; the header renders the cached image when
-// present, else a self-drawn SVG fallback. Never blank, and adapts on redeploy.
+// Stat-column icons are now fully self-drawn: a unified line-art glyph plus a
+// corner +/- badge (THEME.good "+" gain / THEME.bad "−" loss / none neutral), with
+// no colonist-asset harvest/bundle dependency. The sixth column is ⚔️ Cards stolen
+// (replacing the retired 🤝 Cards traded).
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -18,39 +17,26 @@ global.localStorage = {
 
 const { cst, document } = require('./helpers/setup');
 
-test('harvestIcons caches a colonist stat icon URL found in the DOM (hash-tolerant)', () => {
+test('every stat header renders a self-drawn svg icon (no colonist <img>)', () => {
   cst.resetState();
-  const url = 'https://cdn.colonist.io/dist/assets/stat_rolling_loss.abcd1234ef98.svg';
-  document.body.innerHTML = `<img src="${url}">`;
-  cst.harvestIcons();
-  assert.equal(cst.getAssetUrls().stat_rolling_loss, url);
-});
-
-test('a stat header uses the colonist image when cached, else the fallback svg', () => {
-  cst.resetState();
-  const cache = cst.getAssetUrls();
-  Object.keys(cache).forEach((k) => delete cache[k]);   // start with an empty cache
   cst.createPanel();
   cst.getPlayer('A', '#c00');
   cst.getUiState().resView = 'stats';
   cst.render();
-  const h1 = document.querySelector('[data-colhead][data-res="s-block"]');
-  assert.match(h1.innerHTML, /<svg/i, 'no cache → self-drawn svg fallback');
-  cache.stat_rolling_loss = 'https://cdn.colonist.io/dist/assets/stat_rolling_loss.x.svg';
-  cst.render();
-  const h2 = document.querySelector('[data-colhead][data-res="s-block"]');
-  assert.match(h2.innerHTML, /<img[^>]*stat_rolling_loss/i, 'cached → colonist image');
+  ['s-block', 's-lost', 's-disc', 's-gain', 's-turn', 's-stolen'].forEach((key) => {
+    const h = document.querySelector(`[data-colhead][data-res="${key}"]`);
+    assert.ok(h, key + ' header present');
+    assert.match(h.innerHTML, /<svg/i, key + ' uses a self-drawn svg');
+    assert.doesNotMatch(h.innerHTML, /<img/i, key + ' has no colonist <img>');
+  });
 });
 
-test('the gain column now targets a colonist asset (no longer self-drawn only)', () => {
+test('the stolen column replaces the trade column (sixth column)', () => {
   cst.resetState();
-  const cache = cst.getAssetUrls();
-  Object.keys(cache).forEach((k) => delete cache[k]);
-  cache.stat_res_gain = 'https://cdn.colonist.io/dist/assets/stat_res_gain.x.svg';
   cst.createPanel();
   cst.getPlayer('A', '#c00');
   cst.getUiState().resView = 'stats';
   cst.render();
-  const h = document.querySelector('[data-colhead][data-res="s-gain"]');
-  assert.match(h.innerHTML, /<img[^>]*stat_res_gain/i, 's-gain uses the colonist image');
+  assert.ok(document.querySelector('[data-colhead][data-res="s-stolen"]'), 's-stolen present');
+  assert.equal(document.querySelector('[data-colhead][data-res="s-trade"]'), null, 's-trade gone');
 });

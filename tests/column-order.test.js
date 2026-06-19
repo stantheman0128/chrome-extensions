@@ -20,7 +20,7 @@ test('reconcileOrder drops unknown keys and appends missing canonical keys', () 
 test('legacy stat order with s-stole is reconciled to include s-block, drop s-stole', () => {
   const out = cst.reconcileOrder(
     ['s-stole', 's-lost', 's-disc'],
-    ['s-block', 's-lost', 's-disc', 's-gain', 's-turn', 's-trade']);
+    ['s-block', 's-lost', 's-disc', 's-gain', 's-turn', 's-stolen']);
   assert.ok(!out.includes('s-stole'));
   assert.ok(out.includes('s-block'));
   assert.equal(out.length, 6);
@@ -37,9 +37,9 @@ test('stats header renders in statOrder', () => {
   cst.resetState();
   cst.createPanel();
   cst.getUiState().resView = 'stats';
-  cst.getUiState().statOrder = ['s-trade', 's-block', 's-lost', 's-disc', 's-gain', 's-turn'];
+  cst.getUiState().statOrder = ['s-stolen', 's-block', 's-lost', 's-disc', 's-gain', 's-turn'];
   cst.render();
-  assert.deepEqual(headKeys(), ['s-trade', 's-block', 's-lost', 's-disc', 's-gain', 's-turn']);
+  assert.deepEqual(headKeys(), ['s-stolen', 's-block', 's-lost', 's-disc', 's-gain', 's-turn']);
 });
 
 test('cards header renders in resOrder (unknown reorderable)', () => {

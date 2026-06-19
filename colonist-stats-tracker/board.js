@@ -27,7 +27,7 @@
   // columns the protocol can give us precisely). Created lazily on first event.
   function ensureStats(b, color) {
     return b.wsStats[color] || (b.wsStats[color] = {
-      discards: 0, discardCards: 0,
+      discards: 0, discardCards: 0, discardRes: {},
       gained: 0, gainedRes: {},
       monoTook: {}, monoLost: {},
     });
@@ -55,6 +55,7 @@
           const s = ensureStats(b, text.playerColor);
           s.discards += 1;
           s.discardCards += cards.length;
+          for (const c of cards) s.discardRes[c] = (s.discardRes[c] || 0) + 1;
         }
       } else if (text.type === 47 || text.type === 21) {
         // Gained: roll/placement production (47, cardsToBroadcast) and Year of

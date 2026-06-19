@@ -20,6 +20,7 @@ test('discard (type 55) accrues discards + discardCards by color', () => {
   const s = board.statsOf(b, 2);
   assert.equal(s.discards, 1, 'one discard event');
   assert.equal(s.discardCards, 5, 'five cards discarded');
+  assert.deepEqual(s.discardRes, { 2: 1, 3: 2, 4: 1, 5: 1 }, 'per-resource breakdown (resId)');
 });
 
 test('multiple discards accumulate', () => {
