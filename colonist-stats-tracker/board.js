@@ -18,9 +18,74 @@
   function createBoard() {
     return {
       tiles: {}, coordToTile: {}, corners: {}, cornersByTile: {},
-      robberTile: null, selfColor: null, colorToName: {},
-      blockedLoss: {}, seenLog: -1, _ready: false,
+      robberTile: null, selfColor: null, colorToName: {}, hands: {},
+      blockedLoss: {}, wsStats: {}, seenLog: -1, _ready: false,
     };
+  }
+
+  // Per-colour Stats accumulators sourced from the WS game log (the Stats section
+  // columns the protocol can give us precisely). Created lazily on first event.
+  function ensureStats(b, color) {
+    return b.wsStats[color] || (b.wsStats[color] = {
+      discards: 0, discardCards: 0,
+      gained: 0, gainedRes: {},
+      monoTook: {}, monoLost: {},
+    });
+  }
+
+  // Walk new gameLogState entries (deduped by the monotonic index) and accrue the
+  // Stats events. `fromDiff` gates the time-ordered blocked accrual — it depends
+  // on the CURRENT robber tile, so it must only run on live diffs, never when
+  // replaying a reconnect snapshot's whole history (which would use the final
+  // robber position for every past roll). The stateless events (discards, and
+  // later gains/monopoly) are safe to accrue from the history too.
+  function accrueLog(b, gameLogState, fromDiff) {
+    const entries = Object.keys(gameLogState)
+      .map((k) => parseInt(k, 10))
+      .filter((k) => k > b.seenLog)
+      .sort((a, c) => a - c);
+    for (const k of entries) {
+      b.seenLog = k;
+      const text = gameLogState[String(k)] && gameLogState[String(k)].text;
+      if (!text) continue;
+      if (text.type === 55) {
+        const cards = text.cardEnums || [];
+        if (cards.length) {
+          const s = ensureStats(b, text.playerColor);
+          s.discards += 1;
+          s.discardCards += cards.length;
+        }
+      } else if (text.type === 47 || text.type === 21) {
+        // Gained: roll/placement production (47, cardsToBroadcast) and Year of
+        // Plenty (21, cardEnums) — both resId arrays into the player's hand.
+        const cards = text.cardsToBroadcast || text.cardEnums || [];
+        if (cards.length) {
+          const s = ensureStats(b, text.playerColor);
+          for (const c of cards) { s.gained += 1; s.gainedRes[c] = (s.gainedRes[c] || 0) + 1; }
+        }
+      } else if (text.type === 86) {
+        // Monopoly: playerColor = taker, amountStolen of cardEnum from everyone
+        // else. type 86 is monopoly-only (a knight steal is a different type —
+        // 25 robber moves but a single 86 in the captured game), so every 86
+        // counts. The per-victim split is only knowable with one opponent.
+        const res = text.cardEnum, amt = text.amountStolen || 0;
+        if (res != null && amt > 0) {
+          const taker = ensureStats(b, text.playerColor);
+          taker.monoTook[res] = (taker.monoTook[res] || 0) + amt;
+          const colors = Object.keys(b.colorToName).map((c) => parseInt(c, 10));
+          if (colors.length === 2) {
+            const victim = colors.find((c) => c !== text.playerColor);
+            if (victim != null) {
+              const v = ensureStats(b, victim);
+              const by = (v.monoLost[text.playerColor] = v.monoLost[text.playerColor] || {});
+              by[res] = (by[res] || 0) + amt;
+            }
+          }
+        }
+      } else if (text.type === 10 && fromDiff) {
+        accrueBlocked(b, (text.firstDice || 0) + (text.secondDice || 0));
+      }
+    }
   }
 
   function recomputeCornersByTile(b) {
@@ -52,6 +117,12 @@
     if (gs.playerColor != null) b.selfColor = gs.playerColor;
     b.colorToName = {};
     for (const u of (payload && payload.playerUserStates) || []) b.colorToName[u.selectedColor] = u.username;
+    b.hands = {};
+    for (const c of Object.keys(gs.playerStates || {})) {
+      const ps = gs.playerStates[c];
+      b.hands[c] = { cards: (ps.resourceCards && ps.resourceCards.cards) || [] };
+    }
+    if (gs.gameLogState) accrueLog(b, gs.gameLogState, false); // reconnect history
     b._ready = true;
   }
 
@@ -74,17 +145,29 @@
     if (diff.mechanicRobberState && diff.mechanicRobberState.locationTileIndex != null) {
       b.robberTile = diff.mechanicRobberState.locationTileIndex;
     }
-    if (diff.gameLogState) {
-      const entries = Object.keys(diff.gameLogState)
-        .map((k) => parseInt(k, 10))
-        .filter((k) => k > b.seenLog)
-        .sort((a, c) => a - c);
-      for (const k of entries) {
-        b.seenLog = k;
-        const text = diff.gameLogState[String(k)] && diff.gameLogState[String(k)].text;
-        if (text && text.type === 10) accrueBlocked(b, (text.firstDice || 0) + (text.secondDice || 0));
+    if (diff.gameLogState) accrueLog(b, diff.gameLogState, true);
+    if (diff.playerStates) {
+      for (const c of Object.keys(diff.playerStates)) {
+        const ps = diff.playerStates[c];
+        if (ps.resourceCards && ps.resourceCards.cards) b.hands[c] = { cards: ps.resourceCards.cards };
       }
     }
+  }
+
+  function handCountOf(b, color) {
+    const h = b.hands[color];
+    return h && h.cards ? h.cards.length : null;
+  }
+
+  // Revealed hands (self) → resId-keyed counts; opponents are all-zero (types
+  // hidden by colonist) → null, so callers keep their own inferred breakdown.
+  function handBreakdownOf(b, color) {
+    const h = b.hands[color];
+    if (!h || !h.cards || !h.cards.length) return null;
+    if (!h.cards.some((c) => c > 0)) return null;
+    const out = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    for (const c of h.cards) if (out[c] != null) out[c] += 1;
+    return out;
   }
 
   function accrueBlocked(b, n) {
@@ -105,6 +188,8 @@
 
   const api = {
     createBoard, tilesOfCorner, applyFullState, applyDiff, tilesOfCornerIdx,
+    handCountOf, handBreakdownOf,
+    statsOf: (b, color) => b.wsStats[color] || null,
     ready: (b) => b._ready,
     robberTile: (b) => b.robberTile,
     blockedLossOf: (b, color) => b.blockedLoss[color] || 0,

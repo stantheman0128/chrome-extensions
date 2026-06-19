@@ -14,6 +14,32 @@
   const now = () => (window.performance && performance.now ? Math.round(performance.now()) : 0);
   const push = (e) => { buf.push(e); if (buf.length > CAP) buf.shift(); };
 
+  // Uncapped, deduped harvest of colonist's structured game log — protocol
+  // reverse-engineering groundwork for migrating the Stats tally onto the WS.
+  // gameLogState is append-only with a unique increasing index per entry, so a
+  // index->entry map captures a WHOLE game's events without the 500-frame buffer
+  // shifting early steals/trades out. `meta` keeps the opening colour↔name map so
+  // each event's playerColor can be attributed.
+  const logEntries = {};
+  let meta = null;
+  function harvestLog(obj) {
+    const d = obj && obj.data;
+    if (!d) return;
+    if (d.type === 4 && d.payload) {
+      const gs = d.payload.gameState || {};
+      meta = {
+        playerColor: gs.playerColor,
+        players: (d.payload.playerUserStates || []).map((u) => ({ color: u.selectedColor, name: u.username, bot: u.isBot })),
+      };
+    }
+    const gl = (d.payload && d.payload.gameState && d.payload.gameState.gameLogState)
+            || (d.payload && d.payload.diff && d.payload.diff.gameLogState);
+    if (!gl) return;
+    for (const k of Object.keys(gl)) {
+      if (gl[k] && !(k in logEntries)) logEntries[k] = gl[k];
+    }
+  }
+
   function hex(ab) {
     try {
       const u8 = ab instanceof ArrayBuffer ? new Uint8Array(ab) : new Uint8Array(ab.buffer || ab);
@@ -37,6 +63,7 @@
       // 1/sec heartbeat (id 136) and outgoing pings.
       if (dir === 'in' && obj && obj.id === '130') {
         try { window.postMessage({ __cstWS: 'state', msg: obj }, '*'); } catch (e2) {}
+        try { harvestLog(obj); } catch (e3) {}
       }
     } catch (e) {
       push({ t: now(), dir, kind: 'bin', error: String(e), bytesHex: hex(data) });
@@ -90,6 +117,26 @@
       });
     },
     clear() { buf.length = 0; return 'cleared'; },
+    // Whole-game structured log grouped by text.type, a few samples each — paste
+    // this to map the Stats events (steal/trade/discard/achievement) onto the WS.
+    logTypes() {
+      const byType = {};
+      for (const k of Object.keys(logEntries)) {
+        const e = logEntries[k];
+        const ty = e && e.text && e.text.type;
+        if (ty == null) continue;
+        (byType[ty] = byType[ty] || []).push({ i: parseInt(k, 10), ...e });
+      }
+      const types = {};
+      for (const ty of Object.keys(byType).sort((a, b) => a - b)) {
+        const arr = byType[ty].sort((a, b) => a.i - b.i);
+        types[ty] = { count: arr.length, samples: arr.slice(0, 3) };
+      }
+      const dump = { meta, types };
+      console.log(JSON.stringify(dump, bigintReplacer, 2));
+      return dump;
+    },
+    allLog() { return logEntries; },
   };
   console.log('%c[CST] WS inspector active — play, then run __cstWS.dump()', 'color:#2f6f9f;font-weight:600');
 })();

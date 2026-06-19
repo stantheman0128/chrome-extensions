@@ -2855,7 +2855,15 @@
       if (lifecycle === LIFE.PLAYING) {
         harvestIcons();   // collect colonist icon URLs as they render (until all cached)
         if (observedContainer && observedContainer.isConnected) scanExisting(observedContainer);
-        if (syncFromPanel()) renderSoon();
+        // Prefer the WebSocket hands when the board is ready; else the DOM panel.
+        let synced;
+        if (wsBoard && __cstBoard.ready(wsBoard)) {
+          synced = syncFromWS();
+          if (syncStatsFromWS()) synced = true;
+        } else {
+          synced = syncFromPanel();
+        }
+        if (synced) renderSoon();
       } else if (lifecycle === LIFE.ENDED && !state.endgameBlocked) {
         // The Victory table can render a beat after the winner log line, so the
         // capture in buildGameRecord may have been too early. Keep trying until
@@ -3459,6 +3467,18 @@
   let rescraping = false;
   async function deepRescrape() {
     if (rescraping) return;
+    // The WS board holds a complete live snapshot (full state + continuous diffs),
+    // so when it's ready there is no log gap to recover. Reconcile from it — self
+    // exact, every total correct — WITHOUT wiping opponents' continuously-inferred
+    // breakdowns, which a log re-scrape loses to colonist's virtualised chat
+    // history and pads back as phantom "unknown" cards.
+    if (wsBoard && __cstBoard.ready(wsBoard)) {
+      syncFromWS();
+      syncStatsFromWS();
+      persistState();
+      render();
+      return;
+    }
     const container = findLogContainer();
     if (!container) {                 // no log (lobby): just reconcile totals
       syncFromPanel();
@@ -3576,6 +3596,78 @@
     return found ? hand : null;
   }
 
+  // Sync hands from the WebSocket board model (the migration's primary source).
+  // Self gets its EXACT per-resource breakdown; opponents keep their log-inferred
+  // breakdown but have their TOTAL reconciled to the WS count (their card types
+  // are hidden in the protocol, same as on screen).
+  function syncFromWS() {
+    if (!wsBoard || !__cstBoard.ready(wsBoard)) return false;
+    let changed = false;
+    state.players.forEach((p, name) => {
+      const color = wsColorOf(name);
+      if (color == null) return;
+      const bd = __cstBoard.handBreakdownOf(wsBoard, color);
+      if (bd) {                                   // revealed (self) → exact breakdown
+        for (let i = 0; i < RESOURCES.length; i++) {
+          const v = bd[i + 1] || 0;               // resId = index + 1
+          if (p.resources[RESOURCES[i]] !== v) { p.resources[RESOURCES[i]] = v; changed = true; }
+        }
+        if (p.unknown !== 0) { p.unknown = 0; changed = true; }
+      } else {                                    // opponent → keep breakdown, fix total
+        const cnt = __cstBoard.handCountOf(wsBoard, color);
+        if (cnt != null && reconcileTotal(p, cnt)) changed = true;
+      }
+    });
+    return changed;
+  }
+
+  // Map the WS board's per-colour Stats accumulators into state.tally by name.
+  // WS-owned columns (discards) are overwritten; log-only columns (cards lost to
+  // knights, player trades, turn timing) are left as the log derived them. No-op
+  // until the board is ready, so the lobby / pre-handshake log path is untouched.
+  function syncStatsFromWS() {
+    if (!wsBoard || !__cstBoard.ready(wsBoard)) return false;
+    let changed = false;
+    state.players.forEach((p, name) => {
+      const color = wsColorOf(name);
+      if (color == null) return;
+      const s = __cstBoard.statsOf(wsBoard, color);
+      if (!s) return;
+      const ty = tallyOf(name);
+      if (ty.discards !== s.discards) { ty.discards = s.discards; changed = true; }
+      if (ty.discardCards !== s.discardCards) { ty.discardCards = s.discardCards; changed = true; }
+      // Gained: WS total + per-resource (board keys by resId, tally by name). The
+      // log derives gained from got/received/took-from-bank; if WS comes in LOWER
+      // a source is unaccounted for (e.g. setup) — flag it as an oracle while we
+      // confirm distributionType coverage in the wild.
+      if (ty.gained !== s.gained) {
+        if (s.gained < (ty.gained || 0)) {
+          try { console.debug('[CST] 📥 gain oracle: WS', s.gained, '< prior', ty.gained, 'for', name); } catch (e) {}
+        }
+        ty.gained = s.gained; changed = true;
+      }
+      const gr = {};
+      for (const r of Object.keys(s.gainedRes)) gr[RESOURCES[parseInt(r, 10) - 1]] = s.gainedRes[r];
+      if (JSON.stringify(ty.gainedRes || {}) !== JSON.stringify(gr)) { ty.gainedRes = gr; changed = true; }
+      // Monopoly: board keys monoTook by resId, monoLost by {takerColor:{resId}};
+      // tally keys by resource name / {takerName:{resName}}. type 86 is monopoly-
+      // complete, so overwriting (not merging) is safe.
+      const mt = {};
+      for (const r of Object.keys(s.monoTook)) mt[RESOURCES[parseInt(r, 10) - 1]] = s.monoTook[r];
+      if (JSON.stringify(ty.monoTook || {}) !== JSON.stringify(mt)) { ty.monoTook = mt; changed = true; }
+      const ml = {};
+      for (const tc of Object.keys(s.monoLost)) {
+        const thiefName = wsBoard.colorToName[tc];
+        if (!thiefName) continue;
+        const inner = {};
+        for (const r of Object.keys(s.monoLost[tc])) inner[RESOURCES[parseInt(r, 10) - 1]] = s.monoLost[tc][r];
+        ml[thiefName] = inner;
+      }
+      if (JSON.stringify(ty.monoLost || {}) !== JSON.stringify(ml)) { ty.monoLost = ml; changed = true; }
+    });
+    return changed;
+  }
+
   // Sync every tracked player's TOTAL to colonist's player panel (authoritative).
   // Self is special: when its hand strip is on screen we read the EXACT
   // breakdown from it and skip the total-only reconcile (which would re-pad
@@ -3627,6 +3719,8 @@
       reconcileTotal,
       readSelfHand,
       syncFromPanel,
+      syncFromWS,
+      syncStatsFromWS,
       maybeNewGame,
       persistState,
       restoreState,

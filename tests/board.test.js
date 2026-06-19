@@ -117,3 +117,25 @@ test('a same-number tile WITHOUT the robber is not blocked', () => {
   B.applyDiff(b, { gameLogState: { 70: { text: { type: 10, firstDice: 1, secondDice: 1 }, from: 1 } } }); // roll 2
   assert.equal(B.blockedLossOf(b, 1), 0); // tile 99 has number 2 but no robber → not blocked
 });
+
+test('hands: revealed self breakdown vs hidden (all-zero) opponent', () => {
+  const b = B.createBoard();
+  const p = openingPayload();
+  p.gameState.playerStates = {
+    1: { resourceCards: { cards: [5, 3, 1, 5, 4, 1, 1, 5] } }, // self: real resIds
+    2: { resourceCards: { cards: [0, 0, 0, 0, 0, 0] } },        // opponent: 6 hidden
+  };
+  B.applyFullState(b, p);
+  assert.equal(B.handCountOf(b, 1), 8);
+  assert.equal(B.handCountOf(b, 2), 6);
+  assert.deepEqual(B.handBreakdownOf(b, 1), { 1: 3, 2: 0, 3: 1, 4: 1, 5: 3 });
+  assert.equal(B.handBreakdownOf(b, 2), null, 'opponent types are hidden → no breakdown');
+});
+
+test('a diff replaces a hand wholesale', () => {
+  const b = B.createBoard();
+  B.applyFullState(b, openingPayload());
+  B.applyDiff(b, { playerStates: { 1: { resourceCards: { cards: [2, 2] } } } });
+  assert.equal(B.handCountOf(b, 1), 2);
+  assert.deepEqual(B.handBreakdownOf(b, 1), { 1: 0, 2: 2, 3: 0, 4: 0, 5: 0 });
+});

@@ -24,6 +24,11 @@ global.requestAnimationFrame = () => {};
 // window. Surface it so visibility checks (elVisible / ghost helpers) run.
 global.getComputedStyle = (el) => dom.window.getComputedStyle(el);
 
+// Wire the WS board model as a global (content.js reads `__cstBoard`, the same
+// global ws-inspector sets in the browser). Without a full state applied it stays
+// not-ready, so the log/DOM paths are unaffected.
+global.__cstBoard = require('../../colonist-stats-tracker/board.js');
+
 const cst = require('../../colonist-stats-tracker/content.js');
 
 // Turn a feedMessage outerHTML string (from fixtures) into the live element the
