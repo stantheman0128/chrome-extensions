@@ -1,0 +1,54 @@
+'use strict';
+
+// Click-to-highlight a value cell: a manual marker the user toggles on any
+// number in the Resources or Stats table. Cell id is "player|key" so the
+// highlight follows a column when it's drag-reordered, and falls away when a
+// new game changes the roster.
+
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+
+const store = new Map();
+global.localStorage = {
+  getItem: (k) => (store.has(k) ? store.get(k) : null),
+  setItem: (k, v) => store.set(k, String(v)),
+  removeItem: (k) => store.delete(k),
+};
+
+const { cst, document } = require('./helpers/setup');
+
+test('toggleCellHighlight adds then removes a cell id', () => {
+  cst.resetState();
+  cst.getUiState().highlights = [];
+  cst.toggleCellHighlight('Aria|s-block');
+  assert.deepEqual(cst.getUiState().highlights, ['Aria|s-block']);
+  cst.toggleCellHighlight('Aria|s-block');
+  assert.deepEqual(cst.getUiState().highlights, []);
+});
+
+test('a highlighted value cell renders with a background; an un-highlighted one does not', () => {
+  cst.resetState();
+  cst.createPanel();
+  cst.getPlayer('Aria', '#c00');
+  cst.getUiState().resView = 'stats';
+  cst.getUiState().highlights = ['Aria|s-block'];
+  cst.render();
+  const on = document.querySelector('[data-cell="Aria|s-block"]');
+  const off = document.querySelector('[data-cell="Aria|s-lost"]');
+  assert.ok(on && off, 'both cells render with data-cell ids');
+  assert.match(on.getAttribute('style') || '', /background/, 'highlighted cell has a background');
+  assert.doesNotMatch(off.getAttribute('style') || '', /background/, 'un-highlighted cell has none');
+});
+
+test('clicking a value cell toggles its highlight', () => {
+  cst.resetState();
+  cst.createPanel();
+  cst.getPlayer('Aria', '#c00');
+  cst.getUiState().resView = 'stats';
+  cst.getUiState().highlights = [];
+  cst.render();
+  const cell = document.querySelector('[data-cell="Aria|s-block"]');
+  assert.ok(cell, 'cell exists');
+  cell.dispatchEvent(new document.defaultView.MouseEvent('click', { bubbles: true }));
+  assert.deepEqual(cst.getUiState().highlights, ['Aria|s-block'], 'click highlighted it');
+});

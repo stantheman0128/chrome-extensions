@@ -123,7 +123,14 @@
     // the global robber-blocked-yield counter — colonist only shows these on
     // the end-of-game summary; we surface them live in the Stats section.
     tally: {},   // name -> per-player event tally; see tallyOf() for the full shape
-    blocked: { count: 0, byKey: {} }, // byKey: "6 brick" -> times blocked
+    blocked: { count: 0, byKey: {} }, // byKey: "6 brick" -> times blocked (legacy/compat)
+    // Differential block-loss: blockEvents freezes "round N, res R was blocked,
+    // and each player got G of R that round"; blockLossOf derives the loss as
+    // max(0, produces[N][R] − G) using the CURRENT produces (so backfill holds).
+    blockEvents: [],
+    roundGot: {},     // this round: name -> { res: cards got } (reset each roll)
+    roundBlocks: [],  // this round: [{ roll, res }] blocked tiles, settled at round end
+    endgameBlocked: null, // {name: cards} read from colonist's Victory table — EXACT, overrides the estimate
     gameStartTs: null, // ms epoch — when the current game's clock started
     gameEndTs: null,   // set when the winner line is seen; freezes the clock
   };
@@ -477,6 +484,8 @@
       state.blocked.count += 1;
       const key = `${num != null ? num + ' ' : ''}${res || 'tile'}`;
       state.blocked.byKey[key] = (state.blocked.byKey[key] || 0) + 1;
+      // Stash for round-end settlement (differential loss = expected − got).
+      if (num != null && res) state.roundBlocks.push({ roll: num, res });
       renderSoon();
       return;
     }
@@ -529,6 +538,7 @@
     if (text.includes('rolled') || text.includes('擲出') || text.includes('擲了')) {
       const sum = diceSum(msgEl);
       if (sum != null && sum >= 2 && sum <= 12) {
+        settleRound();   // close the previous round before this one opens
         state.diceCounts[sum] += 1;
         state.totalRolls += 1;
         state.rollHistory.push(sum);
@@ -593,13 +603,19 @@
         }
         // Learn the yield map ONLY from bare-"got" roll production (not initial
         // "received starting resources", not YoP "took from bank"). Per-resource
-        // assignment: a partially-blocked roll simply omits the blocked resource,
-        // so it never clobbers a previously-learned clean value.
+        // assignment: a fully-blocked resource sends nothing (counts 0, skipped),
+        // and a partially-blocked round sends fewer cards — overwriting with that
+        // smaller count would erase the clean baseline the differential block-loss
+        // needs (loss = expected − got), so keep the MAX (clean) yield seen.
         const isRollYield = lastRoll != null &&
           !text.includes('received') && !text.includes('took from bank');
         if (isRollYield) {
           ty.produces[lastRoll] = ty.produces[lastRoll] || {};
-          for (const r of RESOURCES) if (counts[r]) ty.produces[lastRoll][r] = counts[r];
+          for (const r of RESOURCES) if (counts[r]) ty.produces[lastRoll][r] = Math.max(ty.produces[lastRoll][r] || 0, counts[r]);
+          // Track this player's actual yield this round, so settleRound can derive
+          // "expected − got" for any tile blocked this round.
+          const rg = state.roundGot[player.name] || (state.roundGot[player.name] = zeroResources());
+          for (const r of RESOURCES) if (counts[r]) rg[r] += counts[r];
         }
         renderSoon();
         return;
@@ -783,9 +799,15 @@
     const idx = itemEl.getAttribute('data-index');
     if (idx == null) return;
     if (state.seenIndices.has(idx)) return;
-    state.seenIndices.add(idx);
     const msg = itemEl.querySelector('[class*="feedMessage"]');
-    if (msg) processMessage(msg);
+    // A virtual row can mount EMPTY (data-index set) and receive its content a
+    // frame later as inner nodes — which don't re-trigger the observer's
+    // scrollItemContainer path. Committing the dedup now would lose that row's
+    // event (a roll / got / block) forever. Only mark it seen once real text is
+    // present; until then leave it unseen so the next scan re-reads it.
+    if (!msg || !(msg.textContent || '').trim()) return;
+    state.seenIndices.add(idx);
+    processMessage(msg);
   }
 
   function scanExisting(container) {
@@ -794,6 +816,24 @@
 
   let observer = null;
   let observedContainer = null;
+  // True when a freshly-found container is the SAME log merely re-wrapped (a karma
+  // vote / colonist re-render injected UI and moved the feed into a new node): it
+  // still renders at least one row we've already processed. Distinguishes that
+  // from a genuine reconnect (all-new indices), so a harmless re-wrap doesn't
+  // needlessly wipe dedup + trigger a (non-deterministic) rescrape.
+  function logIsContinuation(container) {
+    if (!container) return false;
+    const items = container.querySelectorAll('[class*="scrollItemContainer"]');
+    // A karma vote (etc.) injecting UI can leave the log container momentarily
+    // EMPTY. That's a transient, not a new game — keep our state, don't rescrape.
+    if (items.length === 0) return true;
+    for (const it of items) {
+      const idx = it.getAttribute('data-index');
+      if (idx != null && state.seenIndices.has(idx)) return true;
+    }
+    return false;
+  }
+
   function attachObserver() {
     const container = findLogContainer();
     if (!container) return false;
@@ -815,10 +855,15 @@
         // the actual log once it settles.
         scheduleAutoRescrape();
       } else if (observedContainer && lifecycle === LIFE.PLAYING) {
-        // The log container was REPLACED mid-game (reconnect / re-render):
-        // indices may have shifted — rebuild from the full log.
-        state.seenIndices = new Set();
-        scheduleAutoRescrape();
+        // The log container NODE changed mid-game. If it's the same log merely
+        // re-wrapped (a karma vote / re-render injected UI but the feed is
+        // continuous — we still see a row we've processed), keep our state and
+        // just re-attach. Only a genuine reconnect (all-new indices) warrants
+        // wiping dedup + a full, non-deterministic rescrape.
+        if (!logIsContinuation(container)) {
+          state.seenIndices = new Set();
+          scheduleAutoRescrape();
+        }
       } else {
         state.seenIndices = new Set();
       }
@@ -836,7 +881,13 @@
           if (n.matches && n.matches('[class*="scrollItemContainer"]')) {
             processItem(n);
           } else if (n.querySelectorAll) {
-            n.querySelectorAll('[class*="scrollItemContainer"]').forEach(processItem);
+            const inner = n.querySelectorAll('[class*="scrollItemContainer"]');
+            if (inner.length) { inner.forEach(processItem); return; }
+            // Content filled INTO an already-mounted row (inner spans/imgs that
+            // aren't themselves a row) — re-read the enclosing row so a row that
+            // mounted as an empty shell isn't lost when it finally gets its text.
+            const row = n.closest && n.closest('[class*="scrollItemContainer"]');
+            if (row) processItem(row);
           }
         });
       }
@@ -935,7 +986,7 @@
   // pair to breathe (else digits); 'faces'/'digits' are sticky manual overrides.
   // resView: the player table shows resource columns ('cards') or the live
   // event stats ('stats') — same players, same rows, switched via header tabs.
-  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, resView: 'cards', mode: 'large', fontScale: 1, diceMode: 'auto', resOrder: ['lumber', 'brick', 'wool', 'grain', 'ore', 'unknown'], statOrder: ['s-block', 's-lost', 's-disc', 's-gain', 's-turn', 's-trade'] };
+  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, resView: 'cards', mode: 'large', fontScale: 1, diceMode: 'auto', resOrder: ['lumber', 'brick', 'wool', 'grain', 'ore', 'unknown'], statOrder: ['s-block', 's-lost', 's-disc', 's-gain', 's-turn', 's-trade'], highlights: [], diceHighlights: [] };
   // True only while a LEFT/RIGHT edge is being dragged: that gesture changes the
   // panel WIDTH without rescaling the text (the width→font zoom is reserved for
   // the bottom-right corner). The ResizeObserver checks this to skip the zoom.
@@ -1243,6 +1294,8 @@
     uiState.statOrder = reconcileOrder(ui.statOrder, STAT_ORDER_DEF);
     uiState.fontScale = ui.fontScale || 1;
     uiState.diceMode = ui.diceMode || 'auto';
+    uiState.highlights = Array.isArray(ui.highlights) ? ui.highlights : [];
+    uiState.diceHighlights = Array.isArray(ui.diceHighlights) ? ui.diceHighlights : [];
     uiState.mode = 'large';                       // auto-enlarge to the large preset on appear
     const host = document.createElement('div');
     host.id = 'colonist-stats-tracker';
@@ -1435,11 +1488,11 @@
     const colHL = document.createElement('div');
     colHL.style.cssText = 'position:absolute;top:0;display:none;pointer-events:none;z-index:2;';
     const colFill = document.createElement('div');
-    colFill.style.cssText = 'position:absolute;inset:0;';
+    colFill.style.cssText = 'position:absolute;inset:0;pointer-events:none;';
     const colBarL = document.createElement('div');
-    colBarL.style.cssText = 'position:absolute;left:0;top:0;bottom:0;width:2.5px;';
+    colBarL.style.cssText = 'position:absolute;left:0;top:0;bottom:0;width:2.5px;pointer-events:none;';
     const colBarR = document.createElement('div');
-    colBarR.style.cssText = 'position:absolute;right:0;top:0;bottom:0;width:2.5px;';
+    colBarR.style.cssText = 'position:absolute;right:0;top:0;bottom:0;width:2.5px;pointer-events:none;';
     colHL.append(colFill, colBarL, colBarR);
     wrap.appendChild(colHL);
     const clearColHL = () => {
@@ -1563,11 +1616,33 @@
     // auto-by-width default), with a springy fade swap. Only the value spans are
     // touched (no full re-render) so the bars/spacing never jump.
     diceEl.addEventListener('click', (e) => {
+      // The 2–12 label flips digits ⇄ dice faces (checked first so it wins over
+      // the column-highlight below — they overlap in the same column).
       const t = e.target.closest('[data-dietoggle]');
-      if (!t) return;
-      uiState.diceMode = diceFacesActive() ? 'digits' : 'faces';
-      saveUI({ diceMode: uiState.diceMode });
-      animateDiceSwap();
+      if (t) {
+        uiState.diceMode = diceFacesActive() ? 'digits' : 'faces';
+        saveUI({ diceMode: uiState.diceMode });
+        animateDiceSwap();
+        return;
+      }
+      // Anywhere else on a column → pin/unpin that whole dice bar.
+      const col = e.target.closest('[data-die]');
+      if (col && diceEl.contains(col)) toggleDiceHighlight(col.getAttribute('data-die'));
+    });
+
+    // Click a value cell → toggle its manual highlight. A drag-reorder ends with
+    // dragging=true, so ignore that release (a real click leaves it false).
+    host.addEventListener('click', (e) => {
+      if (dragging) return;
+      // closest() handles a direct hit; if an overlay (e.g. the column-highlight
+      // layer) becomes the event target instead, fall back to the topmost
+      // [data-cell] under the pointer so the click still lands on the value cell.
+      let cell = e.target.closest && e.target.closest('[data-cell]');
+      if (!cell && e.clientX != null && document.elementsFromPoint) {
+        cell = document.elementsFromPoint(e.clientX, e.clientY)
+          .find((el) => el.matches && el.matches('[data-cell]'));
+      }
+      if (cell && host.contains(cell)) toggleCellHighlight(cell.getAttribute('data-cell'));
     });
 
     makeDraggable(host, host.querySelector('#cst-header'));
@@ -1986,12 +2061,17 @@
       const barH = maxCount ? Math.round((c / maxCount) * 100) : 0;
       const delta = pct - expected;
       const barColor = Math.abs(delta) < 2 ? THEME.bar : (delta > 0 ? THEME.good : THEME.bad);
+      // A pinned column (click anywhere but the 2–12 label) gets a soft glow on
+      // the WHOLE bar — the same warm marker as the table-cell highlight.
+      const hl = uiState.diceHighlights.includes(String(n))
+        ? 'background:rgba(255,212,92,.42);box-shadow:inset 0 0 0 1.5px rgba(201,148,18,.9), 0 0 7px rgba(255,205,70,.55);'
+        : '';
       // The column is a flex stack with justify:space-evenly, so as the panel is
       // dragged taller the extra height flows into the gaps (bar ↔ % ↔ value),
       // i.e. the whole column "breathes" rather than parking blank space below.
       cols.push(`
         <div data-die="${n}"
-             style="flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;gap:0.6em;min-width:0;">
+             style="flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;gap:0.6em;min-width:0;border-radius:6px;cursor:pointer;${hl}">
           <div data-dietip="${n}" style="display:flex;flex-direction:column;align-items:center;gap:0.6em;width:100%;flex:0 0 auto;cursor:default;">
             <span style="font-size:0.96em;font-weight:700;font-variant-numeric:tabular-nums;color:${THEME.text};">${c}</span>
             <div style="width:100%;height:3.9em;display:flex;align-items:flex-end;justify-content:center;">
@@ -2079,14 +2159,48 @@
   // as data-res hooks for the column hover + the ±N float targeting. Dev cards
   // and builds stay TALLIED (and archived per game) but aren't displayed —
   // colonist's own dashboard already shows them; four columns breathe better.
+  // Self-drawn fallback icons (currentColor stroke → tracks the panel text colour).
+  function fbSvg(paths) {
+    return `<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" ` +
+      `stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;">${paths}</svg>`;
+  }
+
+  // Stat columns prefer colonist's own artwork (asset = stable base name; the URL
+  // is harvested live because it carries a per-deploy hash). svg is the fallback.
   const STAT_COLS = [
-    { key: 's-block', icon: '⛔', tip: t('statBlock', 'Cards blocked') },
-    { key: 's-lost',  icon: '💔', tip: t('statLost', 'Cards lost (Knights) — hover for who & 7s') },
-    { key: 's-disc',  icon: '🗑️', tip: t('statDisc', 'Cards discarded (rolled 7)') },
-    { key: 's-gain',  icon: '📥', tip: t('statGain', 'Cards gained') },
-    { key: 's-turn',  icon: '⏱', tip: t('statTurn', 'Average turn length (live rolls only)') },
-    { key: 's-trade', icon: '🤝', tip: t('statTrade', 'Cards traded away (hover for who fed whom)') },
+    { key: 's-block', asset: 'icon_robber',           svg: fbSvg('<circle cx="12" cy="8" r="3.5"/><path d="M8 19C8 13 9.5 11 12 11s4 2 4 8Z"/><path d="M6.5 19h11"/>'),                                              tip: t('statBlock', 'Cards blocked') },
+    { key: 's-lost',  asset: 'card_rescardback',      svg: fbSvg('<rect x="5" y="7" width="8" height="11" rx="1.5"/><path d="M15.5 12.5h4.5"/><path d="M17.5 10l2.5 2.5-2.5 2.5"/>'),                              tip: t('statLost', 'Cards lost (Knights) — hover for who & 7s') },
+    { key: 's-disc',  asset: 'card_rescardoverlimit', svg: fbSvg('<path d="M6 8h12"/><path d="M9.5 8V6h5v2"/><path d="M7.5 8l.8 11a1 1 0 0 0 1 .9h5.4a1 1 0 0 0 1-.9l.8-11"/><path d="M10.5 11v6M13.5 11v6"/>'), tip: t('statDisc', 'Cards discarded (rolled 7)') },
+    { key: 's-gain',  asset: null,                    svg: fbSvg('<path d="M5 13v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/><path d="M5 13h4l1.5 2h3l1.5-2h4"/><path d="M12 4v6M9.5 7.5l2.5 2.5 2.5-2.5"/>'),         tip: t('statGain', 'Cards gained') },
+    { key: 's-turn',  asset: 'icon_hourglass',        svg: fbSvg('<circle cx="12" cy="12" r="8"/><path d="M12 7v5l3.5 2"/>'),                                                                                     tip: t('statTurn', 'Average turn length (live rolls only)') },
+    { key: 's-trade', asset: 'icon_trade',            svg: fbSvg('<path d="M6 9.5h12"/><path d="M15 6.5l3 3-3 3"/><path d="M18 14.5H6"/><path d="M9 11.5l-3 3 3 3"/>'),                                            tip: t('statTrade', 'Cards traded away (hover for who fed whom)') },
   ];
+
+  // Colonist icon URL cache (base name → live URL). Hardcoding is impossible (the
+  // per-deploy hash), so we harvest from whatever colonist has already rendered.
+  const ASSET_KEY = 'colonist-stats-tracker:icons';
+  let assetUrls = (() => { try { return JSON.parse(localStorage.getItem(ASSET_KEY)) || {}; } catch (_) { return {}; } })();
+  function harvestIcons() {
+    const want = STAT_COLS.map((c) => c.asset).filter(Boolean);
+    if (want.every((b) => assetUrls[b])) return;   // all found — stop scanning
+    let changed = false;
+    document.querySelectorAll('img').forEach((im) => {
+      const src = im.getAttribute('src') || '';
+      for (const b of want) {
+        if (!assetUrls[b] && src.indexOf('/' + b + '.') !== -1) { assetUrls[b] = src; changed = true; }
+      }
+    });
+    if (changed) {
+      try { localStorage.setItem(ASSET_KEY, JSON.stringify(assetUrls)); } catch (_) {}
+      renderSoon();
+    }
+  }
+  // A stat header icon: colonist's cached image if we've harvested it, else the svg.
+  function statIconHTML(c) {
+    const url = c.asset && assetUrls[c.asset];
+    if (url) return `<img src="${escapeAttr(url)}" alt="" style="width:1em;height:1em;object-fit:contain;vertical-align:middle;pointer-events:none;">`;
+    return c.svg;
+  }
 
   // Canonical column orders (the drag-reorder baseline). RES order includes the
   // unknown/stolen-card column so it reorders like any other.
@@ -2122,6 +2236,37 @@
   // exact same width regardless of content.
   const TABLE_GRID = 'minmax(120px,2.6fr) repeat(6, minmax(0, 0.8fr))';
   const HEAD_SLOT = 'height:2.3em;display:flex;align-items:center;justify-content:center;';
+
+  // Click-to-highlight a value cell. data-cell="player|key" identifies it (so the
+  // mark follows a drag-reordered column and lapses when the roster changes);
+  // cells listed in uiState.highlights get a soft background. cellMark returns the
+  // attribute + background string to splice into the cell's span.
+  const CELL_HL = 'background:rgba(255,212,92,.5);box-shadow:inset 0 0 0 1px rgba(201,148,18,.6);';
+  function cellMark(name, key) {
+    const id = name + '|' + key;
+    return {
+      a: ` data-cell="${escapeAttr(id)}"`,
+      bg: uiState.highlights.includes(id) ? CELL_HL : '',
+    };
+  }
+  function toggleCellHighlight(id) {
+    if (!id) return;
+    const i = uiState.highlights.indexOf(id);
+    if (i >= 0) uiState.highlights.splice(i, 1);
+    else uiState.highlights.push(id);
+    saveUI({ highlights: uiState.highlights });
+    render();
+  }
+  // A soft pin on a whole dice column (sum 2–12), keyed by the sum as a string.
+  function toggleDiceHighlight(n) {
+    if (n == null) return;
+    const id = String(n);
+    const i = uiState.diceHighlights.indexOf(id);
+    if (i >= 0) uiState.diceHighlights.splice(i, 1);
+    else uiState.diceHighlights.push(id);
+    saveUI({ diceHighlights: uiState.diceHighlights });
+    render();
+  }
 
   function nameCell(p, prof, active) {
     const av = prof && prof.get(p.name) && prof.get(p.name).avatar;
@@ -2188,9 +2333,11 @@
       const cells = nameCell(p, prof, active) +
         uiState.resOrder.map((r) => {
           if (r === 'unknown') {
-            return `<span data-res="unknown" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? '' : 'opacity:.4;'}">${p.unknown}</span>`;
+            const m = cellMark(p.name, 'unknown');
+            return `<span data-res="unknown"${m.a} class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;cursor:pointer;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? '' : 'opacity:.4;'}${m.bg}">${p.unknown}</span>`;
           }
-          return `<span data-res="${r}" class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}">${p.resources[r]}</span>`;
+          const m = cellMark(p.name, r);
+          return `<span data-res="${r}"${m.a} class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;cursor:pointer;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}${m.bg}">${p.resources[r]}</span>`;
         }).join('');
       return rowShell(p, active, cells, TABLE_GRID);
     }).join('');
@@ -2238,10 +2385,10 @@
   function sevensFooterHTML() {
     const total = state.diceCounts[7] || 0;
     if (!total) return '';
-    const rollers = Object.entries(state.sevenRollers || {}).filter(([, c]) => c > 0)
-      .sort((a, b) => b[1] - a[1]).map(([who, c]) => `${nameB(who)} ${c}`).join('、');
+    // Just the count — per-roller attribution was dropped by request (the
+    // sevenRollers tally is still kept for any future use).
     const head = escapeHtml(t('sevensRolled', '7s rolled: {n}', { n: total }));
-    return `<span style="margin-top:2px;padding-top:2px;border-top:1px solid ${THEME.border};color:${THEME.textDim};white-space:nowrap;">🎲 ${head}${rollers ? ` (${rollers})` : ''}</span>`;
+    return `<span style="margin-top:2px;padding-top:2px;border-top:1px solid ${THEME.border};color:${THEME.textDim};white-space:nowrap;">🎲 ${head}</span>`;
   }
 
   // Combined steal report for a Stats cell: knight breakdown + Monopoly lines,
@@ -2260,21 +2407,87 @@
     return `<span style="display:flex;flex-direction:column;gap:2px;">${lines.join('')}</span>`;
   }
 
+  // Close the previous dice round: freeze each blocked tile (roundBlocks) together
+  // with how much each player actually got that round, as a blockEvent. The loss is
+  // DERIVED later in blockLossOf, so backfill still holds. One event per (roll,res)
+  // per round (the robber sits on one tile; guard against duplicate log lines).
+  // Triggered by the next roll (round change) and the winner line (final round).
+  function settleRound() {
+    if (state.roundBlocks.length) {
+      const seen = new Set();
+      for (const b of state.roundBlocks) {
+        const dedupe = b.roll + '|' + b.res;
+        if (seen.has(dedupe)) continue;
+        seen.add(dedupe);
+        const got = {};
+        for (const [pname, rg] of Object.entries(state.roundGot)) got[pname] = rg[b.res] || 0;
+        state.blockEvents.push({ roll: b.roll, res: b.res, got });
+      }
+    }
+    state.roundBlocks = [];
+    state.roundGot = {};
+  }
+
   // Cards a player would have collected but didn't, because the robber sat on a
-  // tile they build on. DERIVED (never accumulated) from the global blocked-tile
-  // counter × that player's learned yield for the tile's number+resource — so a
-  // tile blocked before its number warmed up is credited retroactively once the
-  // yield is learned. Numbers never rolled clean stay uncredited (honest floor).
+  // tile they build on. DERIVED (never accumulated): per blocked-round event, the
+  // loss is max(0, that player's learned per-number yield − what they actually got
+  // that round). Differential by design — an un-blocked owner of the same number
+  // has got == expected → 0, so we never over-count across players; the robber only
+  // blocks one tile, so a multi-tile owner loses just the missing tile's worth.
+  // produces is read at call time, so a tile blocked before its number warmed up is
+  // credited retroactively once the yield is learned (backfill).
+  // colonist's Victory → Overview table prints the EXACT cards-blocked per player
+  // (the stat_resource_income_blocked column). Read it by that stable asset name
+  // (hash-tolerant), mapping each player's value-row cell at the blocked column.
+  // The board is canvas, so this end-of-game table is the only authoritative
+  // source — the live differential can't see a tile's build count at robber time.
+  function readEndgameBlocked() {
+    const blk = [...document.querySelectorAll('img')]
+      .find((im) => (im.getAttribute('src') || '').includes('stat_resource_income_blocked'));
+    if (!blk) return null;
+    const header = blk.parentElement && blk.parentElement.parentElement; // headerContainer
+    if (!header) return null;
+    const col = [...header.children].indexOf(blk.parentElement);         // blocked column index
+    if (col < 0) return null;
+    const right = header.parentElement;                                  // header + value rows
+    const tab = right && right.parentElement;                            // tabContent
+    if (!tab) return null;
+    const valueRows = [...right.children].filter((c) => c !== header);
+    // The left block (same tabContent) lists the player names in the same order.
+    let left = null;
+    for (const child of tab.children) {
+      if (child !== right && child.querySelector('[class*="name-"]')) { left = child; break; }
+    }
+    if (!left) return null;
+    const names = [...left.querySelectorAll('[class*="name-"]')].map((n) => (n.textContent || '').trim());
+    if (!names.length || names.length !== valueRows.length) return null; // shape changed — don't guess
+    const out = {};
+    valueRows.forEach((row, i) => {
+      const cell = row.children[col];
+      const v = cell ? parseInt((cell.textContent || '').trim(), 10) : NaN;
+      if (names[i] && Number.isFinite(v)) out[names[i]] = v;
+    });
+    return Object.keys(out).length ? out : null;
+  }
+
+  // Capture the exact values into state (so blockLossOf returns them everywhere).
+  function syncEndgameBlocked() {
+    const m = readEndgameBlocked();
+    if (!m) return false;
+    state.endgameBlocked = m;
+    return true;
+  }
+
   function blockLossOf(name) {
+    // Once colonist's authoritative end-of-game number is captured, it wins.
+    if (state.endgameBlocked && state.endgameBlocked[name] != null) return state.endgameBlocked[name];
     const ty = state.tally[name] || {};
     const prod = ty.produces || {};
     let total = 0;
-    for (const [key, times] of Object.entries(state.blocked.byKey || {})) {
-      const sp = key.indexOf(' ');
-      if (sp < 0) continue;                       // legacy "tile"-only key: no resource
-      const num = +key.slice(0, sp);
-      const res = key.slice(sp + 1);
-      total += times * ((prod[num] && prod[num][res]) || 0);
+    for (const ev of state.blockEvents || []) {
+      const expected = (prod[ev.roll] && prod[ev.roll][ev.res]) || 0;
+      const got = (ev.got && ev.got[name]) || 0;
+      total += Math.max(0, expected - got);
     }
     return total;
   }
@@ -2283,16 +2496,18 @@
   function blockReportHTML(name) {
     const ty = state.tally[name] || {};
     const prod = ty.produces || {};
-    const rows = [];
-    for (const [key, times] of Object.entries(state.blocked.byKey || {})) {
-      const sp = key.indexOf(' ');
-      if (sp < 0) continue;
-      const num = +key.slice(0, sp);
-      const res = key.slice(sp + 1);
-      const per = (prod[num] && prod[num][res]) || 0;
-      if (per * times <= 0) continue;             // not this player's tile
-      rows.push({ num, res, times, cards: per * times });
+    // Aggregate THIS player's block events by (roll,res): times = events, cards = Σ loss
+    // (expected − got), matching blockLossOf so the hover never disagrees with ⛔.
+    const agg = {};
+    for (const ev of state.blockEvents || []) {
+      const lost = Math.max(0, ((prod[ev.roll] && prod[ev.roll][ev.res]) || 0) - ((ev.got && ev.got[name]) || 0));
+      if (lost <= 0) continue;                    // not this player's tile / no loss
+      const k = ev.roll + ' ' + ev.res;
+      (agg[k] || (agg[k] = { num: ev.roll, res: ev.res, times: 0, cards: 0 }));
+      agg[k].times += 1;
+      agg[k].cards += lost;
     }
+    const rows = Object.values(agg);
     if (!rows.length) return '';
     rows.sort((a, b) => b.cards - a.cards);
     const lines = rows.map((r) =>
@@ -2366,7 +2581,7 @@
     const head = tableHead(uiState.statOrder.map((key) => {
       const c = COL_BY_KEY[key];
       return `<span data-res="${c.key}" data-colhead="1" data-tip="${c.tip}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">` +
-        `<span style="font-size:1.5em;line-height:1;">${c.icon}</span></span>`;
+        `<span style="font-size:1.5em;line-height:1;display:inline-flex;align-items:center;">${statIconHTML(c)}</span></span>`;
     }).join(''), TABLE_GRID);
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
@@ -2392,11 +2607,12 @@
       const cells = nameCell(p, prof, active) + uiState.statOrder.map((key) => {
         const c = COL_BY_KEY[key];
         const { v, disp, tip, pie, bd } = vals[c.key];
-        return `<span data-res="${c.key}" class="${actCls}" ` +
+        const m = cellMark(p.name, c.key);
+        return `<span data-res="${c.key}"${m.a} class="${actCls}" ` +
           `${pie ? `data-pie="${escapeHtml(pie)}" ` : ''}` +
           `${bd ? `data-bd="${escapeHtml(p.name)}|${bd}" ` : ''}` +
           `${tip ? `data-tip="${escapeHtml(tip)}" ` : ''}` +
-          `style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;${v ? '' : `color:${THEME.textDim};opacity:.4;`}">${disp != null ? escapeHtml(disp) : v}</span>`;
+          `style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;cursor:pointer;${v ? '' : `color:${THEME.textDim};opacity:.4;`}${m.bg}">${disp != null ? escapeHtml(disp) : v}</span>`;
       }).join('');
       return rowShell(p, active, cells, TABLE_GRID);
     }).join('');
@@ -2575,8 +2791,14 @@
       // virtual list, which can only change during play. Skipping it once the
       // game has ENDED (or in the lobby) drops the largest sustained per-tick cost.
       if (lifecycle === LIFE.PLAYING) {
+        harvestIcons();   // collect colonist icon URLs as they render (until all cached)
         if (observedContainer && observedContainer.isConnected) scanExisting(observedContainer);
         if (syncFromPanel()) renderSoon();
+      } else if (lifecycle === LIFE.ENDED && !state.endgameBlocked) {
+        // The Victory table can render a beat after the winner log line, so the
+        // capture in buildGameRecord may have been too early. Keep trying until
+        // we have colonist's exact ⛔, then refresh the panel + the saved record.
+        if (syncEndgameBlocked()) { resaveEndgameBlockLoss(); persistState(); renderSoon(); }
       }
     }, 1000);
 
@@ -2610,6 +2832,10 @@
     state.gameEndTs = null;
     state.tally = {};
     state.blocked = { count: 0, byKey: {} };
+    state.blockEvents = [];
+    state.roundGot = {};
+    state.roundBlocks = [];
+    state.endgameBlocked = null;
     lastRoll = null;
     setGameSig('');
     lastCounts = null;  // don't shower "+N" floats diffing against the old game
@@ -2634,6 +2860,8 @@
         gameEndTs: state.gameEndTs,
         tally: state.tally,
         blocked: state.blocked,
+        blockEvents: state.blockEvents,
+        endgameBlocked: state.endgameBlocked,
         selfName: state.selfName,
         seenIndices: [...state.seenIndices],
         players: [...state.players.values()].map((p) => ({
@@ -2664,6 +2892,10 @@
     state.blocked = (d.blocked && typeof d.blocked === 'object')
       ? { count: d.blocked.count || 0, byKey: d.blocked.byKey || {} }
       : { count: 0, byKey: {} };
+    state.blockEvents = Array.isArray(d.blockEvents) ? d.blockEvents : [];
+    state.endgameBlocked = (d.endgameBlocked && typeof d.endgameBlocked === 'object') ? d.endgameBlocked : null;
+    state.roundGot = {};      // round-internal scratch — restart cleanly on restore
+    state.roundBlocks = [];
     state.selfName = d.selfName || null;
     state.seenIndices = new Set(d.seenIndices || []);
     state.players = new Map();
@@ -2769,7 +3001,10 @@
   // The winner line ("X won the game!") was seen: freeze the clock, archive the
   // finished game, and get out of the way so the end screen is fully clickable.
   function onGameWon(winnerName) {
-    if (lifecycle === LIFE.ENDED) return;   // idempotent (re-scrape re-reads it)
+    // A deep re-scrape replays the log while lifecycle stays ENDED; the replayed
+    // winner line must still settle the final round (no trailing roll follows it),
+    // even though the record itself isn't rebuilt here.
+    if (lifecycle === LIFE.ENDED) { settleRound(); return; }
     lifecycle = LIFE.ENDED;
     state.gameEndTs = Date.now();
     saveGameRecord(buildGameRecord(winnerName || null));
@@ -2785,6 +3020,8 @@
   // A self-contained snapshot of the finished game — everything the popup's
   // history list needs, with no references back into live state.
   function buildGameRecord(winnerName) {
+    settleRound();   // the winner line has no "next roll" — settle the final round here
+    syncEndgameBlocked();   // snap ⛔ to colonist's exact Victory-table values (if shown)
     return {
       date: state.gameStartTs || Date.now(),
       duration: (state.gameEndTs && state.gameStartTs)
@@ -2798,6 +3035,7 @@
       })),
       tally: JSON.parse(JSON.stringify(state.tally)),
       blocked: JSON.parse(JSON.stringify(state.blocked)),
+      blockEvents: JSON.parse(JSON.stringify(state.blockEvents)), // audit / future re-derivation
       blockLoss: [...state.players.keys()].reduce((m, n) => {
         m[n] = blockLossOf(n); return m;
       }, {}),
@@ -2816,10 +3054,33 @@
     } catch (e) { /* storage unavailable — history is best-effort */ }
   }
 
+  // If the Victory table only became readable AFTER the record was saved (the
+  // table lagged the winner line), patch this game's already-stored blockLoss to
+  // the now-exact values so the popup history isn't left with the estimate.
+  function resaveEndgameBlockLoss() {
+    if (!state.endgameBlocked) return;
+    try {
+      if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
+      chrome.storage.local.get([HISTORY_KEY], (data) => {
+        const list = Array.isArray(data && data[HISTORY_KEY]) ? data[HISTORY_KEY] : [];
+        const last = list[list.length - 1];
+        if (!last || !state.gameStartTs || last.date !== state.gameStartTs) return;  // only THIS game's record
+        last.blockLoss = last.blockLoss || {};
+        for (const name of Object.keys(last.blockLoss)) {
+          if (state.endgameBlocked[name] != null) last.blockLoss[name] = state.endgameBlocked[name];
+        }
+        chrome.storage.local.set({ [HISTORY_KEY]: list });
+      });
+    } catch (e) { /* best-effort */ }
+  }
+
   // A new game is starting (next-game flow / roster change): wipe the previous
   // game's stats, restart the clock (inside resetState) and re-open the panel.
   function startNextGame() {
     resetState();
+    uiState.highlights = [];          // the previous game's cell highlights are stale
+    uiState.diceHighlights = [];      // ditto the dice-bar highlights
+    saveUI({ highlights: [], diceHighlights: [] });
     lifecycle = LIFE.PLAYING;
     autoSetCollapsed(false);
     renderSoon();
@@ -3156,24 +3417,33 @@
       setGameSig(keep.sig);
       lifecycle = keep.life;
 
+      // Read-all by SETTLING each viewport instead of guessing a fixed delay.
+      // Virtual rows mount a frame or two after the scroll lands; the old code
+      // waited a hardcoded 90/180ms and skipped any laggards, so two re-scrapes
+      // could disagree. Here we poll: scan until seenIndices stops growing for
+      // two consecutive passes (rows have stopped mounting), THEN step down by a
+      // sub-viewport so nothing between two settle points is jumped.
       const sc = scrollableOf(container);
+      const settle = async () => {
+        let stable = 0;
+        for (let p = 0; p < 10 && stable < 2; p++) {
+          const before = state.seenIndices.size;
+          scanExisting(container);
+          stable = (state.seenIndices.size === before) ? stable + 1 : 0;
+          await sleep(40);
+        }
+      };
       sc.scrollTop = 0;
-      await sleep(220);
       let guard = 0;
-      while (container.isConnected && guard++ < 600) {
-        // Scan, wait a beat, scan again — virtual rows can mount a frame or
-        // two after the scroll lands, and a single pass skips the laggards.
-        scanExisting(container);
-        await sleep(90);
-        scanExisting(container);
-        if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 2) break;
+      while (container.isConnected && guard++ < 800) {
+        await settle();                                                    // read all in view
+        if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 2) break;  // reached the bottom
         const before = sc.scrollTop;
-        sc.scrollTop = before + Math.max(40, sc.clientHeight * 0.66);
-        await sleep(180);
-        if (sc.scrollTop === before) break;   // can't scroll further
+        sc.scrollTop = Math.min(before + sc.clientHeight * 0.6, sc.scrollHeight);
+        if (sc.scrollTop <= before) break;                                 // can't advance further
       }
-      if (container.isConnected) scanExisting(container);
-      sc.scrollTop = sc.scrollHeight;         // the live log sticks to the bottom
+      if (container.isConnected) await settle();    // final viewport
+      sc.scrollTop = sc.scrollHeight;               // the live log sticks to the bottom
     } finally {
       rescraping = false;
     }
@@ -3206,14 +3476,66 @@
     return true;
   }
 
+  // ---- self's hand is fully visible (DOM) — read it as ground truth ----
+  // Opponents' breakdowns are hidden (only their total is public), so the
+  // log-only path pads a missed `got` as "unknown". But colonist renders YOUR
+  // OWN hand as real <img src=card_*> tiles at the bottom-left, each beside a
+  // quantity badge. Reading them pins self's per-resource counts exactly and
+  // drops the phantom unknowns.
+  function handCount(img) {
+    // The quantity badge sits within a couple of wrappers of the card tile;
+    // take the first ancestor whose text carries a number.
+    let p = img;
+    for (let i = 0; i < 4 && p.parentElement; i++) {
+      p = p.parentElement;
+      const m = (p.textContent || '').trim().match(/\d+/);
+      if (m) return parseInt(m[0], 10);
+    }
+    return null;
+  }
+
+  function readSelfHand() {
+    const vw = window.innerWidth || 1280;
+    const vh = window.innerHeight || 800;
+    const hand = zeroResources();
+    let found = false;
+    for (const im of document.querySelectorAll('img')) {
+      const src = im.getAttribute('src') || '';
+      const res = RESOURCES.find((r) => src.includes('card_' + r));
+      if (!res) continue;
+      const box = im.getBoundingClientRect();
+      // The hand strip is anchored bottom-left with ~30px tiles. This window
+      // excludes the chat-log's tiny inline icons and any centered popup.
+      if (box.top <= vh * 0.65 || box.left >= vw * 0.55) continue;
+      if (box.width < 18 || box.width > 80) continue;
+      const n = handCount(im);
+      if (n != null) { hand[res] = n; found = true; }
+    }
+    return found ? hand : null;
+  }
+
   // Sync every tracked player's TOTAL to colonist's player panel (authoritative).
+  // Self is special: when its hand strip is on screen we read the EXACT
+  // breakdown from it and skip the total-only reconcile (which would re-pad
+  // unknowns). Opponents — hidden hands — still reconcile by total.
   function syncFromPanel() {
     let changed = false;
+    const self = state.selfName || selfFromPanel();
+    const hand = self && state.players.has(self) ? readSelfHand() : null;
+    if (hand) {
+      const p = state.players.get(self);
+      for (const r of RESOURCES) {
+        if (p.resources[r] !== hand[r]) { p.resources[r] = hand[r]; changed = true; }
+      }
+      if (p.unknown !== 0) { p.unknown = 0; changed = true; }
+    }
     document.querySelectorAll('[data-player-color]').forEach((row) => {
       const nameEl = row.querySelector('[class*="username"]');
       if (!nameEl) return;
-      const p = state.players.get((nameEl.textContent || '').trim());
+      const name = (nameEl.textContent || '').trim();
+      const p = state.players.get(name);
       if (!p) return;
+      if (hand && name === self) return;   // self is already exact from the visible hand
       const total = panelHandTotal(row);
       if (total != null && reconcileTotal(p, total)) changed = true;
     });
@@ -3230,6 +3552,8 @@
       state,
       resetState,
       processMessage,
+      processItem,
+      scanExisting,
       splitTradeResources,
       countResources,
       diceSum,
@@ -3239,6 +3563,7 @@
       bankRemaining,
       hasUnknownCards,
       reconcileTotal,
+      readSelfHand,
       syncFromPanel,
       maybeNewGame,
       persistState,
@@ -3246,6 +3571,9 @@
       // Lifecycle / timer (auto collapse-expand state machine).
       LIFE,
       evalLifecycle,
+      attachObserver,
+      logIsContinuation,
+      deepRescrape,
       onGameWon,
       startNextGame,
       getLifecycle: () => lifecycle,
@@ -3259,6 +3587,8 @@
       selfFromPanel,
       stealReportHTML,
       blockLossOf,
+      readEndgameBlocked,
+      syncEndgameBlocked,
       blockReportHTML,
       tradeGhostOn,
       tradeCreatorOpen,
@@ -3275,6 +3605,10 @@
       diceFromImg,
       dieFaceHTML,
       getUiState: () => uiState,
+      toggleCellHighlight,
+      toggleDiceHighlight,
+      harvestIcons,
+      getAssetUrls: () => assetUrls,
       reconcileOrder,
       reorderKeys,
       // UI entry points (exposed so the jsdom smoke test can render the panel).

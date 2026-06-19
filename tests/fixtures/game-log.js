@@ -108,6 +108,27 @@ const fixtures = {
   // player span, no card. Must be ignored (and the tile icon not miscounted).
   blocked_by_robber: `<div class="feedMessage-O8TLknGe" style="opacity: 1;"><span class="messagePart-XeUsOgLX"> <img src="https://cdn.colonist.io/dist/assets/prob_11.102e16ed661168ddeec8.svg" alt="prob_11" height="20" width="20" class="lobbyChatTextIcon"> <img src="https://cdn.colonist.io/dist/assets/generated_tile_wool.29bcdda6873893e2a506.svg" alt="wool tile" height="20" width="17.299999999999997" class="lobbyChatTextIcon"> is blocked by the Robber. No resources produced</span></div>`,
 
+  // ---- Synthetic fixtures for the blockLoss differential-method tests (not a
+  // real log capture; hashes are placeholders — the parser matches by prefix). ----
+
+  // "StanTheMan01 got [ore]" — self gains 1 ore.
+  got_self_ore: `<div class="feedMessage-O8TLknGe" style="opacity: 1;"><div class="container-k26ZLqas hideBackground-tkyRocbV avatar-yelUykqb"><img draggable="false" class="avatarImage-JNCoQelY" src="https://cdn.colonist.io/dist/assets/icon_player_loggedin.0269225ae4f7db8480ca.svg"></div><span class="messagePart-XeUsOgLX"><span style="font-weight:600;word-break:break-all;color:#CF4449">StanTheMan01</span> got <img src="https://cdn.colonist.io/dist/assets/card_ore.117f64dab28e1c987958.svg" alt="Ore" height="20" width="14.25" class="lobbyChatTextIcon"></span></div>`,
+
+  // "StanTheMan01 got [ore][ore]" — self gains 2 ore (one of three 4-ore tiles blocked).
+  got_self_ore_x2: `<div class="feedMessage-O8TLknGe" style="opacity: 1;"><div class="container-k26ZLqas hideBackground-tkyRocbV avatar-yelUykqb"><img draggable="false" class="avatarImage-JNCoQelY" src="https://cdn.colonist.io/dist/assets/icon_player_loggedin.0269225ae4f7db8480ca.svg"></div><span class="messagePart-XeUsOgLX"><span style="font-weight:600;word-break:break-all;color:#CF4449">StanTheMan01</span> got <img src="https://cdn.colonist.io/dist/assets/card_ore.117f64dab28e1c987958.svg" alt="Ore" height="20" width="14.25" class="lobbyChatTextIcon"> <img src="https://cdn.colonist.io/dist/assets/card_ore.117f64dab28e1c987958.svg" alt="Ore" height="20" width="14.25" class="lobbyChatTextIcon"></span></div>`,
+
+  // "StanTheMan01 got [ore][ore][ore]" — self gains 3 ore (clean three-tile yield).
+  got_self_ore_x3: `<div class="feedMessage-O8TLknGe" style="opacity: 1;"><div class="container-k26ZLqas hideBackground-tkyRocbV avatar-yelUykqb"><img draggable="false" class="avatarImage-JNCoQelY" src="https://cdn.colonist.io/dist/assets/icon_player_loggedin.0269225ae4f7db8480ca.svg"></div><span class="messagePart-XeUsOgLX"><span style="font-weight:600;word-break:break-all;color:#CF4449">StanTheMan01</span> got <img src="https://cdn.colonist.io/dist/assets/card_ore.117f64dab28e1c987958.svg" alt="Ore" height="20" width="14.25" class="lobbyChatTextIcon"> <img src="https://cdn.colonist.io/dist/assets/card_ore.117f64dab28e1c987958.svg" alt="Ore" height="20" width="14.25" class="lobbyChatTextIcon"> <img src="https://cdn.colonist.io/dist/assets/card_ore.117f64dab28e1c987958.svg" alt="Ore" height="20" width="14.25" class="lobbyChatTextIcon"></span></div>`,
+
+  // "Richia got [ore]" — bot gains 1 ore.
+  got_bot_ore: `<div class="feedMessage-O8TLknGe" style="opacity: 1;"><div class="container-k26ZLqas hideBackground-tkyRocbV avatar-yelUykqb"><img draggable="false" class="avatarImage-JNCoQelY undefined" src="https://cdn.colonist.io/dist/assets/icon_bot.551858c518b9f2f8357a.svg"></div><span class="messagePart-XeUsOgLX"><span style="font-weight:600;word-break:break-all;color:#228103">Richia</span> got <img src="https://cdn.colonist.io/dist/assets/card_ore.117f64dab28e1c987958.svg" alt="Ore" height="20" width="14.25" class="lobbyChatTextIcon"></span></div>`,
+
+  // "[prob_4][ore tile] is blocked by the Robber" — a 4-ore tile blocked.
+  blocked_4_ore: `<div class="feedMessage-O8TLknGe" style="opacity: 1;"><span class="messagePart-XeUsOgLX"> <img src="https://cdn.colonist.io/dist/assets/prob_4.aaaaaaaaaaaaaaaaaaaa.svg" alt="prob_4" height="20" width="20" class="lobbyChatTextIcon"> <img src="https://cdn.colonist.io/dist/assets/generated_tile_ore.bbbbbbbbbbbbbbbbbbbb.svg" alt="ore tile" height="20" width="17.299999999999997" class="lobbyChatTextIcon"> is blocked by the Robber. No resources produced</span></div>`,
+
+  // "[prob_4][brick tile] is blocked by the Robber" — a 4-brick tile blocked.
+  blocked_4_brick: `<div class="feedMessage-O8TLknGe" style="opacity: 1;"><span class="messagePart-XeUsOgLX"> <img src="https://cdn.colonist.io/dist/assets/prob_4.aaaaaaaaaaaaaaaaaaaa.svg" alt="prob_4" height="20" width="20" class="lobbyChatTextIcon"> <img src="https://cdn.colonist.io/dist/assets/generated_tile_brick.cccccccccccccccccccc.svg" alt="brick tile" height="20" width="17.299999999999997" class="lobbyChatTextIcon"> is blocked by the Robber. No resources produced</span></div>`,
+
   // ---- Fourth capture: Year of Plenty, Road Building, Largest Army. ----
 
   // "StanTheMan01 used Year of Plenty [icon]" — announcement only (tooltip

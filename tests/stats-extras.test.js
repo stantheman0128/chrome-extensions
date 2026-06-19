@@ -110,6 +110,15 @@ test('the lost report combines knight breakdown, a Monopoly line, and the 7s foo
   assert.match(html, /7s rolled/i, '7s footer');
 });
 
+test('the 7s footer shows the count but no longer names who rolled them', () => {
+  cst.resetState();
+  cst.getPlayer('StanTheMan01', '#CF4449');
+  feed(F.roll_2_5);            // StanTheMan01 rolled a 7 (no steals/Monopoly here)
+  const html = cst.stealReportHTML('StanTheMan01', 'lost');
+  assert.match(html, /7s rolled/i, 'count still shown');
+  assert.doesNotMatch(html, /StanTheMan01/, 'roller name dropped from the footer');
+});
+
 // ---- render wiring: the two new Stats columns show up ----
 test('the Stats view renders the ⏱ turn-time and 🤝 trade columns', async () => {
   cst.resetState();

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Colonist.io Stats Tracker",
-  "version": "1.35.0",
+  "version": "1.45.0",
   "description": "__MSG_appDesc__",
   "default_locale": "en",
   "homepage_url": "https://github.com/stantheman0128/chrome-extensions",
@@ -23,6 +23,12 @@
   },
   "permissions": ["storage"],
   "content_scripts": [
+    {
+      "matches": ["*://colonist.io/*", "*://*.colonist.io/*"],
+      "js": ["msgpack.js", "ws-inspector.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
     {
       "matches": ["*://colonist.io/*", "*://*.colonist.io/*"],
       "js": ["content.js"],
