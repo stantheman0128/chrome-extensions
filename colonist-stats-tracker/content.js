@@ -1126,10 +1126,36 @@
     }, 130);
   }
 
-  // Keyboard shortcuts: C collapses / expands the whole panel, R jumps to the
-  // Resources view, S to Stats. All ignored while typing (colonist's chat box /
-  // any input / contenteditable) or with a modifier key held. R/S also need the
-  // panel open; C works either way (so it can expand a collapsed panel).
+  // Collapse / expand a foldable section (Dice / Resources) by its data-fold key.
+  // Shared by the header click and the keyboard, so both stay in sync.
+  function toggleFold(key) {
+    if (!panel) return;
+    const head = panel.querySelector('[data-fold="' + key + '"]');
+    if (!head) return;
+    uiState[key] = !uiState[key];
+    saveUI({ [key]: uiState[key] });
+    const open = !uiState[key];
+    setSectionOpen(head.nextElementSibling, open, true);
+    panel.style.height = 'auto';
+    const chev = head.querySelector('.cst-chev');
+    if (chev) chev.textContent = open ? '▾' : '▸';
+  }
+
+  // R / S: jump to that view; press again (already showing it) to collapse the
+  // shared Resources/Stats section.
+  function sectionKey(view) {
+    if (uiState.resView !== view) {
+      if (uiState.resCollapsed) toggleFold('resCollapsed'); // open it so the switch is visible
+      switchResView(view);
+    } else {
+      toggleFold('resCollapsed');
+    }
+  }
+
+  // Keyboard shortcuts: C = whole panel, D = Dice section, R = Resources, S =
+  // Stats (R/S jump to the view, then collapse it when pressed again). All
+  // ignored while typing (colonist's chat box / any input / contenteditable) or
+  // with a modifier held. D/R/S need the panel open; C works either way.
   let keysBound = false;
   function bindKeys() {
     if (keysBound || typeof document === 'undefined') return;
@@ -1140,9 +1166,10 @@
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       if (key === 'c') { setPanelCollapsed(!uiState.panelCollapsed); return; }
-      if (uiState.panelCollapsed) return;   // R/S only make sense when open
-      if (key === 'r') switchResView('cards');
-      else if (key === 's') switchResView('stats');
+      if (uiState.panelCollapsed) return;   // section keys only make sense when open
+      if (key === 'd') toggleFold('diceCollapsed');
+      else if (key === 'r') sectionKey('cards');
+      else if (key === 's') sectionKey('stats');
     });
   }
 
@@ -1374,16 +1401,16 @@
       <div id="cst-body" style="display:flex;flex-direction:column;flex:1 1 auto;min-height:0;
            overflow:auto;padding:12px 14px 13px;">
         <div id="cst-dice-head" data-fold="diceCollapsed" style="${secHead}flex:0 0 auto;margin-bottom:7px;">
-          <strong style="color:${THEME.accent};"><span class="cst-chev">${uiState.diceCollapsed ? '▸' : '▾'}</span> ${t('diceRolls', 'Dice Rolls')}</strong>
+          <strong data-tip="${t('tipDiceFold', 'Click (or press D) to collapse / expand')}" style="color:${THEME.accent};"><span class="cst-chev">${uiState.diceCollapsed ? '▸' : '▾'}</span> ${t('diceRolls', 'Dice Rolls')}</strong>
           <span id="cst-dice-rolls" style="color:${THEME.textDim};font-size:0.82em;"></span>
         </div>
         <div id="cst-dice-wrap" style="flex:1 0 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;transition:max-height .28s ease;"><div id="cst-dice" style="flex:1 1 auto;display:flex;flex-direction:column;"></div></div>
         <div id="cst-res-head" data-fold="resCollapsed" style="${secHead}flex:0 0 auto;margin-top:14px;">
           <strong style="color:${THEME.accent};display:flex;align-items:baseline;gap:6px;">
             <span class="cst-chev">${uiState.resCollapsed ? '▸' : '▾'}</span>
-            <span class="cst-vtab" data-resview="cards">${t('resourcesTab', 'Resources')}</span>
+            <span class="cst-vtab" data-resview="cards" data-tip="${t('tipResTab', 'Resources (press R · again to collapse)')}">${t('resourcesTab', 'Resources')}</span>
             <span style="color:${THEME.textDim};font-weight:400;">·</span>
-            <span class="cst-vtab" data-resview="stats">${t('statsTab', 'Stats')}</span>
+            <span class="cst-vtab" data-resview="stats" data-tip="${t('tipStatsTab', 'Stats (press S · again to collapse)')}">${t('statsTab', 'Stats')}</span>
           </strong>
         </div>
         <div id="cst-res-wrap" style="flex:1 0 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;transition:max-height .28s ease;"><div id="cst-resources" style="flex:1 1 auto;display:flex;flex-direction:column;"></div></div>
@@ -1432,14 +1459,7 @@
       }
       const head = e.target.closest && e.target.closest('[data-fold]');
       if (!head || !host.contains(head)) return;
-      const key = head.getAttribute('data-fold');
-      uiState[key] = !uiState[key];
-      saveUI({ [key]: uiState[key] });
-      const open = !uiState[key];
-      setSectionOpen(head.nextElementSibling, open, true);
-      host.style.height = 'auto';
-      const c = head.querySelector('.cst-chev');
-      if (c) c.textContent = open ? '▾' : '▸';
+      toggleFold(head.getAttribute('data-fold'));
     });
 
     // Width drives font size FROM THE CORNER (resize:both) — a wider corner-drag
