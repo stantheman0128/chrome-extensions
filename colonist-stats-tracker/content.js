@@ -2213,12 +2213,12 @@
   // Stat columns prefer colonist's own artwork (asset = stable base name; the URL
   // is harvested live because it carries a per-deploy hash). svg is the fallback.
   const STAT_COLS = [
-    { key: 's-block', asset: 'icon_robber',           svg: fbSvg('<circle cx="12" cy="8" r="3.5"/><path d="M8 19C8 13 9.5 11 12 11s4 2 4 8Z"/><path d="M6.5 19h11"/>'),                                              tip: t('statBlock', 'Cards blocked') },
-    { key: 's-lost',  asset: 'card_rescardback',      svg: fbSvg('<rect x="5" y="7" width="8" height="11" rx="1.5"/><path d="M15.5 12.5h4.5"/><path d="M17.5 10l2.5 2.5-2.5 2.5"/>'),                              tip: t('statLost', 'Cards lost (Knights) — hover for who & 7s') },
+    { key: 's-block', asset: 'stat_rolling_loss',     svg: fbSvg('<circle cx="12" cy="8" r="3.5"/><path d="M8 19C8 13 9.5 11 12 11s4 2 4 8Z"/><path d="M6.5 19h11"/>'),                                              tip: t('statBlock', 'Cards blocked') },
+    { key: 's-lost',  asset: 'stat_robbing_loss',     svg: fbSvg('<rect x="5" y="7" width="8" height="11" rx="1.5"/><path d="M15.5 12.5h4.5"/><path d="M17.5 10l2.5 2.5-2.5 2.5"/>'),                              tip: t('statLost', 'Cards lost (Knights) — hover for who & 7s') },
     { key: 's-disc',  asset: 'card_rescardoverlimit', svg: fbSvg('<path d="M6 8h12"/><path d="M9.5 8V6h5v2"/><path d="M7.5 8l.8 11a1 1 0 0 0 1 .9h5.4a1 1 0 0 0 1-.9l.8-11"/><path d="M10.5 11v6M13.5 11v6"/>'), tip: t('statDisc', 'Cards discarded (rolled 7)') },
-    { key: 's-gain',  asset: null,                    svg: fbSvg('<path d="M5 13v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/><path d="M5 13h4l1.5 2h3l1.5-2h4"/><path d="M12 4v6M9.5 7.5l2.5 2.5 2.5-2.5"/>'),         tip: t('statGain', 'Cards gained') },
+    { key: 's-gain',  asset: 'stat_res_gain',         svg: fbSvg('<path d="M5 13v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/><path d="M5 13h4l1.5 2h3l1.5-2h4"/><path d="M12 4v6M9.5 7.5l2.5 2.5 2.5-2.5"/>'),         tip: t('statGain', 'Cards gained') },
     { key: 's-turn',  asset: 'icon_hourglass',        svg: fbSvg('<circle cx="12" cy="12" r="8"/><path d="M12 7v5l3.5 2"/>'),                                                                                     tip: t('statTurn', 'Average turn length (live rolls only)') },
-    { key: 's-trade', asset: 'icon_trade',            svg: fbSvg('<path d="M6 9.5h12"/><path d="M15 6.5l3 3-3 3"/><path d="M18 14.5H6"/><path d="M9 11.5l-3 3 3 3"/>'),                                            tip: t('statTrade', 'Cards traded away (hover for who fed whom)') },
+    { key: 's-trade', asset: 'stat_trade_loss',       svg: fbSvg('<path d="M6 9.5h12"/><path d="M15 6.5l3 3-3 3"/><path d="M18 14.5H6"/><path d="M9 11.5l-3 3 3 3"/>'),                                            tip: t('statTrade', 'Cards traded away (hover for who fed whom)') },
   ];
 
   // Colonist icon URL cache (base name → live URL). Hardcoding is impossible (the
@@ -2524,18 +2524,20 @@
   }
 
   function blockLossOf(name) {
-    // The WebSocket board model is exact and live; prefer it when ready, but keep
-    // the estimate running and log any divergence (the migration oracle).
+    // The log differential — colonist's end-game exact value once captured, else
+    // the per-round estimate — is the source of truth. The WS board accrual is an
+    // ORACLE only: it currently under-counts (audit caught wsBoard 0 vs colonist
+    // 11/2 — robber-tile tracking in the diff isn't landing), so it must not
+    // override the estimate. Re-promote it once the accrual is fixed.
+    const est = estimateBlockLoss(name);
     if (wsBoard && __cstBoard.ready(wsBoard)) {
       const color = wsColorOf(name);
       if (color != null) {
         const ws = __cstBoard.blockedLossOf(wsBoard, color);
-        const est = estimateBlockLoss(name);
         if (ws !== est) { try { console.debug('[CST] ⛔ oracle: WS', ws, 'vs est', est, 'for', name); } catch (e) {} }
-        return ws;
       }
     }
-    return estimateBlockLoss(name);
+    return est;
   }
 
   // The log-only estimate (endgame-exact when captured, else the differential).
@@ -2864,11 +2866,13 @@
           synced = syncFromPanel();
         }
         if (synced) renderSoon();
-      } else if (lifecycle === LIFE.ENDED && !state.endgameBlocked) {
+      } else if (lifecycle === LIFE.ENDED) {
+        harvestIcons();   // the Victory table renders the stat_* icons — grab them here
+        if (!auditPrinted) { auditPrinted = true; try { console.log(buildAuditReport()); } catch (e) { /* ignore */ } }
         // The Victory table can render a beat after the winner log line, so the
         // capture in buildGameRecord may have been too early. Keep trying until
         // we have colonist's exact ⛔, then refresh the panel + the saved record.
-        if (syncEndgameBlocked()) { resaveEndgameBlockLoss(); persistState(); renderSoon(); }
+        if (!state.endgameBlocked && syncEndgameBlocked()) { resaveEndgameBlockLoss(); persistState(); renderSoon(); }
       }
     }, 1000);
 
@@ -2909,6 +2913,7 @@
     lastRoll = null;
     setGameSig('');
     lastCounts = null;  // don't shower "+N" floats diffing against the old game
+    auditPrinted = false;
   }
 
   // ---- persistence of the live game (survives page reloads / reconnects) ----
@@ -3668,6 +3673,66 @@
     return changed;
   }
 
+  let auditPrinted = false;   // the game-end audit prints once per game
+
+  // ---- self-audit report (console) ----
+  // Lays the same quantity from INDEPENDENT sources side by side per player — WS
+  // raw / our panel / colonist's own panel + Victory table — so any divergence in
+  // the WS migration is obvious. (Comparing tally-vs-WS alone is self-proving:
+  // syncStatsFromWS already copied WS into tally.) Returns a multi-line string,
+  // printed by __cstAudit() any time and once when the game ends.
+  function panelTotalOf(name) {
+    let total = null;
+    document.querySelectorAll('[data-player-color]').forEach((row) => {
+      const nameEl = row.querySelector('[class*="username"]');
+      if (nameEl && (nameEl.textContent || '').trim() === name) total = panelHandTotal(row);
+    });
+    return total;
+  }
+
+  function buildAuditReport() {
+    const ver = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
+      ? chrome.runtime.getManifest().version : '?';
+    const wsReady = !!(wsBoard && __cstBoard.ready(wsBoard));
+    const flag = (a, c) => (a != null && c != null && a !== c) ? '  ⚠️' : '';
+    const L = ['===== CST AUDIT v' + ver + ' =====',
+      'ws ready: ' + wsReady + ' | self: ' + (state.selfName || '?')];
+    if (wsReady) L.push('events (gameLogState by type): ' + JSON.stringify(__cstBoard.logTypeCountsOf(wsBoard)));
+    state.players.forEach((p, name) => {
+      const color = wsColorOf(name);
+      const ty = tallyOf(name);
+      const ourTotal = playerTotal(p);
+      const wsTotal = (wsReady && color != null) ? __cstBoard.handCountOf(wsBoard, color) : null;
+      const panelTot = panelTotalOf(name);
+      const s = (wsReady && color != null) ? __cstBoard.statsOf(wsBoard, color) : null;
+      const wsBlock = (wsReady && color != null) ? __cstBoard.blockedLossOf(wsBoard, color) : null;
+      const vic = state.endgameBlocked && state.endgameBlocked[name];
+      const tradeFed = Object.values(ty.tradeGave || {}).reduce((a, c) => a + c, 0);
+      L.push('');
+      L.push('[' + name + '] color=' + color);
+      L.push('  hand: ours=' + ourTotal + '(?' + p.unknown + ') ws=' + wsTotal + ' panel=' + panelTot
+        + flag(ourTotal, wsTotal) + flag(wsTotal, panelTot));
+      L.push('  ours: ' + RESOURCES.map((r) => r[0] + p.resources[r]).join(' '));
+      if (s) {
+        L.push('  disc: tally=' + ty.discardCards + ' ws=' + s.discardCards + flag(ty.discardCards, s.discardCards));
+        L.push('  gain: tally=' + ty.gained + ' ws=' + s.gained + flag(ty.gained, s.gained));
+        L.push('  mono: tally=' + JSON.stringify(ty.monoTook || {}) + ' ws=' + JSON.stringify(s.monoTook));
+      }
+      L.push('  block: panel=' + blockLossOf(name) + ' wsBoard=' + wsBlock + (vic != null ? ' victory=' + vic : ''));
+      L.push('  (log-only) lost=' + (ty.lost || 0) + ' tradeFed=' + tradeFed);
+    });
+    return L.join('\n');
+  }
+
+  // __cstAudit() (page console, main world) posts a request; we print the report
+  // here — a content-script console.log surfaces in the same DevTools console.
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('message', (e) => {
+      if (!e.data || !e.data.__cstAuditReq) return;
+      try { console.log(buildAuditReport()); } catch (err) { /* ignore */ }
+    });
+  }
+
   // Sync every tracked player's TOTAL to colonist's player panel (authoritative).
   // Self is special: when its hand strip is on screen we read the EXACT
   // breakdown from it and skip the total-only reconcile (which would re-pad
@@ -3721,6 +3786,7 @@
       syncFromPanel,
       syncFromWS,
       syncStatsFromWS,
+      buildAuditReport,
       maybeNewGame,
       persistState,
       restoreState,

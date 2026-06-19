@@ -118,3 +118,13 @@ test('monopoly victim is NOT split in a 3-player game', () => {
   assert.deepEqual(board.statsOf(b, 2).monoTook, { 5: 4 }, 'taker still recorded');
   assert.equal(board.statsOf(b, 1), null, 'no per-victim attribution with 3+ players');
 });
+
+test('accrueLog tallies a count of every log entry by type (audit cross-check)', () => {
+  const b = board.createBoard();
+  board.applyDiff(b, diffLog({
+    '1': { text: { type: 10, playerColor: 1, firstDice: 2, secondDice: 3 } },
+    '2': { text: { type: 55, playerColor: 1, cardEnums: [1] } },
+    '3': { text: { type: 10, playerColor: 2, firstDice: 4, secondDice: 4 } },
+  }));
+  assert.deepEqual(board.logTypeCountsOf(b), { 10: 2, 55: 1 });
+});

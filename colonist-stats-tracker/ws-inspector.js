@@ -21,6 +21,7 @@
   // shifting early steals/trades out. `meta` keeps the opening colour↔name map so
   // each event's playerColor can be attributed.
   const logEntries = {};
+  const robberProbe = { diffKeys: {}, samples: [] };  // ⛔ blocked-loss investigation
   let meta = null;
   function harvestLog(obj) {
     const d = obj && obj.data;
@@ -31,6 +32,13 @@
         playerColor: gs.playerColor,
         players: (d.payload.playerUserStates || []).map((u) => ({ color: u.selectedColor, name: u.username, bot: u.isBot })),
       };
+    }
+    if (d.type === 91 && d.payload && d.payload.diff) {
+      const diff = d.payload.diff;
+      for (const key of Object.keys(diff)) robberProbe.diffKeys[key] = (robberProbe.diffKeys[key] || 0) + 1;
+      if (robberProbe.samples.length < 6) {
+        try { if (JSON.stringify(diff).toLowerCase().indexOf('robber') >= 0) robberProbe.samples.push(diff); } catch (e) {}
+      }
     }
     const gl = (d.payload && d.payload.gameState && d.payload.gameState.gameLogState)
             || (d.payload && d.payload.diff && d.payload.diff.gameLogState);
@@ -117,6 +125,9 @@
       });
     },
     clear() { buf.length = 0; return 'cleared'; },
+    // Ask the content script to print its self-audit report (WS vs our panel vs
+    // colonist) to this console — paste the result to cross-check a finished game.
+    audit() { window.postMessage({ __cstAuditReq: true }, '*'); return 'audit requested — report prints below'; },
     // Whole-game structured log grouped by text.type, a few samples each — paste
     // this to map the Stats events (steal/trade/discard/achievement) onto the WS.
     logTypes() {
@@ -137,6 +148,16 @@
       return dump;
     },
     allLog() { return logEntries; },
+    // Robber-tracking probe for the ⛔ fix: which diff top-level keys appear (is
+    // mechanicRobberState even present?) + the first few diffs mentioning a robber.
+    // Move the robber a few times, then paste this.
+    robber() {
+      const out = { diffKeys: robberProbe.diffKeys, robberSamples: robberProbe.samples };
+      console.log(JSON.stringify(out, bigintReplacer, 2));
+      return out;
+    },
   };
-  console.log('%c[CST] WS inspector active — play, then run __cstWS.dump()', 'color:#2f6f9f;font-weight:600');
+  // Global alias so a finished game can be cross-checked with a bare __cstAudit().
+  window.__cstAudit = function () { window.postMessage({ __cstAuditReq: true }, '*'); return 'audit requested — report prints below'; };
+  console.log('%c[CST] WS inspector active — play, then run __cstAudit() or __cstWS.dump()', 'color:#2f6f9f;font-weight:600');
 })();

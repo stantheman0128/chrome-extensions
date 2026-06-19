@@ -19,7 +19,7 @@
     return {
       tiles: {}, coordToTile: {}, corners: {}, cornersByTile: {},
       robberTile: null, selfColor: null, colorToName: {}, hands: {},
-      blockedLoss: {}, wsStats: {}, seenLog: -1, _ready: false,
+      blockedLoss: {}, wsStats: {}, logTypeCounts: {}, seenLog: -1, _ready: false,
     };
   }
 
@@ -48,6 +48,7 @@
       b.seenLog = k;
       const text = gameLogState[String(k)] && gameLogState[String(k)].text;
       if (!text) continue;
+      b.logTypeCounts[text.type] = (b.logTypeCounts[text.type] || 0) + 1; // audit cross-check
       if (text.type === 55) {
         const cards = text.cardEnums || [];
         if (cards.length) {
@@ -190,6 +191,7 @@
     createBoard, tilesOfCorner, applyFullState, applyDiff, tilesOfCornerIdx,
     handCountOf, handBreakdownOf,
     statsOf: (b, color) => b.wsStats[color] || null,
+    logTypeCountsOf: (b) => b.logTypeCounts,
     ready: (b) => b._ready,
     robberTile: (b) => b.robberTile,
     blockedLossOf: (b, color) => b.blockedLoss[color] || 0,

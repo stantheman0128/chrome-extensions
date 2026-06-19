@@ -84,3 +84,38 @@ test('syncStatsFromWS maps monopoly took/lost (resId→name, color→name)', () 
   assert.deepEqual(cst.state.tally['StanTheMan01'].monoTook, { ore: 3 }, 'taker took ore×3');
   assert.deepEqual(cst.state.tally['Sancho'].monoLost, { StanTheMan01: { ore: 3 } }, 'victim lost to taker by name');
 });
+
+test('blockLossOf keeps colonist endgame-exact even when the WS board under-counts (audit bug)', () => {
+  cst.resetState();
+  cst.getPlayer('StanTheMan01', '#CF4449');
+  // WS board ready but its blocked accrual is 0 — the divergence the audit caught
+  // (wsBoard=0 vs colonist victory=11). The WS value must NOT override the exact.
+  window.dispatchEvent(new window.MessageEvent('message', {
+    data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload: {
+      gameState: { playerColor: 1, mapState: {}, playerStates: {} },
+      playerUserStates: [{ selectedColor: 1, username: 'StanTheMan01' }],
+    } } } },
+  }));
+  cst.state.endgameBlocked = { StanTheMan01: 11 };
+  assert.equal(cst.blockLossOf('StanTheMan01'), 11, 'colonist exact wins over the WS board 0');
+});
+
+test('buildAuditReport lays out WS-vs-ours hand totals and flags a mismatch', () => {
+  cst.resetState();
+  const me = cst.getPlayer('StanTheMan01', '#CF4449');
+  me.resources.lumber = 5;                 // ours total = 5
+  window.dispatchEvent(new window.MessageEvent('message', {
+    data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload: {
+      gameState: {
+        playerColor: 1, mapState: {},
+        playerStates: { 1: { resourceCards: { cards: [1, 1, 4] } } },   // WS total = 3
+      },
+      playerUserStates: [{ selectedColor: 1, username: 'StanTheMan01' }],
+    } } } },
+  }));
+  const report = cst.buildAuditReport();
+  assert.match(report, /StanTheMan01/);
+  assert.match(report, /ws=3/, 'WS hand total shown');
+  assert.match(report, /ours=5/, 'our hand total shown');
+  assert.match(report, /⚠/, 'mismatch flagged');
+});
