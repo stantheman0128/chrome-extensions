@@ -156,6 +156,9 @@
     roundGot: {},     // this round: name -> { res: cards got } (reset each roll)
     roundBlocks: [],  // this round: [{ roll, res }] blocked tiles, settled at round end
     endgameBlocked: null, // {name: cards} read from colonist's Victory table — EXACT, overrides the estimate
+    wsBlocked: {},     // name -> cumulative WS-board blocked-loss, PERSISTED so it survives a
+                       // reload (the board itself can't replay history). A monitored backup
+                       // (shown in the audit) — display still uses the log estimate for now.
     gameStartTs: null, // ms epoch — when the current game's clock started
     gameEndTs: null,   // set when the winner line is seen; freezes the clock
   };
@@ -210,6 +213,9 @@
         // separately below so the ⚔️/💔 numbers read as "times robbed".
         stole: 0, lost: 0,       // knight cards taken from others / lost to thieves
         stoleFrom: {}, lostTo: {}, // per-opponent knight breakdown (name -> cards)
+        stoleRes: {}, lostRes: {}, // per-resource knight breakdown from WS 14/15
+        // (exact for self always, and for the opponent in a 2p game; the DOM log
+        // can't see stolen card types, so this is WS-only — left empty otherwise)
         // Monopoly, kept apart so it can be labelled "who Mono'd what".
         monoTook: {},            // resource -> cards I took via my own Monopoly
         monoLost: {},            // thiefName -> { resource -> cards } lost to theirs
@@ -2454,13 +2460,25 @@
 
   // Combined steal report for a Stats cell: knight breakdown + Monopoly lines,
   // plus (on the lost side) the 7s footer. side = 'stole' | 'lost'.
+  // One line for the knight-steal RESOURCE breakdown (WS 14/15 — the DOM log can't
+  // see stolen card types): "⚔️ 🌾×2 🪨×1", biggest first.
+  function resStealLine(byRes, emoji) {
+    const parts = Object.entries(byRes || {}).filter(([, n]) => n > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([res, n]) => `${iconImg(res, 1.15)}×${n}`);
+    if (!parts.length) return '';
+    return `<span style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px;">${emoji} ${parts.join(' ')}</span>`;
+  }
+
   function stealReportHTML(name, side) {
     const ty = state.tally[name] || {};
     let lines;
     if (side === 'stole') {
-      lines = knightLines(ty.stoleFrom, 'stoleFromItem', 'from {who} ×{n}').concat(monoLines(name, 'took'));
+      lines = [resStealLine(ty.stoleRes, '⚔️')].filter(Boolean)
+        .concat(knightLines(ty.stoleFrom, 'stoleFromItem', 'from {who} ×{n}')).concat(monoLines(name, 'took'));
     } else {
-      lines = knightLines(ty.lostTo, 'lostByItem', 'stolen by {who} ×{n}').concat(monoLines(name, 'lost'));
+      lines = [resStealLine(ty.lostRes, '💔')].filter(Boolean)
+        .concat(knightLines(ty.lostTo, 'lostByItem', 'stolen by {who} ×{n}')).concat(monoLines(name, 'lost'));
       const f = sevensFooterHTML();
       if (f) lines.push(f);
     }
@@ -2554,6 +2572,33 @@
       }
     }
     return est;
+  }
+
+  // Mirror the WS board's LIVE blocked-loss into a PERSISTED per-name total so it
+  // survives a reload. The board is rebuilt from scratch each load and can't replay
+  // history (accrueBlocked needs each past roll's robber position), so its own total
+  // only reflects the post-reload accrual. We baseline each name at the board's
+  // current value on first sight (so a new game / cross-game carry-over isn't
+  // double-counted) and add only the monotonic deltas. Display still uses the log
+  // estimate — this is a monitored backup (shown in the audit), to be promoted once
+  // it's verified to match colonist's Victory table across real games.
+  let wsBlockedSeen = {};
+  function accrueWsBlocked() {
+    if (!wsBoard || !__cstBoard.ready(wsBoard)) return;
+    let grew = false;
+    state.players.forEach((p, name) => {
+      const color = wsColorOf(name);
+      if (color == null) return;
+      const cur = __cstBoard.blockedLossOf(wsBoard, color);
+      if (wsBlockedSeen[name] === undefined) { wsBlockedSeen[name] = cur; return; } // baseline
+      const delta = cur - wsBlockedSeen[name];
+      if (delta > 0) {
+        state.wsBlocked[name] = (state.wsBlocked[name] || 0) + delta;
+        wsBlockedSeen[name] = cur;
+        grew = true;
+      }
+    });
+    if (grew) schedulePersist();
   }
 
   // The log-only estimate (endgame-exact when captured, else the differential).
@@ -2674,7 +2719,7 @@
     const head = tableHead(uiState.statOrder.map((key) => {
       const c = COL_BY_KEY[key];
       return `<span data-res="${c.key}" data-colhead="1" data-tip="${c.tip}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">` +
-        `<span style="font-size:1.85em;line-height:1;display:inline-flex;align-items:center;">${statIconHTML(c)}</span></span>`;
+        `<span style="font-size:2.15em;line-height:1;display:inline-flex;align-items:center;">${statIconHTML(c)}</span></span>`;
     }).join(''), TABLE_GRID);
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
@@ -2892,6 +2937,7 @@
         if (wsBoard && __cstBoard.ready(wsBoard)) {
           synced = syncFromWS();
           if (syncStatsFromWS()) synced = true;
+          accrueWsBlocked();   // persist the WS board's blocked-loss (reload-proof backup)
         } else {
           synced = syncFromPanel();
         }
@@ -2949,6 +2995,8 @@
     state.roundGot = {};
     state.roundBlocks = [];
     state.endgameBlocked = null;
+    state.wsBlocked = {};
+    wsBlockedSeen = {};   // re-baseline against the (carried-over) board on a new game
     lastRoll = null;
     setGameSig('');
     lastCounts = null;  // don't shower "+N" floats diffing against the old game
@@ -2976,6 +3024,7 @@
         blocked: state.blocked,
         blockEvents: state.blockEvents,
         endgameBlocked: state.endgameBlocked,
+        wsBlocked: state.wsBlocked,
         selfName: state.selfName,
         seenIndices: [...state.seenIndices],
         players: [...state.players.values()].map((p) => ({
@@ -3008,6 +3057,8 @@
       : { count: 0, byKey: {} };
     state.blockEvents = Array.isArray(d.blockEvents) ? d.blockEvents : [];
     state.endgameBlocked = (d.endgameBlocked && typeof d.endgameBlocked === 'object') ? d.endgameBlocked : null;
+    state.wsBlocked = (d.wsBlocked && typeof d.wsBlocked === 'object') ? d.wsBlocked : {};
+    wsBlockedSeen = {};       // fresh board after a reload — re-baseline from 0
     state.roundGot = {};      // round-internal scratch — restart cleanly on restore
     state.roundBlocks = [];
     state.selfName = d.selfName || null;
@@ -3519,6 +3570,7 @@
     if (wsBoard && __cstBoard.ready(wsBoard)) {
       syncFromWS();
       syncStatsFromWS();
+      accrueWsBlocked();
       persistState();
       render();
       return;
@@ -3728,6 +3780,20 @@
         ml[thiefName] = inner;
       }
       if (JSON.stringify(ty.monoLost || {}) !== JSON.stringify(ml)) { ty.monoLost = ml; changed = true; }
+      // Knight-steal RESOURCE breakdown (WS 14/15 — the one thing the DOM log can't
+      // see). The ⚔️/💔 COUNTS stay log-derived; we only add the per-resource split,
+      // and only where it's complete: self (always involved) or any player in a 2p
+      // game. In 3p+ an opponent's split would cover only the steals involving self
+      // (partial, wouldn't sum to the count), so we leave it empty there.
+      const complete = (name === state.selfName) || (state.players.size === 2);
+      if (complete) {
+        const sr = {};
+        for (const r of Object.keys(s.stoleRes)) sr[RESOURCES[parseInt(r, 10) - 1]] = s.stoleRes[r];
+        if (JSON.stringify(ty.stoleRes || {}) !== JSON.stringify(sr)) { ty.stoleRes = sr; changed = true; }
+        const lr = {};
+        for (const r of Object.keys(s.lostRes)) lr[RESOURCES[parseInt(r, 10) - 1]] = s.lostRes[r];
+        if (JSON.stringify(ty.lostRes || {}) !== JSON.stringify(lr)) { ty.lostRes = lr; changed = true; }
+      }
     });
     return changed;
   }
@@ -3778,8 +3844,10 @@
         L.push('  disc: tally=' + ty.discardCards + ' ws=' + s.discardCards + flag(ty.discardCards, s.discardCards));
         L.push('  gain: tally=' + ty.gained + ' ws=' + s.gained + flag(ty.gained, s.gained));
         L.push('  mono: tally=' + JSON.stringify(ty.monoTook || {}) + ' ws=' + JSON.stringify(s.monoTook));
+        L.push('  steal: ws stole=' + s.stole + ' ' + JSON.stringify(s.stoleRes) + ' lost=' + s.lost + ' ' + JSON.stringify(s.lostRes)
+          + ' | panel ⚔️' + JSON.stringify(ty.stoleRes || {}) + ' 💔' + JSON.stringify(ty.lostRes || {}));
       }
-      L.push('  block: panel=' + blockLossOf(name) + ' wsBoard=' + wsBlock + (vic != null ? ' victory=' + vic : ''));
+      L.push('  block: panel=' + blockLossOf(name) + ' wsBoard=' + wsBlock + ' wsKept=' + (state.wsBlocked[name] || 0) + (vic != null ? ' victory=' + vic : ''));
       L.push('  (log-only) lost=' + (ty.lost || 0) + ' tradeFed=' + tradeFed);
     });
     return L.join('\n');
@@ -3847,6 +3915,7 @@
       syncFromPanel,
       syncFromWS,
       syncStatsFromWS,
+      accrueWsBlocked,
       buildAuditReport,
       maybeNewGame,
       persistState,

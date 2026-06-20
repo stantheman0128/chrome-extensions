@@ -120,6 +120,67 @@ test('monopoly victim is NOT split in a 3-player game', () => {
   assert.equal(board.statsOf(b, 1), null, 'no per-victim attribution with 3+ players');
 });
 
+// Knight steals are revealed privately to self (text.type 14 = self is the thief,
+// 15 = self is the victim); cardEnums carries the single stolen card's resId. Both
+// sides are known → exact for thief AND victim. Self is always involved, so these
+// fully cover self's steal columns; in 2p they cover the opponent too, in 3p+ the
+// opponent-vs-opponent steals never appear here (stay log/unknown).
+function selfBoard(selfColor, colors) {
+  const b = board.createBoard();
+  board.applyFullState(b, {
+    gameState: { mapState: {}, playerStates: {}, playerColor: selfColor },
+    playerUserStates: (colors || [1, 2]).map((c) => ({ selectedColor: c, username: 'P' + c })),
+  });
+  return b;
+}
+
+test('knight steal — self as thief (type 14) credits self stole + victim lost, by resId', () => {
+  const b = selfBoard(2);                        // self is colour 2
+  board.applyDiff(b, diffLog({                   // self stole card 4 (grain) from colour 1
+    '59': { text: { type: 14, playerColor: 1, cardEnums: [4] }, from: 2, specificRecipients: [2] },
+  }));
+  assert.equal(board.statsOf(b, 2).stole, 1, 'self stole one');
+  assert.deepEqual(board.statsOf(b, 2).stoleRes, { 4: 1 }, 'self stole grain');
+  assert.equal(board.statsOf(b, 1).lost, 1, 'victim lost one');
+  assert.deepEqual(board.statsOf(b, 1).lostRes, { 4: 1 }, 'victim lost grain');
+});
+
+test('knight steal — self as victim (type 15) credits thief stole + self lost, by resId', () => {
+  const b = selfBoard(2);
+  board.applyDiff(b, diffLog({                   // colour 1 stole card 5 (ore) from self (colour 2)
+    '83': { text: { type: 15, playerColor: 1, cardEnums: [5] }, from: 1, specificRecipients: [2] },
+  }));
+  assert.equal(board.statsOf(b, 1).stole, 1, 'thief stole one');
+  assert.deepEqual(board.statsOf(b, 1).stoleRes, { 5: 1 }, 'thief stole ore');
+  assert.equal(board.statsOf(b, 2).lost, 1, 'self lost one');
+  assert.deepEqual(board.statsOf(b, 2).lostRes, { 5: 1 }, 'self lost ore');
+});
+
+test('knight steals accumulate and dedup by index', () => {
+  const b = selfBoard(2);
+  const d = diffLog({ '59': { text: { type: 14, playerColor: 1, cardEnums: [4] }, from: 2 } });
+  board.applyDiff(b, d);
+  board.applyDiff(b, d);                          // same frame redelivered
+  board.applyDiff(b, diffLog({ '120': { text: { type: 14, playerColor: 1, cardEnums: [5] }, from: 2 } }));
+  assert.equal(board.statsOf(b, 2).stole, 2, 'two distinct steals, replay ignored');
+  assert.deepEqual(board.statsOf(b, 2).stoleRes, { 4: 1, 5: 1 });
+});
+
+test('knight steal resolves self from specificRecipients when selfColor is unset (reconnect)', () => {
+  const b = board.createBoard();   // no applyFullState → b.selfColor stays null (the reconnect bug)
+  board.applyDiff(b, diffLog({
+    '59': { text: { type: 14, playerColor: 1, cardEnums: [4] }, from: 2, specificRecipients: [2] }, // self(2) stole grain from 1
+    '83': { text: { type: 15, playerColor: 1, cardEnums: [5] }, from: 1, specificRecipients: [2] }, // 1 stole ore from self(2)
+  }));
+  assert.equal(board.statsOf(b, 2).stole, 1, 'self credited despite null selfColor');
+  assert.deepEqual(board.statsOf(b, 2).stoleRes, { 4: 1 });
+  assert.equal(board.statsOf(b, 2).lost, 1, 'self lost credited');
+  assert.deepEqual(board.statsOf(b, 2).lostRes, { 5: 1 });
+  assert.equal(board.statsOf(b, 1).lost, 1, 'victim credited');
+  assert.equal(board.statsOf(b, 1).stole, 1, 'thief credited');
+  assert.equal(b.selfColor, 2, 'selfColor self-healed from specificRecipients');
+});
+
 test('accrueLog tallies a count of every log entry by type (audit cross-check)', () => {
   const b = board.createBoard();
   board.applyDiff(b, diffLog({

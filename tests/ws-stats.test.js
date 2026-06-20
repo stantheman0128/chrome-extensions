@@ -86,6 +86,32 @@ test('syncStatsFromWS maps monopoly took/lost (resId→name, color→name)', () 
   assert.deepEqual(cst.state.tally['Sancho'].monoLost, { StanTheMan01: { ore: 3 } }, 'victim lost to taker by name');
 });
 
+test('syncStatsFromWS maps self knight steals (14/15) to per-resource breakdown', () => {
+  cst.resetState();
+  cst.getPlayer('StanTheMan01', '#CF4449');   // self, colour 1
+  cst.getPlayer('Spicymeat', '#285FBD');      // opponent, colour 2
+  window.dispatchEvent(new window.MessageEvent('message', {
+    data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload: {
+      gameState: {
+        playerColor: 1, mapState: {}, playerStates: {},
+        gameLogState: {
+          '59': { text: { type: 14, playerColor: 2, cardEnums: [4] }, from: 1, specificRecipients: [1] },   // self(1) stole grain from colour 2
+          '83': { text: { type: 15, playerColor: 2, cardEnums: [5] }, from: 2, specificRecipients: [1] },   // colour 2 stole ore from self(1)
+        },
+      },
+      playerUserStates: [{ selectedColor: 1, username: 'StanTheMan01' }, { selectedColor: 2, username: 'Spicymeat' }],
+    } } } },
+  }));
+  assert.equal(cst.syncStatsFromWS(), true);
+  const me = cst.state.tally['StanTheMan01'];
+  assert.deepEqual(me.stoleRes, { grain: 1 }, 'self stole grain (resId→name)');
+  assert.deepEqual(me.lostRes, { ore: 1 }, 'self lost ore');
+  // 2-player → the opponent is fully covered too (the mirror of self).
+  const opp = cst.state.tally['Spicymeat'];
+  assert.deepEqual(opp.lostRes, { grain: 1 }, 'opponent lost the grain self took');
+  assert.deepEqual(opp.stoleRes, { ore: 1 }, 'opponent stole the ore from self');
+});
+
 test('blockLossOf keeps colonist endgame-exact even when the WS board under-counts (audit bug)', () => {
   cst.resetState();
   cst.getPlayer('StanTheMan01', '#CF4449');

@@ -30,6 +30,7 @@
       discards: 0, discardCards: 0, discardRes: {},
       gained: 0, gainedRes: {},
       monoTook: {}, monoLost: {},
+      stole: 0, stoleRes: {}, lost: 0, lostRes: {},
     });
   }
 
@@ -46,7 +47,8 @@
       .sort((a, c) => a - c);
     for (const k of entries) {
       b.seenLog = k;
-      const text = gameLogState[String(k)] && gameLogState[String(k)].text;
+      const entry = gameLogState[String(k)];
+      const text = entry && entry.text;
       if (!text) continue;
       b.logTypeCounts[text.type] = (b.logTypeCounts[text.type] || 0) + 1; // audit cross-check
       if (text.type === 55) {
@@ -83,6 +85,25 @@
               by[res] = (by[res] || 0) + amt;
             }
           }
+        }
+      } else if (text.type === 14 || text.type === 15) {
+        // Knight steal, revealed privately to self (so it carries the card type).
+        // 14 = self is the thief, 15 = self is the victim; playerColor is the OTHER
+        // party; cardEnums = the single stolen card's resId. SELF is read from the
+        // event's specificRecipients (the private reveal's recipient IS self), NOT
+        // b.selfColor — a reconnect's full-state can omit playerColor, leaving
+        // selfColor null, which silently dropped self's entire steal column. We
+        // self-heal selfColor from it too. Both parties known → credit thief.stole
+        // AND victim.lost by resId; in 3p+ only steals involving self appear here.
+        const card = (text.cardEnums || [])[0];
+        const self = (entry.specificRecipients && entry.specificRecipients[0] != null)
+          ? entry.specificRecipients[0] : b.selfColor;
+        if (self != null && b.selfColor == null) b.selfColor = self;
+        if (card != null && self != null) {
+          const thief = text.type === 14 ? self : text.playerColor;
+          const victim = text.type === 14 ? text.playerColor : self;
+          if (thief != null) { const s = ensureStats(b, thief); s.stole += 1; s.stoleRes[card] = (s.stoleRes[card] || 0) + 1; }
+          if (victim != null) { const v = ensureStats(b, victim); v.lost += 1; v.lostRes[card] = (v.lostRes[card] || 0) + 1; }
         }
       } else if (text.type === 10 && fromDiff) {
         accrueBlocked(b, (text.firstDice || 0) + (text.secondDice || 0));
