@@ -1376,7 +1376,7 @@
            border-radius:10px 10px 0 0;position:sticky;top:0;z-index:1;">
         <strong style="font-size:1.05em;color:${THEME.accent};white-space:nowrap;display:flex;align-items:center;gap:7px;">
           <span id="cst-glyph" data-tip="${t('tipCollapse', 'Click to collapse / expand')}" style="cursor:pointer;display:inline-block;transition:transform .35s ease, font-size .25s ease, filter .15s ease;">🎲</span>
-          <span id="cst-title" style="font-size:1.16em;font-weight:800;letter-spacing:.2px;color:${THEME.text};">Colonist Stats</span>
+          <span id="cst-title" style="font-size:1.08em;font-weight:800;letter-spacing:.2px;color:${THEME.accent};">Colonist Stats</span>
           <span id="cst-timer" data-tip="${t('tipTimer', 'Time since this game started')}"
                 style="color:${THEME.textDim};font-size:0.72em;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;align-self:center;position:relative;top:.5px;"></span>
         </strong>
@@ -1428,7 +1428,14 @@
         '#colonist-stats-tracker #cst-menu button:hover{background:rgba(0,0,0,.08)!important;}' +
         '#colonist-stats-tracker .cst-active-cell{font-weight:700;}' +
         '#colonist-stats-tracker .cst-vtab{cursor:pointer;border-bottom:2px solid transparent;padding-bottom:1px;transition:color .15s ease,border-color .15s ease;}' +
-        '#colonist-stats-tracker .cst-vtab:hover{color:' + THEME.accent + '!important;}';
+        '#colonist-stats-tracker .cst-vtab:hover{color:' + THEME.accent + '!important;}' +
+        // Resync feedback: the 🔄 icon spins and the body dims while a re-sync runs,
+        // fading back in on completion — a clean "reloaded" beat even when the WS
+        // path finishes instantly. Honest: it tracks the real operation's duration.
+        '#colonist-stats-tracker #cst-body{transition:opacity .25s ease;}' +
+        '#colonist-stats-tracker.cst-syncing #cst-body{opacity:.45;}' +
+        '#colonist-stats-tracker.cst-syncing #cst-resync svg{animation:cst-spin .6s linear infinite;}' +
+        '@keyframes cst-spin{to{transform:rotate(360deg);}}';
       (document.head || document.documentElement).appendChild(st);
     }
 
@@ -1485,7 +1492,7 @@
     }
 
     host.querySelector('#cst-resync').addEventListener('click', () => {
-      deepRescrape();   // async; guards against concurrent runs internally
+      runResync();   // async; spins the icon + dims the body, guards re-entrancy
     });
 
     // Large / small layout toggle.
@@ -2667,7 +2674,7 @@
     const head = tableHead(uiState.statOrder.map((key) => {
       const c = COL_BY_KEY[key];
       return `<span data-res="${c.key}" data-colhead="1" data-tip="${c.tip}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">` +
-        `<span style="font-size:1.5em;line-height:1;display:inline-flex;align-items:center;">${statIconHTML(c)}</span></span>`;
+        `<span style="font-size:1.85em;line-height:1;display:inline-flex;align-items:center;">${statIconHTML(c)}</span></span>`;
     }).join(''), TABLE_GRID);
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
@@ -2868,7 +2875,6 @@
       if (state.paused) return;
       evalLifecycle();
       maybeNewGame();
-      updateTimer();
       runPostureGhost();   // 1s fallback; the MutationObserver reacts much faster
       // colonist sometimes REPLACES the log container node (reconnect /
       // re-render). Re-discover it every tick — otherwise the observer keeps
@@ -2898,6 +2904,16 @@
         if (!state.endgameBlocked && syncEndgameBlocked()) { resaveEndgameBlockLoss(); persistState(); renderSoon(); }
       }
     }, 1000);
+
+    // Timer display on its own faster cadence. The elapsed math is absolute
+    // (Date.now() - gameStartTs), so the clock is never wrong — but pinning the
+    // redraw to the 1s tick means a throttled tick makes the seconds visibly
+    // skip (1:12 -> 1:14). A cheap 250ms repaint keeps it smooth without
+    // touching the heavy scan/reconcile work. Paused freezes it, same as before.
+    setInterval(() => {
+      if (state.paused) return;
+      updateTimer();
+    }, 250);
 
   }
 
@@ -3562,6 +3578,23 @@
     render();
   }
 
+  // The manual 🔄 click wraps deepRescrape with visible feedback: spin the icon
+  // and dim the body for the operation's duration, with a 450ms floor so the (now
+  // instant) WS path still registers as a deliberate reload. The class doubles as
+  // the re-entrancy guard, so a second click mid-spin is a no-op.
+  async function runResync() {
+    if (!panel || panel.classList.contains('cst-syncing')) return;
+    panel.classList.add('cst-syncing');
+    const started = Date.now();
+    try {
+      await deepRescrape();
+    } finally {
+      const elapsed = Date.now() - started;
+      if (elapsed < 450) await sleep(450 - elapsed);
+      if (panel) panel.classList.remove('cst-syncing');
+    }
+  }
+
   // ---- reconcile our counts against colonist's authoritative panel totals ----
   function panelHandTotal(row) {
     const el = row.querySelector('[data-resource-card] [class*="count"]');
@@ -3722,7 +3755,9 @@
     const wsReady = !!(wsBoard && __cstBoard.ready(wsBoard));
     const flag = (a, c) => (a != null && c != null && a !== c) ? '  ⚠️' : '';
     const L = ['===== CST AUDIT v' + ver + ' =====',
-      'ws ready: ' + wsReady + ' | self: ' + (state.selfName || '?')];
+      'ws ready: ' + wsReady + ' | self: ' + (state.selfName || '?')
+        + ' | lifecycle: ' + lifecycle + ' | paused: ' + state.paused
+        + ' | gameEndTs: ' + (state.gameEndTs || 'null')];
     if (wsReady) L.push('events (gameLogState by type): ' + JSON.stringify(__cstBoard.logTypeCountsOf(wsBoard)));
     state.players.forEach((p, name) => {
       const color = wsColorOf(name);
