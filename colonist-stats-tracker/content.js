@@ -3840,6 +3840,8 @@
       L.push('  hand: ours=' + ourTotal + '(?' + p.unknown + ') ws=' + wsTotal + ' panel=' + panelTot
         + flag(ourTotal, wsTotal) + flag(wsTotal, panelTot));
       L.push('  ours: ' + RESOURCES.map((r) => r[0] + p.resources[r]).join(' '));
+      const rec = (wsReady && color != null) ? __cstBoard.reconBreakdownOf(wsBoard, color) : null;
+      if (rec) L.push('  recon: ' + RESOURCES.map((r, i) => r[0] + (rec[i + 1] || 0)).join(' ') + ' ?' + (rec.unknown || 0));
       if (s) {
         L.push('  disc: tally=' + ty.discardCards + ' ws=' + s.discardCards + flag(ty.discardCards, s.discardCards));
         L.push('  gain: tally=' + ty.gained + ' ws=' + s.gained + flag(ty.gained, s.gained));

@@ -127,6 +127,27 @@ test('blockLossOf keeps colonist endgame-exact even when the WS board under-coun
   assert.equal(cst.blockLossOf('StanTheMan01'), 11, 'colonist exact wins over the WS board 0');
 });
 
+test('the audit shows the WS-reconstructed opponent breakdown (recon line)', () => {
+  cst.resetState();
+  cst.getPlayer('StanTheMan01', '#CF4449');   // self, colour 1
+  cst.getPlayer('Geneva', '#888');            // opponent, colour 4 — fresh: no prior test touched it
+  // High index + a fresh colour: the board is a singleton, so seenLog/handRecon
+  // persist across tests in this file (same as across games — a known limitation).
+  window.dispatchEvent(new window.MessageEvent('message', {
+    data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload: {
+      gameState: {
+        playerColor: 1, mapState: {},
+        playerStates: { 4: { resourceCards: { cards: [0, 0, 0] } } },                   // masked total 3
+        gameLogState: { '901': { text: { type: 47, playerColor: 4, cardsToBroadcast: [1, 5] } } }, // +lumber +ore
+      },
+      playerUserStates: [{ selectedColor: 1, username: 'StanTheMan01' }, { selectedColor: 4, username: 'Geneva' }],
+    } } } },
+  }));
+  const report = cst.buildAuditReport();
+  assert.match(report, /recon:/, 'recon line present');
+  assert.match(report, /recon: l1 b0 w0 g0 o1 \?1/, 'reconstructed breakdown + 1 unknown (3 total - 2 known)');
+});
+
 test('buildAuditReport lays out WS-vs-ours hand totals and flags a mismatch', () => {
   cst.resetState();
   const me = cst.getPlayer('StanTheMan01', '#CF4449');

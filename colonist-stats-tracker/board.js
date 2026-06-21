@@ -19,7 +19,7 @@
     return {
       tiles: {}, coordToTile: {}, corners: {}, cornersByTile: {},
       robberTile: null, selfColor: null, colorToName: {}, hands: {},
-      blockedLoss: {}, wsStats: {}, logTypeCounts: {}, seenLog: -1, _ready: false,
+      blockedLoss: {}, wsStats: {}, handRecon: {}, logTypeCounts: {}, seenLog: -1, _ready: false,
     };
   }
 
@@ -58,6 +58,7 @@
           s.discards += 1;
           s.discardCards += cards.length;
           for (const c of cards) s.discardRes[c] = (s.discardRes[c] || 0) + 1;
+          reconApply(b, text.playerColor, cards, -1);
         }
       } else if (text.type === 47 || text.type === 21) {
         // Gained: roll/placement production (47, cardsToBroadcast) and Year of
@@ -66,7 +67,22 @@
         if (cards.length) {
           const s = ensureStats(b, text.playerColor);
           for (const c of cards) { s.gained += 1; s.gainedRes[c] = (s.gainedRes[c] || 0) + 1; }
+          reconApply(b, text.playerColor, cards, +1);
         }
+      } else if (text.type === 116) {
+        // Bank/port trade: this player only. -given +received.
+        reconApply(b, text.playerColor, text.givenCardEnums || [], -1);
+        reconApply(b, text.playerColor, text.receivedCardEnums || [], +1);
+      } else if (text.type === 115) {
+        // Player-to-player trade: offerer (playerColor) -given +received; the
+        // accepter (acceptingPlayerColor) gets the mirror.
+        reconApply(b, text.playerColor, text.givenCardEnums || [], -1);
+        reconApply(b, text.playerColor, text.receivedCardEnums || [], +1);
+        reconApply(b, text.acceptingPlayerColor, text.receivedCardEnums || [], -1);
+        reconApply(b, text.acceptingPlayerColor, text.givenCardEnums || [], +1);
+      } else if (text.type === 5) {
+        // Build: deduct the fixed cost (0 road, 2 settlement, 3 city).
+        reconApply(b, text.playerColor, BUILD_COST[text.pieceEnum] || [], -1);
       } else if (text.type === 86) {
         // Monopoly: playerColor = taker, amountStolen of cardEnum from everyone
         // else. type 86 is monopoly-only (a knight steal is a different type —
@@ -84,6 +100,13 @@
               const by = (v.monoLost[text.playerColor] = v.monoLost[text.playerColor] || {});
               by[res] = (by[res] || 0) + amt;
             }
+          }
+          // handRecon: taker gains `amt` of res; every other tracked player loses
+          // ALL of that res (monopoly sweeps everyone). The taker's gain equals the
+          // sum of others' holdings, so reconcile stays consistent.
+          ensureRecon(b, text.playerColor)[res] += amt;
+          for (const cc of Object.keys(b.handRecon)) {
+            if (parseInt(cc, 10) !== text.playerColor) b.handRecon[cc][res] = 0;
           }
         }
       } else if (text.type === 14 || text.type === 15) {
@@ -104,7 +127,15 @@
           const victim = text.type === 14 ? text.playerColor : self;
           if (thief != null) { const s = ensureStats(b, thief); s.stole += 1; s.stoleRes[card] = (s.stoleRes[card] || 0) + 1; }
           if (victim != null) { const v = ensureStats(b, victim); v.lost += 1; v.lostRes[card] = (v.lostRes[card] || 0) + 1; }
+          reconApply(b, thief, [card], +1);
+          reconApply(b, victim, [card], -1);
         }
+      } else if (text.type === 16) {
+        // Opponent-vs-opponent knight steal: the card is masked from us (cardBacks).
+        // Honest — thief gains 1 unknown; victim loses 1 card of unknown type (no
+        // guess). This is the only genuinely-unknowable hand move.
+        if (text.playerColorThief != null) ensureRecon(b, text.playerColorThief).unknown += 1;
+        if (text.playerColorVictim != null) reconLoseOne(ensureRecon(b, text.playerColorVictim));
       } else if (text.type === 10 && fromDiff) {
         accrueBlocked(b, (text.firstDice || 0) + (text.secondDice || 0));
       }
@@ -193,6 +224,72 @@
     return out;
   }
 
+  // ---- opponent hand reconstruction (from the WS gameLogState) ----
+  // Per-colour reconstructed hand: known resId counts + `unknown`. Fed by event
+  // handlers in accrueLog; reconciled to colonist's authoritative count so any
+  // untracked/masked change degrades to unknown rather than corrupting the split.
+  function ensureRecon(b, color) {
+    return b.handRecon[color] || (b.handRecon[color] = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, unknown: 0 });
+  }
+  function reconSum(r) { return r[1] + r[2] + r[3] + r[4] + r[5] + r.unknown; }
+  // Build costs by type 5 pieceEnum (0 road, 2 settlement, 3 city) as resId lists.
+  const BUILD_COST = { 0: [1, 2], 2: [1, 2, 3, 4], 3: [4, 4, 5, 5, 5] };
+  // Add/remove a list of resIds (sign +1/-1), floored at 0.
+  // Add/remove a list of known-resId cards. A REMOVAL (sign −1) of a resource we
+  // don't hold as known must have come from an `unknown` card — so resolve it from
+  // there. That's the back-deduction: e.g. a city costs 2 grain + 3 ore, so if the
+  // player builds one with only grain known, the 3 ore can only have been their
+  // unknowns → spend them. (Builds, discards, trades-given, revealed steals.)
+  function reconApply(b, color, cards, sign) {
+    if (color == null || !cards) return;
+    const r = ensureRecon(b, color);
+    for (const c of cards) {
+      if (r[c] == null) continue;
+      if (sign > 0) r[c] += 1;
+      else if (r[c] > 0) r[c] -= 1;          // had it as known
+      else if (r.unknown > 0) r.unknown -= 1; // must have been one of the unknowns → resolve + spend
+    }
+  }
+  // Lose ONE card of unknown type, honestly: keep what's still certain
+  // (guaranteed-min = each known resource could have been the one taken) and mark
+  // the ambiguous remainder unknown. Never names a wrong card. {ore:2}→{ore:1};
+  // {lumber:1,ore:1}→{unknown:1} (could be either).
+  function reconLoseOne(r) {
+    const total = reconSum(r);
+    if (total <= 0) return;
+    let kept = 0;
+    for (let i = 1; i <= 5; i++) { r[i] = Math.max(0, r[i] - 1); kept += r[i]; }
+    r.unknown = Math.max(0, total - 1 - kept);
+  }
+  // A dev-card buy spends 1 wool + 1 grain + 1 ore — colonist logs no event for it
+  // (silent −3), so it surfaces as an unexplained loss in the reconcile. Deduct the
+  // exact cost: from a known holding if we have it, else from unknown.
+  function reconBuyDevCard(r) {
+    for (const res of [3, 4, 5]) {
+      if (r[res] > 0) r[res] -= 1;
+      else if (r.unknown > 0) r.unknown -= 1;
+    }
+  }
+  // Project the stored (pure event-accrued) recon onto colonist's authoritative
+  // total — NON-mutatingly, at read time. This is the ONLY place the silent moves
+  // settle (an unaccounted gain → unknown; an unexplained −3 → a dev-card buy; any
+  // odd remainder → an honest unknown-type loss). Because handRecon itself is never
+  // clamped mid-stream, the result depends only on the EVENTS, not on when they were
+  // processed — so live play and a post-reload replay project to the same breakdown.
+  function projectRecon(b, color) {
+    const r = b.handRecon[color];
+    if (!r) return null;
+    const proj = { 1: r[1], 2: r[2], 3: r[3], 4: r[4], 5: r[5], unknown: r.unknown };
+    const total = handCountOf(b, color);
+    if (total == null) return proj;               // no authoritative count yet
+    const diff = total - reconSum(proj);
+    if (diff > 0) { proj.unknown += diff; return proj; }   // unaccounted gain → unknown
+    let excess = -diff;
+    while (excess >= 3) { reconBuyDevCard(proj); excess -= 3; }  // silent dev-card buys
+    for (; excess > 0; excess -= 1) reconLoseOne(proj);         // honest remainder
+    return proj;
+  }
+
   function accrueBlocked(b, n) {
     const t = b.robberTile != null ? b.tiles[b.robberTile] : null;
     if (!t || t.number !== n || t.type === 0) return; // robber not on a matching numbered tile
@@ -217,6 +314,10 @@
     ready: (b) => b._ready,
     robberTile: (b) => b.robberTile,
     blockedLossOf: (b, color) => b.blockedLoss[color] || 0,
+    reconBreakdownOf: projectRecon,                              // total-projected (display) breakdown
+    reconSumOf: (b, color) => { const p = projectRecon(b, color); return p ? reconSum(p) : 0; },
+    // test-only helper (feed mode): seed the stored pure-accrual recon
+    __setRecon: (b, color, o) => Object.assign(ensureRecon(b, color), o),
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else (typeof window !== 'undefined' ? window : globalThis).__cstBoard = api;
