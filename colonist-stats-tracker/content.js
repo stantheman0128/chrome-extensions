@@ -2676,20 +2676,19 @@
   }
 
   function blockLossOf(name) {
-    // The log differential — colonist's end-game exact value once captured, else
-    // the per-round estimate — is the source of truth. The WS board accrual is an
-    // ORACLE only: it currently under-counts (audit caught wsBoard 0 vs colonist
-    // 11/2 — robber-tile tracking in the diff isn't landing), so it must not
-    // override the estimate. Re-promote it once the accrual is fixed.
-    const est = estimateBlockLoss(name);
-    if (wsBoard && __cstBoard.ready(wsBoard)) {
-      const color = wsColorOf(name);
-      if (color != null) {
-        const ws = __cstBoard.blockedLossOf(wsBoard, color);
-        if (ws !== est) { try { console.debug('[CST] ⛔ oracle: WS', ws, 'vs est', est, 'for', name); } catch (e) {} }
-      }
-    }
-    return est;
+    // Source of truth, in order:
+    //  1. colonist's exact end-game figure, once the Victory table is captured.
+    //  2. the WS GEOMETRY total (persisted in state.wsBlocked, so it survives F5).
+    //     Promoted after the corner-adjacency formula was fixed (1.85) — the old
+    //     "robber-tile tracking isn't landing" under-count WAS that wrong z=1 formula
+    //     (cornersByTile mis-resolved the robber tile's buildings) — and a real game
+    //     verified wsKept == colonist's victory. It beats the log differential, which
+    //     OVER-counts when a tile was robbed while you held fewer buildings than you
+    //     later grew to (produces is learned as the max clean yield).
+    //  3. the log differential, only before the WS board is ready (lobby / pre-handshake).
+    if (state.endgameBlocked && state.endgameBlocked[name] != null) return state.endgameBlocked[name];
+    if (wsBoard && __cstBoard.ready(wsBoard)) return state.wsBlocked[name] || 0;
+    return estimateBlockLoss(name);
   }
 
   // Mirror the WS board's LIVE blocked-loss into a PERSISTED per-name total so it
@@ -2740,7 +2739,10 @@
     const ty = state.tally[name] || {};
     const prod = ty.produces || {};
     // Aggregate THIS player's block events by (roll,res): times = events, cards = Σ loss
-    // (expected − got), matching blockLossOf so the hover never disagrees with ⛔.
+    // (expected − got). This is the differential's WHICH-rolls-blocked-you breakdown
+    // (and is persisted, so it survives F5); the headline ⛔ now comes from the WS
+    // geometry total, so in the rare grow-into-a-city-on-a-robbed-tile case this
+    // breakdown can sum slightly higher than the displayed number.
     const agg = {};
     for (const ev of state.blockEvents || []) {
       const lost = Math.max(0, ((prod[ev.roll] && prod[ev.roll][ev.res]) || 0) - ((ev.got && ev.got[name]) || 0));
