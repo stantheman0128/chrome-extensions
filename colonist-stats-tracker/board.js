@@ -379,6 +379,32 @@
     return out;
   }
 
+  // Per-colour EXPECTED production per dice roll: Σ over a player's buildings of
+  // weight × P(number) for each adjacent numbered tile, with P(n) = pipDots(n)/36
+  // and weight = 1 (settlement) / 2 (city). Unlike pipsOf (coverage) it does NOT
+  // dedup a shared tile — each building produces on its own — and it weights a city
+  // ×2. The robber tile is excluded (no production there right now).
+  function expectedPipsOf(b) {
+    const out = {};
+    for (const ci of Object.keys(b.corners)) {
+      const c = b.corners[ci];
+      if (c.owner == null || !c.buildingType) continue;
+      const weight = c.buildingType === 2 ? 2 : 1;
+      const o = out[c.owner] || (out[c.owner] = { total: 0, byRes: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } });
+      for (const ti of tilesOfCornerIdx(b, ci)) {
+        if (b.robberTile != null && String(ti) === String(b.robberTile)) continue;
+        const t = b.tiles[ti];
+        if (!t || t.type < 1 || t.type > 5) continue;
+        const p = pipDots(t.number);
+        if (!p) continue;
+        const exp = (p / 36) * weight;
+        o.total += exp;
+        o.byRes[t.type] += exp;
+      }
+    }
+    return out;
+  }
+
   const api = {
     createBoard, resetAccrual, tilesOfCorner, applyFullState, applyDiff, tilesOfCornerIdx,
     handCountOf, handBreakdownOf,
@@ -388,7 +414,7 @@
     ready: (b) => b._ready,
     robberTile: (b) => b.robberTile,
     blockedLossOf: (b, color) => b.blockedLoss[color] || 0,
-    pipsOf,
+    pipsOf, expectedPipsOf,
     // diagnostic: how many built corners the board currently attributes to a colour
     buildingsOf: (b, color) => {
       let n = 0;

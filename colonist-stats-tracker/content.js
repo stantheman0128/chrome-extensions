@@ -1017,7 +1017,7 @@
   // pair to breathe (else digits); 'faces'/'digits' are sticky manual overrides.
   // resView: the player table shows resource columns ('cards') or the live
   // event stats ('stats') — same players, same rows, switched via header tabs.
-  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, resView: 'cards', mode: 'large', fontScale: 1, diceMode: 'auto', resOrder: ['lumber', 'brick', 'wool', 'grain', 'ore', 'unknown'], statOrder: ['s-block', 's-lost', 's-disc', 's-gain', 's-turn', 's-stolen'], highlights: [], diceHighlights: [], resColHighlights: [], pipPlayers: [] };
+  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, resView: 'cards', mode: 'large', fontScale: 1, diceMode: 'auto', resOrder: ['lumber', 'brick', 'wool', 'grain', 'ore', 'unknown'], statOrder: ['s-block', 's-lost', 's-disc', 's-gain', 's-turn', 's-stolen'], highlights: [], diceHighlights: [], resColHighlights: [], pipPlayers: [], pipMode: 'unweighted' };
   // True only while a LEFT/RIGHT edge is being dragged: that gesture changes the
   // panel WIDTH without rescaling the text (the width→font zoom is reserved for
   // the bottom-right corner). The ResizeObserver checks this to skip the zoom.
@@ -1360,6 +1360,7 @@
     uiState.highlights = Array.isArray(ui.highlights) ? ui.highlights : [];
     uiState.diceHighlights = Array.isArray(ui.diceHighlights) ? ui.diceHighlights : [];
     uiState.resColHighlights = Array.isArray(ui.resColHighlights) ? ui.resColHighlights : [];
+    uiState.pipMode = ui.pipMode === 'expected' ? 'expected' : 'unweighted';
     uiState.mode = 'large';                       // auto-enlarge to the large preset on appear
     const host = document.createElement('div');
     host.id = 'colonist-stats-tracker';
@@ -1742,6 +1743,8 @@
     // dragging=true, so ignore that release (a real click leaves it false).
     host.addEventListener('click', (e) => {
       if (dragging) return;
+      const pmEl = e.target.closest && e.target.closest('[data-pipmode]');
+      if (pmEl && host.contains(pmEl)) { togglePipMode(); return; }   // click the ⚅ number: coverage ⇄ expected
       const pn = e.target.closest && e.target.closest('[data-pipname]');
       if (pn && host.contains(pn)) { selectPipPlayer(pn.getAttribute('data-pipname')); return; }
       // closest() handles a direct hit; if an overlay (e.g. the column-highlight
@@ -2417,6 +2420,13 @@
     else uiState.pipPlayers.push(name);
     render();
   }
+  // The ⚅ number toggles its meaning: unweighted coverage pips ⇄ expected cards per
+  // roll. Global (applies to every shown player), and persisted.
+  function togglePipMode() {
+    uiState.pipMode = uiState.pipMode === 'expected' ? 'unweighted' : 'expected';
+    saveUI({ pipMode: uiState.pipMode });
+    render();
+  }
 
   function nameCell(p, prof, active, pipMap) {
     const av = prof && prof.get(p.name) && prof.get(p.name).avatar;
@@ -2443,22 +2453,29 @@
       `border:1px solid ${risk ? THEME.bad : THEME.border};border-radius:0.6em;padding:0 0.4em;">${total}</span></span>`;
   }
 
-  // Setup-pip badge next to a player's name: total pips of the numbers their
-  // buildings touch (city ×1, robber-blocked tile excluded), with a per-resource
-  // breakdown on hover. Accent-tinted so it reads apart from the hand-total badge.
+  // ⚅ badge next to a player's name. Two modes (click it to switch):
+  //  · unweighted — coverage pips: Σ pip-dots of the DISTINCT numbered tiles they
+  //    touch (buildings ignored, robber tile excluded). An integer.
+  //  · expected — cards per roll: Σ weight × P(number) per building (city ×2). A
+  //    small decimal. Accent-tinted so it reads apart from the hand-total badge.
   function pipBadge(pm) {
     if (!pm || !pm.total) return '';
-    const parts = RESOURCES.map((r, i) => (pm.byRes[i + 1] ? RESOURCE_LABEL[r] + ' ' + pm.byRes[i + 1] : null)).filter(Boolean);
-    const tip = t('tipPips', 'Setup pips (dice-frequency weighted; robber-blocked tiles excluded)') +
-      (parts.length ? ' — ' + parts.join(', ') : '');
-    return `<span data-tip="${escapeHtml(tip)}" ` +
-      `style="flex:0 0 auto;margin-right:4px;font-size:0.72em;font-weight:700;font-variant-numeric:tabular-nums;` +
+    const exp = uiState.pipMode === 'expected';
+    const fmtR = (v) => (exp ? v.toFixed(1) : String(v));
+    const parts = RESOURCES.map((r, i) => (pm.byRes[i + 1] >= (exp ? 0.05 : 1) ? RESOURCE_LABEL[r] + ' ' + fmtR(pm.byRes[i + 1]) : null)).filter(Boolean);
+    const tip = (exp
+      ? t('tipPipsExp', 'Expected cards per roll (city ×2; robber/blocked tiles excluded) — click to show coverage')
+      : t('tipPips', 'Coverage pips (dice-frequency weighted; robber/blocked tiles excluded) — click for expected cards/roll'))
+      + (parts.length ? ' — ' + parts.join(', ') : '');
+    return `<span data-pipmode="1" data-tip="${escapeHtml(tip)}" ` +
+      `style="flex:0 0 auto;margin-right:4px;font-size:0.72em;font-weight:700;font-variant-numeric:tabular-nums;cursor:pointer;` +
       `color:${THEME.accent};background:rgba(47,111,159,.10);border:1px solid ${THEME.accent};` +
-      `border-radius:0.6em;padding:0 0.4em;">⚅${pm.total}</span>`;
+      `border-radius:0.6em;padding:0 0.4em;">⚅${exp ? pm.total.toFixed(2) : pm.total}</span>`;
   }
   // Pip map for this render (per WS colour), or null before the board is ready.
   function currentPipMap() {
-    return (wsBoard && __cstBoard.ready(wsBoard)) ? __cstBoard.pipsOf(wsBoard) : null;
+    if (!wsBoard || !__cstBoard.ready(wsBoard)) return null;
+    return uiState.pipMode === 'expected' ? __cstBoard.expectedPipsOf(wsBoard) : __cstBoard.pipsOf(wsBoard);
   }
 
   function rowShell(p, active, cells, grid) {
@@ -2519,9 +2536,12 @@
           if (r === 'unknown') {
             return `<span data-res="unknown"${m.a} class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;cursor:pointer;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? '' : 'opacity:.4;'}${m.bg}">${p.unknown}</span>`;
           }
-          // C(c): per-resource Setup pips tucked into the cell's bottom-right corner.
-          const pips = pm ? pm.byRes[RESOURCES.indexOf(r) + 1] : 0;
-          const pipCorner = pips ? `<span data-pip="${pips}" style="position:absolute;right:5px;bottom:3px;font-size:0.55em;line-height:1;font-weight:700;color:${THEME.accent};opacity:.7;pointer-events:none;">${pips}</span>` : '';
+          // C(c): per-resource pips tucked into the cell's bottom-right corner.
+          const pipV = pm ? pm.byRes[RESOURCES.indexOf(r) + 1] : 0;
+          const pipExp = uiState.pipMode === 'expected';
+          const pipTxt = pipExp ? pipV.toFixed(1) : String(pipV);
+          const pipCorner = (pipExp ? pipV >= 0.05 : pipV > 0)
+            ? `<span data-pip="${pipTxt}" style="position:absolute;right:5px;bottom:3px;font-size:0.55em;line-height:1;font-weight:700;color:${THEME.accent};opacity:.7;pointer-events:none;">${pipTxt}</span>` : '';
           return `<span data-res="${r}"${m.a} class="${actCls}" style="position:relative;text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;cursor:pointer;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}${m.bg}">${p.resources[r]}${pipCorner}</span>`;
         }).join('');
       return rowShell(p, active, cells, TABLE_GRID);
@@ -4136,6 +4156,7 @@
       toggleDiceHighlight,
       toggleColumnHighlight,
       selectPipPlayer,
+      togglePipMode,
       clearHighlights,
       reconcileOrder,
       reorderKeys,
