@@ -40,6 +40,17 @@
           if (totalBlocked() > before) persistState();   // a block just landed — make it durable now (F5-proof)
         }
       } catch (err) { /* malformed frame — ignore, the log keeps us safe */ }
+      // Push the just-applied state to the panel NOW, not on the next 1s tick — so an
+      // opponent's freshly-broadcast production (type-47) shows on its exact resource
+      // immediately, instead of lingering up to a second as a phantom "unknown".
+      try {
+        if (panel && wsBoard && __cstBoard.ready(wsBoard)) {   // no panel → nothing to push to (renderSoon would no-op anyway)
+          let ch = syncFromWS();
+          if (syncStatsFromWS()) ch = true;
+          if (syncDiceFromWS()) ch = true;
+          if (ch) renderSoon();
+        }
+      } catch (e) { /* sync is best-effort; the 1s tick retries */ }
     });
   }
   function wsColorOf(name) {
