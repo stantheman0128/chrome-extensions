@@ -2376,6 +2376,11 @@
   // exact same width regardless of content.
   const TABLE_GRID = 'minmax(120px,2.6fr) repeat(6, minmax(0, 0.8fr))';
   const HEAD_SLOT = 'height:2.3em;display:flex;align-items:center;justify-content:center;';
+  // Top room reserved in BOTH table headers. The Resources header needs it for the
+  // pinned opponents-hold figure that floats above a column icon (top:-1.5em). Stats
+  // has no such figure but reserves the same room, so switching Resources⇄Stats never
+  // shifts the panel vertically. One source of truth so the two can't drift apart.
+  const HEAD_PAD_TOP = '1.8em';
 
   // Click-to-highlight a value cell. data-cell="player|key" identifies it (so the
   // mark follows a drag-reordered column and lapses when the roster changes);
@@ -2539,7 +2544,7 @@
         </span>
       </span>`;
     };
-    const head = tableHead(uiState.resOrder.map(iconCell).join(''), TABLE_GRID, '1.8em');  // extra top room for the pinned opponents-hold figure
+    const head = tableHead(uiState.resOrder.map(iconCell).join(''), TABLE_GRID, HEAD_PAD_TOP);
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
     const pipMap = currentPipMap();
@@ -2890,7 +2895,7 @@
       const c = COL_BY_KEY[key];
       return `<span data-res="${c.key}" data-colhead="1" data-tip="${c.tip}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">` +
         `<span style="font-size:2.15em;line-height:1;display:inline-flex;align-items:center;">${statIconHTML(c)}</span></span>`;
-    }).join(''), TABLE_GRID);
+    }).join(''), TABLE_GRID, HEAD_PAD_TOP);
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
     const pipMap = currentPipMap();
