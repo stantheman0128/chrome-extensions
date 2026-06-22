@@ -3,8 +3,8 @@
 // The dice histogram migrates onto the WebSocket: board.js accrues roll counts
 // from type-10 log events (authoritative — it can't miss a roll the way late-
 // mounting chat rows could), and syncDiceFromWS mirrors them into state. Turn
-// timing stays DOM-driven (the protocol carries no timestamps). resetAccrual
-// gives each new game a clean board so counts don't bleed across games.
+// timing stays DOM-driven (the protocol carries no timestamps). A new
+// gameSettings.id resets the board, so counts don't bleed across games.
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -20,8 +20,12 @@ const { cst } = require('./helpers/setup');
 const board = global.__cstBoard;
 const window = global.window;
 
-// Feed a reconnect full-state whose gameLogState is a list of [index, sum] rolls.
+// Feed a full-state whose gameLogState is a list of [index, sum] rolls. Each call
+// uses a fresh gameSettings.id, so the board self-resets (new game) — the WS board
+// is no longer reset by the DOM resetState, only by a new id in a full state.
+let gameSeq = 0;
 function relayRolls(entries) {
+  gameSeq += 1;
   const gameLogState = {};
   for (const [idx, sum] of entries) {
     const a = Math.min(6, Math.max(1, sum - 1));   // any valid 1–6 split of the sum
@@ -29,6 +33,7 @@ function relayRolls(entries) {
   }
   window.dispatchEvent(new window.MessageEvent('message', {
     data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload: {
+      gameSettings: { id: 'dice-game-' + gameSeq },
       gameState: { playerColor: 1, mapState: {}, playerStates: {}, gameLogState },
       playerUserStates: [{ selectedColor: 1, username: 'StanTheMan01' }],
     } } } },
@@ -36,7 +41,7 @@ function relayRolls(entries) {
 }
 
 test('board accrues dice counts from type-10 events (deduped, ordered)', () => {
-  cst.resetState();                       // resetAccrual gives a clean board
+  cst.resetState();                       // resets state; relayRolls' fresh id resets the board
   relayRolls([[1, 8], [2, 8], [3, 5]]);
   const d = board.diceOf(cst.getWsBoard());
   assert.equal(d.counts[8], 2, 'two 8s');

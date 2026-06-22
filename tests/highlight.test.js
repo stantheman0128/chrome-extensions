@@ -26,6 +26,16 @@ test('toggleCellHighlight adds then removes a cell id', () => {
   assert.deepEqual(cst.getUiState().highlights, []);
 });
 
+test('selectPipPlayer supports multiple selected players at once', () => {
+  cst.resetState();
+  cst.getUiState().pipPlayers = [];
+  cst.selectPipPlayer('Aria');
+  cst.selectPipPlayer('Bo');
+  assert.deepEqual(cst.getUiState().pipPlayers, ['Aria', 'Bo'], 'both stay selected');
+  cst.selectPipPlayer('Aria');
+  assert.deepEqual(cst.getUiState().pipPlayers, ['Bo'], 'toggling Aria off leaves Bo selected');
+});
+
 test('clearHighlights wipes both cell and dice pins, and no-ops when already empty', () => {
   cst.resetState();
   cst.getUiState().highlights = ['Aria|s-block', 'Bo|ore'];

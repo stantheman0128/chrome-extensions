@@ -21,7 +21,7 @@ function openingPayload() {
           12: { x: 0, y: -1, type: 5, diceNumber: 6 },
           17: { x: 1, y: -1, type: 5, diceNumber: 3 },
         },
-        tileCornerStates: { 23: { x: 0, y: 1, z: 1 } },  // touches tiles 15, 7, 16
+        tileCornerStates: { 23: { x: 1, y: 0, z: 1 } },  // touches tiles 16, 15, 7
       },
       mechanicRobberState: { locationTileIndex: 7, isActive: true },   // robber on tile 7
     },
@@ -53,11 +53,11 @@ test('a city counts the same as a settlement (×1) and the robber moving off res
 test('a tile touched by two of a player\'s buildings counts its pips once, not twice', () => {
   const b = B.createBoard();
   B.applyFullState(b, openingPayload());   // robber on tile 7
-  // Player 1 builds on corner 23 (touches tiles 15,7,16) AND corner 51 (touches
-  // 18,16,17). Tile 16 (wool 10) is shared — Stan: count the tile once.
+  // Player 1 builds on corner 23 (touches tiles 16,15,7) AND corner 51 (touches
+  // 16,18,17). Tile 16 (wool 10) is shared — Stan: count the tile once.
   B.applyDiff(b, { mapState: { tileCornerStates: {
     23: { owner: 1, buildingType: 1 },
-    51: { x: 0, y: 0, z: 1, owner: 1, buildingType: 1 },
+    51: { x: 1, y: -1, z: 1, owner: 1, buildingType: 1 },
   } } });
   const p = B.pipsOf(b)[1];
   // distinct tiles {15,7,16,18,17}; tile 7 robbed → excluded.

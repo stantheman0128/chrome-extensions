@@ -6,13 +6,15 @@
 // blocked-loss accumulator. Resource ids 1..5 (0 = desert); building types
 // 1 = settlement, 2 = city.
 (function () {
-  // A corner (x,y,z) touches up to three hexes (axial coords). Derived from the
-  // real board and verified (centre hex has exactly its six corners).
+  // A corner (x,y,z) touches up to three hexes (axial coords); z picks the corner's
+  // orientation. Both branches are validated against colonist's own production
+  // broadcasts in a real game (tests/ws-geometry-real): for every roll the players
+  // who produce, and what, match the tiles these formulas resolve to (0 mismatches).
   function tilesOfCorner(c) {
     const x = c.x, y = c.y;
     return c.z === 0
       ? [[x, y], [x, y - 1], [x + 1, y - 1]]
-      : [[x, y], [x + 1, y], [x + 1, y - 1]];
+      : [[x, y], [x - 1, y + 1], [x, y + 1]];
   }
 
   function createBoard() {
@@ -20,13 +22,18 @@
       tiles: {}, coordToTile: {}, corners: {}, cornersByTile: {},
       robberTile: null, selfColor: null, colorToName: {}, hands: {},
       blockedLoss: {}, wsStats: {}, handRecon: {}, logTypeCounts: {}, seenLog: -1, _ready: false,
+      gameId: null,                                 // gameSettings.id of the current game (new-game detection)
       dice: { counts: {}, total: 0, rolls: [] },   // histogram from type-10 roll events
     };
   }
 
-  // New game in the same tab: the board is a singleton (never re-created), so wipe
-  // the per-game event accruals. The static board (tiles/corners/hands) is replaced
-  // wholesale by the next full state, so it needn't be touched here.
+  // New game in the same tab: clear ONLY the per-game event accruals (which add up
+  // over a game and would otherwise bleed into the next). The GEOMETRY is left
+  // alone on purpose — applyFullState rebuilds it wholesale on every full state, so
+  // clearing it here was redundant AND harmful: the DOM-driven reset fires ~1s after
+  // the new game's full state, so wiping the geometry orphaned every later placement
+  // (placement diffs carry only the corner index, no coordinates) into phantoms,
+  // blanking pips/⛔ until an F5. Cross-game geometry is reset by applyFullState.
   function resetAccrual(b) {
     b.seenLog = -1;
     b.wsStats = {};
@@ -173,6 +180,14 @@
   }
 
   function applyFullState(b, payload) {
+    // A fresh game sends a full state with a NEW gameSettings.id (a reconnect reuses
+    // it). On a new game, clear the previous game's accruals here — driven by the WS
+    // itself, the instant the new board arrives — instead of relying on the ~1s-late
+    // DOM reset. A reconnect (same id) keeps the accruals; the log replay below
+    // deduplicates by seenLog so it can't double-count.
+    const gid = (payload && payload.gameSettings && payload.gameSettings.id) || null;
+    if (gid != null && gid !== b.gameId) resetAccrual(b);
+    if (gid != null) b.gameId = gid;
     const gs = (payload && payload.gameState) || {};
     const map = gs.mapState || {};
     b.tiles = {}; b.coordToTile = {};
@@ -371,6 +386,43 @@
     robberTile: (b) => b.robberTile,
     blockedLossOf: (b, color) => b.blockedLoss[color] || 0,
     pipsOf,
+    // diagnostic: how many built corners the board currently attributes to a colour
+    buildingsOf: (b, color) => {
+      let n = 0;
+      for (const ci of Object.keys(b.corners)) {
+        const c = b.corners[ci];
+        if (c && c.owner === color && c.buildingType) n += 1;
+      }
+      return n;
+    },
+    // diagnostic: is the corner geometry complete? total stored corners, how many
+    // carry a position (x set), how many are built, and how many of those built ones
+    // resolve to NO tiles (phantoms — geometry we never captured).
+    cornerDiag: (b) => {
+      let total = 0, geom = 0, built = 0, phantom = 0;
+      for (const ci of Object.keys(b.corners)) {
+        total += 1;
+        const c = b.corners[ci];
+        if (c.x != null) geom += 1;
+        if (c.owner != null && c.buildingType) {
+          built += 1;
+          if (tilesOfCornerIdx(b, ci).length === 0) phantom += 1;
+        }
+      }
+      return { total, geom, built, phantom };
+    },
+    // diagnostic: each built corner for a colour as `idx:t<type>@<adjacent numbers>`
+    buildingsListOf: (b, color) => {
+      const out = [];
+      for (const ci of Object.keys(b.corners)) {
+        const c = b.corners[ci];
+        if (c && c.owner === color && c.buildingType) {
+          const nums = tilesOfCornerIdx(b, ci).map((ti) => (b.tiles[ti] ? b.tiles[ti].number : '?')).join(',');
+          out.push(ci + ':t' + c.buildingType + '@' + nums);
+        }
+      }
+      return out;
+    },
     reconBreakdownOf: projectRecon,                              // total-projected (display) breakdown
     reconSumOf: (b, color) => { const p = projectRecon(b, color); return p ? reconSum(p) : 0; },
     // test-only helper (feed mode): seed the stored pure-accrual recon

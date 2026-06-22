@@ -156,6 +156,61 @@
       console.log(JSON.stringify(out, bigintReplacer, 2));
       return out;
     },
+    // Corner-geometry probe — the heart of the "pips missing until F5" mystery.
+    // Answers two protocol questions we've only ever ASSUMED: (1) does the full
+    // state (type 4) carry every corner's x/y/z, or only built corners? (2) do
+    // placement diffs (type 91) carry the placed corner's x/y/z, or just its
+    // owner/buildingType (→ a coordinate-less "phantom" → 0 pips)? Run it a few
+    // moves into the game, before any F5.
+    geom() {
+      let full = null;
+      const cornerDiffs = [];
+      for (const e of buf) {
+        if (e.kind !== 'bin' || !e.data || e.data.id !== '130') continue;
+        const d = e.data.data;
+        if (!d) continue;
+        if (d.type === 4 && d.payload) full = d;
+        const tcs = d.type === 91 && d.payload && d.payload.diff
+          && d.payload.diff.mapState && d.payload.diff.mapState.tileCornerStates;
+        if (tcs) cornerDiffs.push(tcs);
+      }
+      const summarize = (tcs) => {
+        let count = 0, withPos = 0, built = 0, builtNoPos = 0;
+        for (const i of Object.keys(tcs || {})) {
+          const c = tcs[i]; count += 1;
+          const hasPos = c && c.x != null && c.y != null && c.z != null;
+          if (hasPos) withPos += 1;
+          if (c && c.buildingType) { built += 1; if (!hasPos) builtNoPos += 1; }
+        }
+        return { count, withPos, built, builtNoPos };
+      };
+      const fmap = full && full.payload.gameState && full.payload.gameState.mapState;
+      const out = {
+        fullState: full ? {
+          tiles: Object.keys((fmap && fmap.tileHexStates) || {}).length,
+          corners: summarize(fmap && fmap.tileCornerStates),
+          sampleCorners: Object.entries((fmap && fmap.tileCornerStates) || {}).slice(0, 4),
+        } : 'NO full state (type 4) in buffer yet — refresh once to force one',
+        cornerDiffCount: cornerDiffs.length,
+        cornerDiffSamples: cornerDiffs.slice(0, 6),  // raw: shows whether placements carry x/y/z
+      };
+      console.log(JSON.stringify(out, bigintReplacer, 2));
+      return out;
+    },
+    // Download the raw frame buffer as JSON — the seed for real-packet "golden
+    // replay" test fixtures (so tests finally exercise colonist's actual frame
+    // ordering, not hand-authored ideal input).
+    save() {
+      try {
+        const blob = new Blob([JSON.stringify(buf, bigintReplacer)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'cst-ws-frames.json';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        return 'saved ' + buf.length + ' frames to cst-ws-frames.json';
+      } catch (e) { return 'save failed: ' + e; }
+    },
   };
   // Global alias so a finished game can be cross-checked with a bare __cstAudit().
   window.__cstAudit = function () { window.postMessage({ __cstAuditReq: true }, '*'); return 'audit requested — report prints below'; };

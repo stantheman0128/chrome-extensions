@@ -32,7 +32,7 @@ function openingFullState() {
       playerColor: 1,
       mapState: {
         tileHexStates: { 7: { x: 1, y: 1, type: 2, diceNumber: 2 } },
-        tileCornerStates: { 23: { x: 0, y: 1, z: 1 } },
+        tileCornerStates: { 23: { x: 1, y: 0, z: 1 } },   // (1,0,z1) touches (1,1)=tile 7
       },
       mechanicRobberState: { locationTileIndex: 7, isActive: true },
     },

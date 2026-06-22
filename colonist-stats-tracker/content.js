@@ -1017,7 +1017,7 @@
   // pair to breathe (else digits); 'faces'/'digits' are sticky manual overrides.
   // resView: the player table shows resource columns ('cards') or the live
   // event stats ('stats') — same players, same rows, switched via header tabs.
-  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, resView: 'cards', mode: 'large', fontScale: 1, diceMode: 'auto', resOrder: ['lumber', 'brick', 'wool', 'grain', 'ore', 'unknown'], statOrder: ['s-block', 's-lost', 's-disc', 's-gain', 's-turn', 's-stolen'], highlights: [], diceHighlights: [], resColHighlights: [], pipPlayer: null };
+  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, resView: 'cards', mode: 'large', fontScale: 1, diceMode: 'auto', resOrder: ['lumber', 'brick', 'wool', 'grain', 'ore', 'unknown'], statOrder: ['s-block', 's-lost', 's-disc', 's-gain', 's-turn', 's-stolen'], highlights: [], diceHighlights: [], resColHighlights: [], pipPlayers: [] };
   // True only while a LEFT/RIGHT edge is being dragged: that gesture changes the
   // panel WIDTH without rescaling the text (the width→font zoom is reserved for
   // the bottom-right corner). The ResizeObserver checks this to skip the zoom.
@@ -1607,8 +1607,9 @@
       colHL.style.display = 'block';
       resEl.querySelectorAll('[data-res]').forEach((el) => {
         if (el.getAttribute('data-res') !== hit.res || el.querySelector('img')) { el.style.fontWeight = ''; return; }
-        const v = parseInt(el.textContent, 10);
-        el.style.fontWeight = (Number.isFinite(v) && v > 0) ? '800' : '700';
+        // 700 (not 800) so hovering an already-bold current-turn row doesn't compound
+        // into an even-heavier weight — both effects settle at the same 700.
+        el.style.fontWeight = '700';
       });
     });
     wrap.addEventListener('mouseleave', clearColHL);
@@ -2407,10 +2408,13 @@
     saveUI({ resColHighlights: uiState.resColHighlights });
     render();
   }
-  // Click a player's name to show their Setup pips (badge + per-resource corners);
-  // click again to clear. Transient — not persisted across reloads.
+  // Click a player's name to toggle their Setup pips (badge + per-resource corners).
+  // Multiple players can be selected at once. Transient — not persisted.
   function selectPipPlayer(name) {
-    uiState.pipPlayer = (uiState.pipPlayer === name) ? null : name;
+    if (!name) return;
+    const i = uiState.pipPlayers.indexOf(name);
+    if (i >= 0) uiState.pipPlayers.splice(i, 1);
+    else uiState.pipPlayers.push(name);
     render();
   }
 
@@ -2428,7 +2432,7 @@
     const handTip = risk
       ? t('tipHandRisk', 'Over the {n}-card discard limit — a 7 would discard half', { n: discardCap })
       : t('tipHandTotal', 'Total cards in hand');
-    const sel = p.name === uiState.pipPlayer;   // pips show only for the clicked name
+    const sel = uiState.pipPlayers.includes(p.name);   // pips show only for clicked names
     return `<span data-pipname="${escapeAttr(p.name)}" style="display:flex;align-items:center;gap:4px;min-width:0;color:${escapeAttr(p.color)};font-weight:700;cursor:pointer;${sel ? 'background:rgba(47,111,159,.15);border-radius:5px;' : ''}" ` +
       `data-tip="${escapeHtml(p.name)}${active ? ' — ' + t('currentTurn', 'current turn') : ''} · ${t('tipClickPips', 'click for Setup pips')}">${avatar}` +
       `<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span>` +
@@ -2465,8 +2469,8 @@
       </div>`;
   }
 
-  const tableHead = (cells, grid) => `
-    <div style="display:grid;grid-template-columns:${grid};gap:4px;align-items:end;padding:0.9em 3px 0.7em 11px;flex:0 0 auto;">
+  const tableHead = (cells, grid, padTop = '0.9em') => `
+    <div style="display:grid;grid-template-columns:${grid};gap:4px;align-items:end;padding:${padTop} 3px 0.7em 11px;flex:0 0 auto;">
       <span style="color:${THEME.textDim};font-size:0.8em;align-self:center;">${t('player', 'Player')}</span>
       ${cells}
     </div>`;
@@ -2480,17 +2484,20 @@
         return `<span data-res="unknown" data-colhead="1" data-tip="${t('tipUnknownCards', 'Unknown (stolen) cards')}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">${iconImg('unknown', 1.85)}</span>`;
       }
       const low = bank[r] <= 2;
-      // Opponents' total known holding of this resource (top-left badge) — the
-      // number you weigh before a Monopoly. Self is excluded; unknown cards aren't
-      // counted (we only sum what's pinned to this resource).
+      // Opponents' total known holding of this resource — the number you weigh
+      // before a Monopoly. Only shown once you PIN this column (click its icon); it
+      // floats up in the gap above the row, clear of the icon. Self is excluded;
+      // unknown cards aren't counted (we only sum what's pinned to this resource).
       let oppHold = 0;
       for (const pl of state.players.values()) if (pl.name !== state.selfName) oppHold += pl.resources[r] || 0;
       const oppTip = t('oppHold', 'Opponents hold {n} {res} (for Monopoly)', { n: oppHold, res: RESOURCE_LABEL[r] });
+      const oppNum = uiState.resColHighlights.includes(r)
+        ? `<span data-tip="${escapeHtml(oppTip)}" style="position:absolute;top:-1.5em;left:50%;transform:translateX(-50%);text-align:center;color:${THEME.accent};font-size:0.82em;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;">${oppHold}</span>`
+        : '';
       return `<span data-res="${r}" data-colhead="1" data-tip="${t('bankLeft', 'Bank: {n} {res} left', { n: bank[r], res: RESOURCE_LABEL[r] })}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">
         <span style="position:relative;display:inline-block;line-height:0;">
           ${iconImg(r, 2.0)}
-          <span data-tip="${escapeHtml(oppTip)}" style="position:absolute;top:-0.9em;left:50%;transform:translateX(-50%);text-align:center;
-                color:${oppHold ? THEME.accent : THEME.textDim};font-size:0.62em;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;">${oppHold}</span>
+          ${oppNum}
           <span style="position:absolute;top:-0.5em;right:-0.65em;min-width:1.2em;padding:0 0.25em;text-align:center;
                 background:#fbf9f4;color:${low ? THEME.bad : THEME.text};border:1px solid ${THEME.border};
                 border-radius:0.7em;font-size:0.6em;font-weight:700;line-height:1.5;
@@ -2498,14 +2505,14 @@
         </span>
       </span>`;
     };
-    const head = tableHead(uiState.resOrder.map(iconCell).join(''), TABLE_GRID);
+    const head = tableHead(uiState.resOrder.map(iconCell).join(''), TABLE_GRID, '1.8em');  // extra top room for the pinned opponents-hold figure
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
     const pipMap = currentPipMap();
     return head + players.map((p) => {
       const active = p.name === state.currentTurn;
       const actCls = active ? 'cst-active-cell' : '';
-      const pm = (p.name === uiState.pipPlayer && pipMap) ? pipMap[wsColorOf(p.name)] : null;   // pips only for the selected name
+      const pm = (uiState.pipPlayers.includes(p.name) && pipMap) ? pipMap[wsColorOf(p.name)] : null;   // pips only for selected names
       const cells = nameCell(p, prof, active, pipMap) +
         uiState.resOrder.map((r) => {
           const m = cellMark(p.name, r);   // column highlight is a pinned overlay band, not a per-cell bg
@@ -2514,7 +2521,7 @@
           }
           // C(c): per-resource Setup pips tucked into the cell's bottom-right corner.
           const pips = pm ? pm.byRes[RESOURCES.indexOf(r) + 1] : 0;
-          const pipCorner = pips ? `<span data-pip="${pips}" style="position:absolute;right:1px;bottom:0;font-size:0.55em;line-height:1;font-weight:700;color:${THEME.accent};opacity:.7;pointer-events:none;">${pips}</span>` : '';
+          const pipCorner = pips ? `<span data-pip="${pips}" style="position:absolute;right:5px;bottom:3px;font-size:0.55em;line-height:1;font-weight:700;color:${THEME.accent};opacity:.7;pointer-events:none;">${pips}</span>` : '';
           return `<span data-res="${r}"${m.a} class="${actCls}" style="position:relative;text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;cursor:pointer;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}${m.bg}">${p.resources[r]}${pipCorner}</span>`;
         }).join('');
       return rowShell(p, active, cells, TABLE_GRID);
@@ -3111,8 +3118,11 @@
     state.endgameBlocked = null;
     state.wsBlocked = {};
     wsBlockedSeen = {};   // re-baseline the WS-blocked delta tracking for the new game
-    if (wsBoard && __cstBoard.resetAccrual) __cstBoard.resetAccrual(wsBoard); // clean board per game
-    uiState.pipPlayer = null;   // a new roster clears the pip selection
+    // NOTE: the WS board is NOT reset from here. It self-manages via gameSettings.id
+    // in applyFullState (a new id clears the accruals the instant the new board's full
+    // state arrives). Resetting it from this DOM lifecycle — which fires ~1s LATER —
+    // would wipe accruals the full state already loaded for the new game.
+    uiState.pipPlayers = [];   // a new roster clears the pip selection
     lastRoll = null;
     setGameSig('');
     lastCounts = null;  // don't shower "+N" floats diffing against the old game
@@ -3971,6 +3981,7 @@
         + ' | lifecycle: ' + lifecycle + ' | paused: ' + state.paused
         + ' | gameEndTs: ' + (state.gameEndTs || 'null')];
     if (wsReady) L.push('events (gameLogState by type): ' + JSON.stringify(__cstBoard.logTypeCountsOf(wsBoard)));
+    if (wsReady) L.push('corners: ' + JSON.stringify(__cstBoard.cornerDiag(wsBoard)) + '  (total stored / geom=have-position / built / phantom=built-but-no-tiles)');
     state.players.forEach((p, name) => {
       const color = wsColorOf(name);
       const ty = tallyOf(name);
@@ -3988,6 +3999,14 @@
       L.push('  ours: ' + RESOURCES.map((r) => r[0] + p.resources[r]).join(' '));
       const rec = (wsReady && color != null) ? __cstBoard.reconBreakdownOf(wsBoard, color) : null;
       if (rec) L.push('  recon: ' + RESOURCES.map((r, i) => r[0] + (rec[i + 1] || 0)).join(' ') + ' ?' + (rec.unknown || 0));
+      if (wsReady && color != null) {
+        const pp = __cstBoard.pipsOf(wsBoard)[color];
+        const blds = __cstBoard.buildingsOf(wsBoard, color);
+        L.push('  pips: total=' + (pp ? pp.total : 0)
+          + ' ' + RESOURCES.map((r, i) => r[0] + ((pp && pp.byRes[i + 1]) || 0)).join(' ')
+          + ' | board sees ' + blds + ' building(s)');
+        L.push('  buildings: ' + (__cstBoard.buildingsListOf(wsBoard, color).join(' ') || '(none)'));
+      }
       if (s) {
         L.push('  disc: tally=' + ty.discardCards + ' ws=' + s.discardCards + flag(ty.discardCards, s.discardCards));
         L.push('  gain: tally=' + ty.gained + ' ws=' + s.gained + flag(ty.gained, s.gained));

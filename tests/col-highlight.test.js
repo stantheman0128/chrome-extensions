@@ -43,7 +43,7 @@ test('clicking a resource column pins a neon band overlay (not a per-cell backgr
   assert.equal(wrap.querySelector('[data-pinband="ore"]'), null, 'band removed when unpinned');
 });
 
-test('a resource header shows opponents\' total holding, excluding self', () => {
+test('a pinned resource header shows opponents\' total holding, excluding self', () => {
   cst.resetState();
   cst.createPanel();
   const me = cst.getPlayer('StanTheMan01', '#CF4449');
@@ -51,7 +51,10 @@ test('a resource header shows opponents\' total holding, excluding self', () => 
   cst.state.selfName = 'StanTheMan01';
   me.resources.ore = 5;     // self's ore must NOT be counted
   opp.resources.ore = 3;    // opponents hold 3
+  cst.getUiState().resColHighlights = [];
   cst.render();
-  const html = document.querySelector('#colonist-stats-tracker').innerHTML;
-  assert.match(html, /Opponents hold 3/, 'header shows opponents hold 3 ore (self 5 excluded)');
+  assert.doesNotMatch(document.querySelector('#colonist-stats-tracker').innerHTML, /Opponents hold/, 'hidden until the column is pinned');
+  cst.getUiState().resColHighlights = ['ore'];
+  cst.render();
+  assert.match(document.querySelector('#colonist-stats-tracker').innerHTML, /Opponents hold 3/, 'pinned ore header shows opponents hold 3 (self 5 excluded)');
 });

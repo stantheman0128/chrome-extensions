@@ -24,7 +24,7 @@ function openingPayload() {
           17: { x: 1, y: -1, type: 5, diceNumber: 3 },
         },
         tileCornerStates: {
-          23: { x: 0, y: 1, z: 1 },
+          23: { x: 1, y: 0, z: 1 },   // real corner 33 coords: touches (1,0)=16 (0,1)=15 (1,1)=7
           48: { x: 0, y: 0, z: 0 },
           51: { x: 0, y: 0, z: 1 },
         },
@@ -39,7 +39,8 @@ function openingPayload() {
 }
 
 test('tilesOfCorner uses the verified z=0 / z=1 offsets', () => {
-  assert.deepEqual(B.tilesOfCorner({ x: 0, y: 1, z: 1 }), [[0, 1], [1, 1], [1, 0]]);
+  // both branches validated against colonist's real production (tests/ws-geometry-real)
+  assert.deepEqual(B.tilesOfCorner({ x: 1, y: 0, z: 1 }), [[1, 0], [0, 1], [1, 1]]);
   assert.deepEqual(B.tilesOfCorner({ x: 0, y: 0, z: 0 }), [[0, 0], [0, -1], [1, -1]]);
 });
 

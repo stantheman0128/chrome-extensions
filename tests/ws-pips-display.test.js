@@ -27,7 +27,7 @@ function relayBoardWithSettlement() {
             15: { x: 0, y: 1, type: 4, diceNumber: 9 },    // grain 9 → 4
             16: { x: 1, y: 0, type: 3, diceNumber: 10 },   // wool 10 → 3
           },
-          tileCornerStates: { 23: { x: 0, y: 1, z: 1, owner: 1, buildingType: 1 } },
+          tileCornerStates: { 23: { x: 1, y: 0, z: 1, owner: 1, buildingType: 1 } },
         },
         mechanicRobberState: { locationTileIndex: 7 },
       },
