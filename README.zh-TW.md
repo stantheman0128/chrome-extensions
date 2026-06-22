@@ -14,7 +14,7 @@
 | # | 擴充功能 | 版本 | 下載 |
 |---|---------|------|------|
 | 1 | [Claude 服務狀態監控](#ext-claude-status-monitor) | `1.0.2` | [![下載 claude-status-monitor](https://img.shields.io/badge/下載-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
-| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.91.0` | [![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
+| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.93.0` | [![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
 | 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | `1.0` | [![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
 | 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | `1.0` | [![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
 | 5 | [YouTube 精確時間](#ext-youtube-video-upload-time) | `9.10` | [![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
@@ -68,7 +68,7 @@
 
 **資料夾：** `colonist-stats-tracker/`
 
-**版本:** `1.91.0`
+**版本:** `1.93.0`
 
 在 [colonist.io](https://colonist.io/) 對局中即時統計擲骰分佈與各玩家持有資源的浮動面板。
 
