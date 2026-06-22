@@ -1,6 +1,6 @@
 # Chrome Web Store — 上架資料與提交清單
 
-> Colonist.io Stats Tracker · v1.8.0 · 能見度建議 **Unlisted（不公開，有連結即可安裝）**
+> Colonist.io Stats Tracker · v1.91.0 · 能見度建議 **Unlisted（不公開，有連結即可安裝）**
 
 這份檔案把 CWS Dashboard 要填的欄位都備好，方便你逐欄複製貼上。
 **只有你能做的事**集中在最後「F. 你要親自做的」。
@@ -9,10 +9,10 @@
 
 ## A. 要上傳的套件（zip）
 
-- 版本：**1.8.0**，zip 內 `manifest.json` 在最上層（CWS 規定），可直接上傳。
+- 版本：**1.91.0**，zip 內 `manifest.json` 在最上層（CWS 規定），可直接上傳。
 - 取得方式（擇一）：
   1. push 之後到 GitHub repo 的 **「latest」Release** 下載 `colonist-stats-tracker.zip`（CI 自動產生）。
-  2. 本機現成檔：`tasks/store-assets/colonist-stats-tracker-1.8.0.zip`（已為你打包好）。
+  2. 本機現成檔：`tasks/store-assets/colonist-stats-tracker-1.91.0.zip`（已為你打包好）。
 
 ---
 
@@ -30,7 +30,13 @@
 **Detailed description（中文）** — 取自 `colonist-stats-tracker/DESCRIPTION.md`
 
 **Screenshots（1280×800 或 640×400，1–5 張，必填）**
-→ 需要你從**實際對局**截圖（見 F）。建議拍：①面板擲骰直方圖、②玩家資源表（含 `?` 欄）、③面板疊在棋盤上的整體畫面。
+→ 需要你從**實際對局**截圖（見 F）。目前的核心功能可拿來拍：
+- **擲骰直方圖**：每個點數 2–12 的次數／百分比，配 ⚖️ χ²（卡方）公平度徽章。
+- **玩家資源表**：自己的手牌是從 WebSocket 直接讀到的精確分佈，對手則由公開事件重建（含 `?` 未知欄）；可點某資源欄標頭釘住整欄 highlight、看「對手合計持有量」。
+- **Stats 表**：每位玩家的取得／棄牌／⛔ 被強盜擋掉的產量／被偷／偷到／交易、平均回合時間。
+- **Setup pips（⚅）**：每位玩家的開局點數強度，可切「涵蓋」與「每次擲骰期望張數」兩種讀法。
+- **彈出視窗（popup）**：跨對局的終生統計與對局紀錄。
+建議至少拍：①直方圖、②資源表（含 `?` 欄與對手合計）、③Stats 表（⛔ 欄）、④面板疊在棋盤上的整體畫面。
 
 **Promo / Marquee tiles（選填，已超取樣產生，邊緣銳利）**
 - Small（440×280）：`tasks/store-assets/promo-440x280.png`（另附 2× `promo-880x560.png`）
@@ -53,11 +59,20 @@ per-player resource tally) on colonist.io game pages.
 - Host access `*://colonist.io/*`：
   ```
   Required to inject the content script that reads the already-visible on-screen game
-  log and renders the stats overlay. The extension runs only on colonist.io.
+  log AND observes the game's own WebSocket traffic (the board, dice, and hand state
+  colonist already sends to this browser) to compute the stats overlay. Everything is
+  processed in the page; nothing is transmitted off the device. The extension runs only
+  on colonist.io.
   ```
-- 其他權限：**無**（manifest 未宣告任何 `permissions`。popup 的「強制重抓」用 `chrome.tabs.sendMessage` 對「自己注入的 content script」傳訊，這**不需要** `tabs` 權限；無 `storage`、無 `<all_urls>`、無 background service worker、無遠端程式碼）。
+- `storage`：
+  ```
+  Used only to save the user's own game stats and per-game history locally
+  (chrome.storage.local), so the lifetime-stats popup and the in-progress game survive
+  a page reload. No sync, no remote storage — the data never leaves the device.
+  ```
+- 其他權限：**無**（除上面的 `storage` 外，未宣告其他 `permissions`。popup 的「強制重抓」用 `chrome.tabs.sendMessage` 對「自己注入的 content script」傳訊，這**不需要** `tabs` 權限；無 `<all_urls>`、無 background service worker、無遠端程式碼）。
 
-**Data usage / 資料用途**：宣告 **完全不蒐集**（does NOT collect or use any user data）。
+**Data usage / 資料用途**：宣告 **完全不蒐集**（does NOT collect or use any user data）。本機儲存（`chrome.storage.local`／`localStorage`）只供使用者自己看，不對外傳輸。
 三個合規勾選（皆可勾）：
 - ✅ 不販售/轉移使用者資料給第三方（非為核准用途）
 - ✅ 不為與單一用途無關的目的使用/轉移資料
@@ -90,7 +105,7 @@ https://github.com/stantheman0128/chrome-extensions/blob/master/colonist-stats-t
 - [ ] 註冊 Chrome Web Store 開發者帳號，付一次性 **US$5**
 - [ ] trader/non-trader 申報 → 免費自用選 **non-trader**
 - [ ] 從實際對局**截 1–5 張圖**（1280×800 或 640×400）
-- [ ] 上傳 1.8.0 zip、貼上本檔 B/C 各欄、設 **Unlisted**、貼 PRIVACY URL
+- [ ] 上傳 1.91.0 zip、貼上本檔 B/C 各欄、設 **Unlisted**、貼 PRIVACY URL
 - [ ] 送審（Submit for review）
 
 > 我已完成：套件（含 icon/popup/manifest）、PRIVACY.md、商店文案與歸屬、promo tile、打包 zip、本提交清單。

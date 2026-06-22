@@ -7,11 +7,11 @@ file is excluded from the packaged `.zip`.
 
 - **Chrome Web Store：** 已提交上架，正在等待審查。
 
-## Planned
+## A–D（皆已出貨）
 
-排入待辦、尚未進設計(Stan 2026-06-22 提出;具體做法各自再開一輪設計)。
+Stan 2026-06-22 提出的這批(A/B/C/D)現在**全部做完了**;下面保留各自的設計記錄供日後參考,狀態已更新成「已出 + 版本」,別再當待辦重做。
 
-**進度(2026-06-22):** A ✅(1.72) ｜ 骰子點數→WS ✅(1.73) ｜ C(a)(b) ✅(1.74,城市×1、扣強盜) ｜ B ✅(1.75,整欄 highlight 排除自己 + 標頭對手合計) ｜ C(c) ✅(1.76,每格右下角點數) ｜ **剩:D**(遊戲中精準卡田,單獨設計)。
+**進度(最新):** A ✅(1.72) ｜ 骰子點數→WS ✅(1.73) ｜ C(a)(b) ✅(1.74,城市×1、扣強盜) ｜ B ✅(1.75 整欄 highlight 排除自己 + 標頭對手合計;1.79 改釘住式 neon column band;1.80 對手合計只在釘住時顯示) ｜ C(c) ✅(1.76,每格右下角點數) ｜ C 第二種讀法「每次擲骰期望張數」✅(1.89) ｜ **D ✅**(1.88 把幾何卡田扶正、1.90 跨 reload／換局／局末無損、1.91 收尾 4 個邊界案例;遊戲進行中已精準)。
 
 ### A. Highlight 與 Resync 的互動 — ✅ 已出(1.72)
 
@@ -22,7 +22,9 @@ file is excluded from the packaged `.zip`.
 - **基礎:** highlight 狀態與切換已有(`toggleCellHighlight`/`toggleDiceHighlight`/`cellMark`),Resync 入口在 `runResync`/`deepRescrape`。改動小。
 - **待定:** 沒有任何 highlight 時按 Resync,維持原行為即可(不需要特別處理)。
 
-### B. 資源欄整欄 highlight + 對手合計持有量
+### B. 資源欄整欄 highlight + 對手合計持有量 — ✅ 已出(1.75 起)
+
+> **已出貨:** (a)(b) 都做了 — 1.75 先做整欄 highlight(排除自己)+ 標頭對手合計;1.79 把整欄 highlight 改成釘住式 neon column band(不是每格底色);1.80 讓對手合計只在欄被釘住時才顯示。下面是原始設計記錄。
 
 - **(a) 點資源欄標頭的 icon → highlight 那一整欄**(所有玩家的該資源),自己那一格除外。
 - **(b) 在資源欄標頭上方顯示一個數字 = 除了自己以外,其他人合計持有多少該資源**,方便判斷該不該用壟斷(Monopoly)。
@@ -32,7 +34,9 @@ file is excluded from the packaged `.zip`.
   - (b) 的數字要跟右上角銀行徽章在視覺上分開,別擠在一起(銀行=牌庫剩餘,這個=對手手上合計,兩個意義不同)。
   - 「對手合計」要不要把 unknown 算進去:嚴格講對手的 unknown 也可能是該資源,但合計只加「已知是該資源」的比較保守、也比較好懂。先做保守版。
 
-### C. 點數統計(pip count)與 Setup 強度
+### C. 點數統計(pip count)與 Setup 強度 — ✅ 已出(1.74、1.76,延伸 1.89)
+
+> **已出貨:** (a) 名字旁的 ⚅ 總點數徽章 + (b) hover 看每種資源各自點數 → 1.74;(c) 每格右下角的該資源點數 → 1.76。城市算 ×1、強盜壓住的地扣掉(原始決議)。延伸:1.89 加了第二種讀法,點 ⚅ 數字可在「涵蓋(distinct 地塊 pip 加總)」與「每次擲骰期望張數(Σ 權重×P(號碼),城市 ×2、扣強盜)」之間切換。下面是原始設計記錄。
 
 Catan 每個號碼有對應點數(骰到的相對頻率):2/12=1、3/11=2、4/10=3、5/9=4、6/8=5、7=0。
 
@@ -45,7 +49,9 @@ Catan 每個號碼有對應點數(骰到的相對頻率):2/12=1、3/11=2、4/10=
   - 強盜當下壓住的地要不要從點數扣掉(顯示「實際可用點數」),還是永遠顯示原始點數。
   - (c) 右下角的小數字跟現有的 highlight 底色、tabular 對齊不要打架。
 
-### D. 遊戲進行中也精準的 ⛔ 卡田(Stan 指定要做)
+### D. 遊戲進行中也精準的 ⛔ 卡田(Stan 指定要做) — ✅ 已出(1.88、1.90、1.91)
+
+> **已出貨——別再重做這條。** ⛔ 現在直接讀 WS 棋盤幾何的卡田值(強盜地塊 × 相鄰建築 × 該地資源),遊戲進行中就精準。歷程:1.85 先修好 `z=1` 角→地公式(自 1.46 就一直錯,害幾何卡田半盤算錯,用 colonist 自己的 type 47 產出當裁判驗證);1.88 把幾何卡田正式扶正取代舊的 log 差分(舊法在「先被擋、之後才升級建築」時會高估),局末仍用 colonist Victory 表精確值覆蓋;1.90 重新設計這個總值的持有方式,做到跨 reload／換局／局末都無損;1.91 收掉一次獨立壓力測試找到的 4 個邊界案例。下面保留原始設計方向當歷史。
 
 目前 ⛔ 用「實收對比」:遊戲中很準,但「剛蓋好馬上被擋」那種情形會輕微高估,只有局末讀 Victory 畫面才完全精準。Stan 要的是**遊戲進行中每個數值也都正確**。
 
@@ -337,8 +343,10 @@ a CSV export of the aggregated numbers, or a dice-fairness trend over time.
 - Expand-on-first-roll for spectators (lifecycle currently expands on game
   detection).
 - Automatic gap-detection trigger for the deep re-sync (currently manual via 🔄).
-- Per-player "blocked" attribution: the blocked log line names the tile but not
-  its owners; attributing blocked yields to players would need board tracking
-  from initial-placement messages — probably overkill.
+- ~~Per-player "blocked" attribution.~~ Done as part of item D: the WS board model
+  (`board.js`, from 1.46 on) reconstructs the full tile/corner/robber geometry, so
+  blocked yields are attributed per player from it — no longer dependent on the
+  log line (which only names the tile). The exact in-game value shipped in
+  1.88/1.90/1.91.
 - History viewer niceties: dice-histogram preview per game, CSV export, a panel
   tab as an alternative to the popup.
