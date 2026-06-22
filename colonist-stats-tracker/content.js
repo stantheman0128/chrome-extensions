@@ -28,8 +28,13 @@
       if (!m || m.id !== '130' || !m.data) return;
       const d = m.data;
       try {
-        if (d.type === 4) __cstBoard.applyFullState(wsBoard, d.payload);
-        else if (d.type === 91 && d.payload) {
+        if (d.type === 4) {
+          const prevId = wsBoard.gameId;
+          __cstBoard.applyFullState(wsBoard, d.payload);
+          // a genuinely new game arrived via the WS — drop the previous game's Victory
+          // override so it can't outrank the new (clean) board for a beat.
+          if (prevId != null && wsBoard.gameId !== prevId) state.endgameBlocked = null;
+        } else if (d.type === 91 && d.payload) {
           const before = totalBlocked();
           __cstBoard.applyDiff(wsBoard, d.payload.diff);
           if (totalBlocked() > before) persistState();   // a block just landed — make it durable now (F5-proof)
@@ -2775,14 +2780,26 @@
       }
       for (const k of Object.keys(agg)) rows.push(agg[k]);
     }
-    if (!rows.length) return '';
     rows.sort((a, b) => b.cards - a.cards);
-    const lines = rows.map((r) =>
-      `<span style="white-space:nowrap;display:inline-flex;align-items:center;gap:3px;">` +
-      `${iconImg(r.res, 1.15)} <b>${r.num}</b> ×${r.times} = ${r.cards}</span>`);
     const header = escapeHtml(t('blockReportTitle', 'Cards blocked'));
+    // Keep the hover consistent with the headline: show the breakdown when it sums to
+    // the displayed number; if the headline came from a Victory correction the
+    // geometry breakdown doesn't match, show just the exact total (Victory carries no
+    // per-roll detail, so a stale breakdown would contradict it).
+    const headline = blockLossOf(name);
+    const sum = rows.reduce((acc, r) => acc + r.cards, 0);
+    let body;
+    if (rows.length && sum === headline) {
+      body = rows.map((r) =>
+        `<span style="white-space:nowrap;display:inline-flex;align-items:center;gap:3px;">` +
+        `${iconImg(r.res, 1.15)} <b>${r.num}</b> ×${r.times} = ${r.cards}</span>`).join('');
+    } else if (headline > 0) {
+      body = `<span style="white-space:nowrap;">= ${headline}</span>`;
+    } else {
+      return '';
+    }
     return `<span style="display:flex;flex-direction:column;gap:2px;">` +
-      `<b style="margin-bottom:1px;">${header}</b>${lines.join('')}</span>`;
+      `<b style="margin-bottom:1px;">${header}</b>${body}</span>`;
   }
 
   // The 🗑 hover: which resources were discarded (rolled-7 over-limit), headed by

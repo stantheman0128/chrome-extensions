@@ -430,15 +430,22 @@
     robberTile: (b) => b.robberTile,
     blockedLossOf: (b, color) => b.blockedLoss[color] || 0,
     blockedDetailOf: (b, color) => b.blockedDetail[color] || {},
-    // geometry is usable for ⛔/pips once a full state has actually populated tiles
-    // AND corners — `ready` alone only means "a type-4 was applied" (could be a shell).
-    geomReady: (b) => Object.keys(b.tiles).length > 0 && Object.keys(b.corners).length > 0,
+    // geometry is usable for ⛔ once a full state has populated tiles AND corners,
+    // AND the current robber tile is actually loaded — a partial/early snapshot that
+    // doesn't yet contain the robber's hex can't be trusted to read a 0 (vs a shell,
+    // where a 0 would silently replace a known differential). `ready` alone only means
+    // "a type-4 was applied", which could be an empty shell.
+    geomReady: (b) => Object.keys(b.tiles).length > 0 && Object.keys(b.corners).length > 0
+      && (b.robberTile == null || b.tiles[b.robberTile] != null),
     // snapshot/restore the live blocked-loss so it survives F5: the board can't
     // replay past robber positions, so the displayed value persists through the board
-    // (tagged with the game id, so a different game's restore is dropped by applyFullState).
+    // (tagged with the game id, so a different game's restore is dropped).
     blockedSnapshot: (b) => ({ gameId: b.gameId, loss: { ...b.blockedLoss }, detail: JSON.parse(JSON.stringify(b.blockedDetail || {})) }),
     restoreBlocked: (b, snap) => {
       if (!snap) return;
+      // never clobber a board that has ALREADY been advanced to a different game
+      // (e.g. the new game's full state arrived before this restore ran).
+      if (b.gameId != null && snap.gameId != null && b.gameId !== snap.gameId) return;
       if (snap.gameId != null) b.gameId = snap.gameId;
       b.blockedLoss = { ...(snap.loss || {}) };
       b.blockedDetail = snap.detail ? JSON.parse(JSON.stringify(snap.detail)) : {};
