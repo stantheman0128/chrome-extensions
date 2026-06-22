@@ -26,6 +26,16 @@ test('toggleCellHighlight adds then removes a cell id', () => {
   assert.deepEqual(cst.getUiState().highlights, []);
 });
 
+test('clearHighlights wipes both cell and dice pins, and no-ops when already empty', () => {
+  cst.resetState();
+  cst.getUiState().highlights = ['Aria|s-block', 'Bo|ore'];
+  cst.getUiState().diceHighlights = ['8'];
+  assert.equal(cst.clearHighlights(), true, 'returns true when something was pinned');
+  assert.deepEqual(cst.getUiState().highlights, []);
+  assert.deepEqual(cst.getUiState().diceHighlights, []);
+  assert.equal(cst.clearHighlights(), false, 'no-op when nothing is pinned (so Resync skips a redundant save)');
+});
+
 test('a highlighted value cell renders with a background; an un-highlighted one does not', () => {
   cst.resetState();
   cst.createPanel();

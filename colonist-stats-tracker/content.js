@@ -1017,7 +1017,7 @@
   // pair to breathe (else digits); 'faces'/'digits' are sticky manual overrides.
   // resView: the player table shows resource columns ('cards') or the live
   // event stats ('stats') — same players, same rows, switched via header tabs.
-  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, resView: 'cards', mode: 'large', fontScale: 1, diceMode: 'auto', resOrder: ['lumber', 'brick', 'wool', 'grain', 'ore', 'unknown'], statOrder: ['s-block', 's-lost', 's-disc', 's-gain', 's-turn', 's-stolen'], highlights: [], diceHighlights: [] };
+  const uiState = { panelCollapsed: false, diceCollapsed: false, resCollapsed: false, resView: 'cards', mode: 'large', fontScale: 1, diceMode: 'auto', resOrder: ['lumber', 'brick', 'wool', 'grain', 'ore', 'unknown'], statOrder: ['s-block', 's-lost', 's-disc', 's-gain', 's-turn', 's-stolen'], highlights: [], diceHighlights: [], resColHighlights: [], pipPlayer: null };
   // True only while a LEFT/RIGHT edge is being dragged: that gesture changes the
   // panel WIDTH without rescaling the text (the width→font zoom is reserved for
   // the bottom-right corner). The ResizeObserver checks this to skip the zoom.
@@ -1341,6 +1341,11 @@
     refreshFont();
   }
 
+  // Repaint the pinned resource-column bands. Assigned inside createPanel (it needs
+  // the panel-local overlay layer); a no-op until then. render() calls it so the
+  // bands track the columns across re-renders / drag-reorders.
+  let refreshPinnedCols = () => {};
+
   function createPanel() {
     if (panel) return;
     const ui = loadUI();
@@ -1354,6 +1359,7 @@
     uiState.diceMode = ui.diceMode || 'auto';
     uiState.highlights = Array.isArray(ui.highlights) ? ui.highlights : [];
     uiState.diceHighlights = Array.isArray(ui.diceHighlights) ? ui.diceHighlights : [];
+    uiState.resColHighlights = Array.isArray(ui.resColHighlights) ? ui.resColHighlights : [];
     uiState.mode = 'large';                       // auto-enlarge to the large preset on appear
     const host = document.createElement('div');
     host.id = 'colonist-stats-tracker';
@@ -1607,6 +1613,48 @@
     });
     wrap.addEventListener('mouseleave', clearColHL);
 
+    // PINNED columns: clicking a resource icon (handled in the drag handler) toggles
+    // uiState.resColHighlights. Each pinned column gets a persistent neon band — the
+    // same look as the hover highlight, but it stays lit. Bands live in #cst-res-wrap
+    // (survives render's innerHTML swaps) and are repainted after every render via
+    // refreshPinnedCols, since a re-render / reorder moves the column rects.
+    const bandStyle = (rgb) => ({
+      fill: `linear-gradient(to bottom, rgba(${rgb},0) 0%, rgba(${rgb},.22) 22%, rgba(${rgb},.13) 78%, rgba(${rgb},0) 100%)`,
+      bar: `linear-gradient(to bottom, rgba(${rgb},0) 0%, rgb(${rgb}) 22%, rgb(${rgb}) 78%, rgba(${rgb},0) 100%)`,
+      bloom: `drop-shadow(0 0 5px rgba(${rgb},.6))`,
+    });
+    function makeBand(rgb) {
+      const s = bandStyle(rgb);
+      const root = document.createElement('div');
+      root.style.cssText = 'position:absolute;top:0;pointer-events:none;z-index:2;';
+      const fill = document.createElement('div'); fill.style.cssText = 'position:absolute;inset:0;pointer-events:none;'; fill.style.background = s.fill;
+      const bl = document.createElement('div'); bl.style.cssText = 'position:absolute;left:0;top:0;bottom:0;width:2.5px;pointer-events:none;'; bl.style.background = s.bar; bl.style.filter = s.bloom;
+      const br = document.createElement('div'); br.style.cssText = 'position:absolute;right:0;top:0;bottom:0;width:2.5px;pointer-events:none;'; br.style.background = s.bar; br.style.filter = s.bloom;
+      root.append(fill, bl, br);
+      return root;
+    }
+    let pinnedEls = [];
+    refreshPinnedCols = function () {
+      pinnedEls.forEach((el) => el.remove());
+      pinnedEls = [];
+      const headRow = resEl.firstElementChild;
+      if (!headRow) return;
+      const wr = wrap.getBoundingClientRect();
+      for (const res of uiState.resColHighlights) {
+        const cell = headRow.querySelector(`[data-colhead][data-res="${res}"]`);
+        if (!cell) continue;
+        const rect = cell.getBoundingClientRect();
+        const el = makeBand(RES_HL[res] || '47,111,159');
+        el.setAttribute('data-pinband', res);
+        el.style.left = (rect.left - wr.left) + 'px';
+        el.style.width = rect.width + 'px';
+        el.style.height = resEl.offsetHeight + 'px';
+        wrap.appendChild(el);
+        pinnedEls.push(el);
+      }
+    };
+    refreshPinnedCols();
+
     // Custom dialog tooltip for the dice columns (replaces the native title). Lives on
     // <body> so the panel's translateZ layer doesn't trap its fixed positioning.
     const diceEl = host.querySelector('#cst-dice');
@@ -1693,6 +1741,8 @@
     // dragging=true, so ignore that release (a real click leaves it false).
     host.addEventListener('click', (e) => {
       if (dragging) return;
+      const pn = e.target.closest && e.target.closest('[data-pipname]');
+      if (pn && host.contains(pn)) { selectPipPlayer(pn.getAttribute('data-pipname')); return; }
       // closest() handles a direct hit; if an overlay (e.g. the column-highlight
       // layer) becomes the event target instead, fall back to the topmost
       // [data-cell] under the pointer so the click still lands on the value cell.
@@ -1775,6 +1825,8 @@
         if (ctx.view === 'stats') { uiState.statOrder = next; saveUI({ statOrder: next }); }
         else { uiState.resOrder = next; saveUI({ resOrder: next }); }
         render();
+      } else if (!ctx.started && ctx.view === 'cards') {
+        toggleColumnHighlight(ctx.key);   // a press without a drag = pin/unpin the column
       }
       dragging = false;
     }
@@ -2334,8 +2386,35 @@
     saveUI({ diceHighlights: uiState.diceHighlights });
     render();
   }
+  // Drop every pinned highlight (cells + dice columns + resource columns) in one
+  // go. Returns whether anything was pinned, so callers can skip a redundant save.
+  function clearHighlights() {
+    if (!uiState.highlights.length && !uiState.diceHighlights.length && !uiState.resColHighlights.length) return false;
+    uiState.highlights = [];
+    uiState.diceHighlights = [];
+    uiState.resColHighlights = [];
+    saveUI({ highlights: [], diceHighlights: [], resColHighlights: [] });
+    return true;
+  }
+  // Pin/unpin a whole resource column (the icon header click, when it wasn't a
+  // drag). Lights every player's cell in that column except your own — the point
+  // is reading opponents' holdings (e.g. before a Monopoly).
+  function toggleColumnHighlight(key) {
+    if (!key) return;
+    const i = uiState.resColHighlights.indexOf(key);
+    if (i >= 0) uiState.resColHighlights.splice(i, 1);
+    else uiState.resColHighlights.push(key);
+    saveUI({ resColHighlights: uiState.resColHighlights });
+    render();
+  }
+  // Click a player's name to show their Setup pips (badge + per-resource corners);
+  // click again to clear. Transient — not persisted across reloads.
+  function selectPipPlayer(name) {
+    uiState.pipPlayer = (uiState.pipPlayer === name) ? null : name;
+    render();
+  }
 
-  function nameCell(p, prof, active) {
+  function nameCell(p, prof, active, pipMap) {
     const av = prof && prof.get(p.name) && prof.get(p.name).avatar;
     const avatar = av
       ? `<span style="display:inline-flex;flex:0 0 auto;width:1.7em;height:1.7em;margin-right:5px;
@@ -2349,13 +2428,33 @@
     const handTip = risk
       ? t('tipHandRisk', 'Over the {n}-card discard limit — a 7 would discard half', { n: discardCap })
       : t('tipHandTotal', 'Total cards in hand');
-    return `<span style="display:flex;align-items:center;gap:4px;min-width:0;color:${escapeAttr(p.color)};font-weight:700;" ` +
-      `data-tip="${escapeHtml(p.name)}${active ? ' — ' + t('currentTurn', 'current turn') : ''}">${avatar}` +
+    const sel = p.name === uiState.pipPlayer;   // pips show only for the clicked name
+    return `<span data-pipname="${escapeAttr(p.name)}" style="display:flex;align-items:center;gap:4px;min-width:0;color:${escapeAttr(p.color)};font-weight:700;cursor:pointer;${sel ? 'background:rgba(47,111,159,.15);border-radius:5px;' : ''}" ` +
+      `data-tip="${escapeHtml(p.name)}${active ? ' — ' + t('currentTurn', 'current turn') : ''} · ${t('tipClickPips', 'click for Setup pips')}">${avatar}` +
       `<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span>` +
+      (sel ? pipBadge(pipMap && pipMap[wsColorOf(p.name)]) : '') +
       `<span data-tip="${escapeHtml(handTip)}" ` +
       `style="flex:0 0 auto;margin-right:7px;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
       `color:${risk ? '#fff' : THEME.text};background:${risk ? THEME.bad : '#fbf9f4'};` +
       `border:1px solid ${risk ? THEME.bad : THEME.border};border-radius:0.6em;padding:0 0.4em;">${total}</span></span>`;
+  }
+
+  // Setup-pip badge next to a player's name: total pips of the numbers their
+  // buildings touch (city ×1, robber-blocked tile excluded), with a per-resource
+  // breakdown on hover. Accent-tinted so it reads apart from the hand-total badge.
+  function pipBadge(pm) {
+    if (!pm || !pm.total) return '';
+    const parts = RESOURCES.map((r, i) => (pm.byRes[i + 1] ? RESOURCE_LABEL[r] + ' ' + pm.byRes[i + 1] : null)).filter(Boolean);
+    const tip = t('tipPips', 'Setup pips (dice-frequency weighted; robber-blocked tiles excluded)') +
+      (parts.length ? ' — ' + parts.join(', ') : '');
+    return `<span data-tip="${escapeHtml(tip)}" ` +
+      `style="flex:0 0 auto;margin-right:4px;font-size:0.72em;font-weight:700;font-variant-numeric:tabular-nums;` +
+      `color:${THEME.accent};background:rgba(47,111,159,.10);border:1px solid ${THEME.accent};` +
+      `border-radius:0.6em;padding:0 0.4em;">⚅${pm.total}</span>`;
+  }
+  // Pip map for this render (per WS colour), or null before the board is ready.
+  function currentPipMap() {
+    return (wsBoard && __cstBoard.ready(wsBoard)) ? __cstBoard.pipsOf(wsBoard) : null;
   }
 
   function rowShell(p, active, cells, grid) {
@@ -2381,9 +2480,17 @@
         return `<span data-res="unknown" data-colhead="1" data-tip="${t('tipUnknownCards', 'Unknown (stolen) cards')}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">${iconImg('unknown', 1.85)}</span>`;
       }
       const low = bank[r] <= 2;
+      // Opponents' total known holding of this resource (top-left badge) — the
+      // number you weigh before a Monopoly. Self is excluded; unknown cards aren't
+      // counted (we only sum what's pinned to this resource).
+      let oppHold = 0;
+      for (const pl of state.players.values()) if (pl.name !== state.selfName) oppHold += pl.resources[r] || 0;
+      const oppTip = t('oppHold', 'Opponents hold {n} {res} (for Monopoly)', { n: oppHold, res: RESOURCE_LABEL[r] });
       return `<span data-res="${r}" data-colhead="1" data-tip="${t('bankLeft', 'Bank: {n} {res} left', { n: bank[r], res: RESOURCE_LABEL[r] })}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">
         <span style="position:relative;display:inline-block;line-height:0;">
           ${iconImg(r, 2.0)}
+          <span data-tip="${escapeHtml(oppTip)}" style="position:absolute;top:-0.9em;left:50%;transform:translateX(-50%);text-align:center;
+                color:${oppHold ? THEME.accent : THEME.textDim};font-size:0.62em;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;">${oppHold}</span>
           <span style="position:absolute;top:-0.5em;right:-0.65em;min-width:1.2em;padding:0 0.25em;text-align:center;
                 background:#fbf9f4;color:${low ? THEME.bad : THEME.text};border:1px solid ${THEME.border};
                 border-radius:0.7em;font-size:0.6em;font-weight:700;line-height:1.5;
@@ -2394,17 +2501,21 @@
     const head = tableHead(uiState.resOrder.map(iconCell).join(''), TABLE_GRID);
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
+    const pipMap = currentPipMap();
     return head + players.map((p) => {
       const active = p.name === state.currentTurn;
       const actCls = active ? 'cst-active-cell' : '';
-      const cells = nameCell(p, prof, active) +
+      const pm = (p.name === uiState.pipPlayer && pipMap) ? pipMap[wsColorOf(p.name)] : null;   // pips only for the selected name
+      const cells = nameCell(p, prof, active, pipMap) +
         uiState.resOrder.map((r) => {
+          const m = cellMark(p.name, r);   // column highlight is a pinned overlay band, not a per-cell bg
           if (r === 'unknown') {
-            const m = cellMark(p.name, 'unknown');
             return `<span data-res="unknown"${m.a} class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;cursor:pointer;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? '' : 'opacity:.4;'}${m.bg}">${p.unknown}</span>`;
           }
-          const m = cellMark(p.name, r);
-          return `<span data-res="${r}"${m.a} class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;cursor:pointer;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}${m.bg}">${p.resources[r]}</span>`;
+          // C(c): per-resource Setup pips tucked into the cell's bottom-right corner.
+          const pips = pm ? pm.byRes[RESOURCES.indexOf(r) + 1] : 0;
+          const pipCorner = pips ? `<span data-pip="${pips}" style="position:absolute;right:1px;bottom:0;font-size:0.55em;line-height:1;font-weight:700;color:${THEME.accent};opacity:.7;pointer-events:none;">${pips}</span>` : '';
+          return `<span data-res="${r}"${m.a} class="${actCls}" style="position:relative;text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;cursor:pointer;${p.resources[r] === 0 ? `color:${THEME.textDim};opacity:.4;` : ''}${m.bg}">${p.resources[r]}${pipCorner}</span>`;
         }).join('');
       return rowShell(p, active, cells, TABLE_GRID);
     }).join('');
@@ -2723,6 +2834,7 @@
     }).join(''), TABLE_GRID);
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
+    const pipMap = currentPipMap();
     const rows = players.map((p) => {
       const active = p.name === state.currentTurn;
       const actCls = active ? 'cst-active-cell' : '';
@@ -2745,7 +2857,7 @@
           tip: ty.turns ? t('tipTurnAvg', 'Average over {n} timed turns', { n: ty.turns }) : '' },
         's-stolen': { v: stoleN, bd: hasStole ? 'stole' : null },
       };
-      const cells = nameCell(p, prof, active) + uiState.statOrder.map((key) => {
+      const cells = nameCell(p, prof, active, pipMap) + uiState.statOrder.map((key) => {
         const c = COL_BY_KEY[key];
         const { v, disp, tip, pie, bd } = vals[c.key];
         const m = cellMark(p.name, c.key);
@@ -2880,6 +2992,7 @@
       rolls.innerHTML = html;
     }
     updateTimer();
+    refreshPinnedCols();   // re-place the pinned column bands over the new column rects
   }
 
   function escapeHtml(s) {
@@ -2937,6 +3050,7 @@
         if (wsBoard && __cstBoard.ready(wsBoard)) {
           synced = syncFromWS();
           if (syncStatsFromWS()) synced = true;
+          if (syncDiceFromWS()) synced = true;
           accrueWsBlocked();   // persist the WS board's blocked-loss (reload-proof backup)
         } else {
           synced = syncFromPanel();
@@ -2996,7 +3110,9 @@
     state.roundBlocks = [];
     state.endgameBlocked = null;
     state.wsBlocked = {};
-    wsBlockedSeen = {};   // re-baseline against the (carried-over) board on a new game
+    wsBlockedSeen = {};   // re-baseline the WS-blocked delta tracking for the new game
+    if (wsBoard && __cstBoard.resetAccrual) __cstBoard.resetAccrual(wsBoard); // clean board per game
+    uiState.pipPlayer = null;   // a new roster clears the pip selection
     lastRoll = null;
     setGameSig('');
     lastCounts = null;  // don't shower "+N" floats diffing against the old game
@@ -3243,9 +3359,7 @@
   // game's stats, restart the clock (inside resetState) and re-open the panel.
   function startNextGame() {
     resetState();
-    uiState.highlights = [];          // the previous game's cell highlights are stale
-    uiState.diceHighlights = [];      // ditto the dice-bar highlights
-    saveUI({ highlights: [], diceHighlights: [] });
+    clearHighlights();                // the previous game's pins (cells + dice) are stale
     lifecycle = LIFE.PLAYING;
     autoSetCollapsed(false);
     renderSoon();
@@ -3570,6 +3684,7 @@
     if (wsBoard && __cstBoard.ready(wsBoard)) {
       syncFromWS();
       syncStatsFromWS();
+      syncDiceFromWS();
       accrueWsBlocked();
       persistState();
       render();
@@ -3637,6 +3752,7 @@
   async function runResync() {
     if (!panel || panel.classList.contains('cst-syncing')) return;
     panel.classList.add('cst-syncing');
+    if (clearHighlights()) render();   // a manual resync also drops any pinned highlights
     const started = Date.now();
     try {
       await deepRescrape();
@@ -3710,9 +3826,12 @@
   }
 
   // Sync hands from the WebSocket board model (the migration's primary source).
-  // Self gets its EXACT per-resource breakdown; opponents keep their log-inferred
-  // breakdown but have their TOTAL reconciled to the WS count (their card types
-  // are hidden in the protocol, same as on screen).
+  // Self gets its EXACT per-resource breakdown. Opponents get the breakdown the
+  // board reconstructs from the public log events (production, trades, steals,
+  // builds), already projected onto the WS total so it sums correctly; whatever
+  // can't be pinned to a resource stays `unknown`. Before any event has named an
+  // opponent's cards (recon is null) we fall back to the old total-only reconcile,
+  // keeping the DOM-inferred breakdown until the WS rebuild has something to say.
   function syncFromWS() {
     if (!wsBoard || !__cstBoard.ready(wsBoard)) return false;
     let changed = false;
@@ -3720,13 +3839,16 @@
       const color = wsColorOf(name);
       if (color == null) return;
       const bd = __cstBoard.handBreakdownOf(wsBoard, color);
-      if (bd) {                                   // revealed (self) → exact breakdown
+      const rec = bd ? null : __cstBoard.reconBreakdownOf(wsBoard, color);
+      const breakdown = bd || rec;                // self: revealed; opponent: reconstructed
+      if (breakdown) {
         for (let i = 0; i < RESOURCES.length; i++) {
-          const v = bd[i + 1] || 0;               // resId = index + 1
+          const v = breakdown[i + 1] || 0;        // resId = index + 1
           if (p.resources[RESOURCES[i]] !== v) { p.resources[RESOURCES[i]] = v; changed = true; }
         }
-        if (p.unknown !== 0) { p.unknown = 0; changed = true; }
-      } else {                                    // opponent → keep breakdown, fix total
+        const unk = bd ? 0 : (rec.unknown || 0);  // self has no hidden cards
+        if (p.unknown !== unk) { p.unknown = unk; changed = true; }
+      } else {                                    // opponent, no recon yet → fix total only
         const cnt = __cstBoard.handCountOf(wsBoard, color);
         if (cnt != null && reconcileTotal(p, cnt)) changed = true;
       }
@@ -3798,6 +3920,30 @@
     return changed;
   }
 
+  // Mirror the WS board's dice histogram into state. The board accrues every
+  // type-10 roll from the structured log (history + live), so this is the
+  // authoritative count — it can't drop a roll the way late-mounting chat rows
+  // could. The DOM roll handler stops accruing counts once the board is ready
+  // (it still owns turn timing, which the protocol doesn't carry).
+  function syncDiceFromWS() {
+    if (!wsBoard || !__cstBoard.ready(wsBoard)) return false;
+    const d = __cstBoard.diceOf(wsBoard);
+    if (!d) return false;
+    let changed = false;
+    for (let n = 2; n <= 12; n++) {
+      const v = d.counts[n] || 0;
+      if (state.diceCounts[n] !== v) { state.diceCounts[n] = v; changed = true; }
+    }
+    if (state.totalRolls !== d.total) { state.totalRolls = d.total; changed = true; }
+    const hist = d.rolls.length > 256 ? d.rolls.slice(-256) : d.rolls;
+    const tail = state.rollHistory[state.rollHistory.length - 1];
+    if (state.rollHistory.length !== hist.length || tail !== hist[hist.length - 1]) {
+      state.rollHistory = hist.slice();
+      changed = true;
+    }
+    return changed;
+  }
+
   let auditPrinted = false;   // the game-end audit prints once per game
 
   // ---- self-audit report (console) ----
@@ -3849,7 +3995,11 @@
         L.push('  steal: ws stole=' + s.stole + ' ' + JSON.stringify(s.stoleRes) + ' lost=' + s.lost + ' ' + JSON.stringify(s.lostRes)
           + ' | panel ⚔️' + JSON.stringify(ty.stoleRes || {}) + ' 💔' + JSON.stringify(ty.lostRes || {}));
       }
-      L.push('  block: panel=' + blockLossOf(name) + ' wsBoard=' + wsBlock + ' wsKept=' + (state.wsBlocked[name] || 0) + (vic != null ? ' victory=' + vic : ''));
+      const kept = state.wsBlocked[name] || 0;
+      // D verification at a glance: does the persisted geometry total (wsKept) match
+      // colonist's exact Victory figure? ✓ → safe to promote wsKept to the panel.
+      const verdict = vic != null ? (kept === vic ? ' [wsKept ✓ victory]' : ' [wsKept ✗ ' + kept + '≠' + vic + ']') : '';
+      L.push('  block: panel=' + blockLossOf(name) + ' wsBoard=' + wsBlock + ' wsKept=' + kept + (vic != null ? ' victory=' + vic : '') + verdict);
       L.push('  (log-only) lost=' + (ty.lost || 0) + ' tradeFed=' + tradeFed);
     });
     return L.join('\n');
@@ -3917,6 +4067,7 @@
       syncFromPanel,
       syncFromWS,
       syncStatsFromWS,
+      syncDiceFromWS,
       accrueWsBlocked,
       buildAuditReport,
       maybeNewGame,
@@ -3931,6 +4082,7 @@
       onGameWon,
       startNextGame,
       getLifecycle: () => lifecycle,
+      getWsBoard: () => wsBoard,   // test-only handle onto the live WS board model
       timerText,
       buildGameRecord,
       coldestSum,
@@ -3961,6 +4113,9 @@
       getUiState: () => uiState,
       toggleCellHighlight,
       toggleDiceHighlight,
+      toggleColumnHighlight,
+      selectPipPlayer,
+      clearHighlights,
       reconcileOrder,
       reorderKeys,
       // UI entry points (exposed so the jsdom smoke test can render the panel).

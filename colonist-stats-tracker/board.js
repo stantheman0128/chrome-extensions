@@ -20,7 +20,20 @@
       tiles: {}, coordToTile: {}, corners: {}, cornersByTile: {},
       robberTile: null, selfColor: null, colorToName: {}, hands: {},
       blockedLoss: {}, wsStats: {}, handRecon: {}, logTypeCounts: {}, seenLog: -1, _ready: false,
+      dice: { counts: {}, total: 0, rolls: [] },   // histogram from type-10 roll events
     };
+  }
+
+  // New game in the same tab: the board is a singleton (never re-created), so wipe
+  // the per-game event accruals. The static board (tiles/corners/hands) is replaced
+  // wholesale by the next full state, so it needn't be touched here.
+  function resetAccrual(b) {
+    b.seenLog = -1;
+    b.wsStats = {};
+    b.handRecon = {};
+    b.blockedLoss = {};
+    b.logTypeCounts = {};
+    b.dice = { counts: {}, total: 0, rolls: [] };
   }
 
   // Per-colour Stats accumulators sourced from the WS game log (the Stats section
@@ -136,8 +149,15 @@
         // guess). This is the only genuinely-unknowable hand move.
         if (text.playerColorThief != null) ensureRecon(b, text.playerColorThief).unknown += 1;
         if (text.playerColorVictim != null) reconLoseOne(ensureRecon(b, text.playerColorVictim));
-      } else if (text.type === 10 && fromDiff) {
-        accrueBlocked(b, (text.firstDice || 0) + (text.secondDice || 0));
+      } else if (text.type === 10) {
+        const sum = (text.firstDice || 0) + (text.secondDice || 0);
+        if (sum >= 2 && sum <= 12) {
+          b.dice.counts[sum] = (b.dice.counts[sum] || 0) + 1;
+          b.dice.total += 1;
+          b.dice.rolls.push(sum);
+          if (b.dice.rolls.length > 256) b.dice.rolls = b.dice.rolls.slice(-256);
+        }
+        if (fromDiff) accrueBlocked(b, sum);   // blocked-loss needs the live robber tile
       }
     }
   }
@@ -306,14 +326,51 @@
     return tilesOfCorner(c).map((p) => b.coordToTile[p[0] + ',' + p[1]]).filter((t) => t != null);
   }
 
+  // Catan "pips" — the dots under a number = ways to roll it (2/12→1 … 6/8→5).
+  function pipDots(n) {
+    if (n == null || n < 2 || n > 12 || n === 7) return 0;
+    return 6 - Math.abs(7 - n);
+  }
+
+  // Per-colour Setup strength: the pips of every numbered tile a player TOUCHES,
+  // grouped by resource. Each tile counts ONCE no matter how many of that player's
+  // buildings sit on it (Stan: count the tile, don't multiply by building count) —
+  // so settlement vs city is irrelevant here too. The tile the robber currently
+  // sits on is deducted, so the number tracks pips usable right now.
+  function pipsOf(b) {
+    const tilesByOwner = {};   // owner colour -> Set of distinct tile keys touched
+    for (const ci of Object.keys(b.corners)) {
+      const c = b.corners[ci];
+      if (!c || c.owner == null || !c.buildingType) continue;
+      const set = tilesByOwner[c.owner] || (tilesByOwner[c.owner] = new Set());
+      for (const ti of tilesOfCornerIdx(b, ci)) set.add(String(ti));
+    }
+    const out = {};
+    for (const owner of Object.keys(tilesByOwner)) {
+      const o = (out[owner] = { total: 0, byRes: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } });
+      for (const ti of tilesByOwner[owner]) {
+        if (b.robberTile != null && ti === String(b.robberTile)) continue;
+        const t = b.tiles[ti];
+        if (!t || t.type < 1 || t.type > 5) continue;   // desert / sea: no pips
+        const p = pipDots(t.number);
+        if (!p) continue;
+        o.total += p;
+        o.byRes[t.type] += p;
+      }
+    }
+    return out;
+  }
+
   const api = {
-    createBoard, tilesOfCorner, applyFullState, applyDiff, tilesOfCornerIdx,
+    createBoard, resetAccrual, tilesOfCorner, applyFullState, applyDiff, tilesOfCornerIdx,
     handCountOf, handBreakdownOf,
+    diceOf: (b) => b.dice,
     statsOf: (b, color) => b.wsStats[color] || null,
     logTypeCountsOf: (b) => b.logTypeCounts,
     ready: (b) => b._ready,
     robberTile: (b) => b.robberTile,
     blockedLossOf: (b, color) => b.blockedLoss[color] || 0,
+    pipsOf,
     reconBreakdownOf: projectRecon,                              // total-projected (display) breakdown
     reconSumOf: (b, color) => { const p = projectRecon(b, color); return p ? reconSum(p) : 0; },
     // test-only helper (feed mode): seed the stored pure-accrual recon

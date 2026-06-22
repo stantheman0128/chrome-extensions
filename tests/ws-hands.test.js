@@ -60,5 +60,21 @@ test('syncFromWS sets self exact breakdown and reconciles an opponent total', ()
   assert.equal(me.resources.grain, 1, 'self grain (resId 4)');
   assert.equal(me.resources.wool, 0, 'stale self value cleared');
   assert.equal(me.unknown, 0, 'no phantom unknown for self');
-  assert.equal(totalOf(opp), 5, 'opponent total reconciled to the WS count (breakdown kept inferred)');
+  assert.equal(totalOf(opp), 5, 'opponent total reconciled to the WS count (no recon data yet → total-only fallback)');
+});
+
+test('syncFromWS gives an opponent the WS-reconstructed breakdown, not just a total', () => {
+  cst.resetState();
+  cst.getPlayer('StanTheMan01', '#CF4449');
+  const opp = cst.getPlayer('Sancho', '#285FBD');
+
+  relayFullState();                                   // opponent color 2 holds 5 hidden cards
+
+  // The log events have let us pin 2 of Sancho's 5 cards as ore; the rest stay unknown.
+  __cstBoard.__setRecon(cst.getWsBoard(), 2, { 5: 2 });
+
+  assert.equal(cst.syncFromWS(), true, 'something changed');
+  assert.equal(opp.resources.ore, 2, 'opponent ore comes from the WS reconstruction');
+  assert.equal(opp.unknown, 3, 'the remaining 3 cards stay unknown (projected to the WS total of 5)');
+  assert.equal(totalOf(opp), 5, 'breakdown still sums to the WS total');
 });
