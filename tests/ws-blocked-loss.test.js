@@ -156,3 +156,11 @@ test('the hover is drawn from the geometry: never empty when there is a loss, an
   assert.equal(cst.blockLossOf('Stan'), 1, 'headline stays event-time exact');
   assert.match(cst.blockReportHTML('Stan'), /= 1<\/span>/, 'hover still sums to 1');
 });
+
+test('restoreBlocked refuses a legacy id-less snapshot once the board is in a game', () => {
+  const b = B.createBoard();
+  B.applyFullState(b, fullState('established').payload);    // board.gameId = 'established'
+  B.restoreBlocked(b, { loss: { 1: 9 }, detail: {} });     // legacy blob, no gameId
+  assert.equal(B.blockedLossOf(b, 1), 0, 'an id-less snapshot cannot pollute an established game');
+  assert.equal(b.gameId, 'established', 'the board keeps its game id');
+});

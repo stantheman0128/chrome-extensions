@@ -443,9 +443,10 @@
     blockedSnapshot: (b) => ({ gameId: b.gameId, loss: { ...b.blockedLoss }, detail: JSON.parse(JSON.stringify(b.blockedDetail || {})) }),
     restoreBlocked: (b, snap) => {
       if (!snap) return;
-      // never clobber a board that has ALREADY been advanced to a different game
-      // (e.g. the new game's full state arrived before this restore ran).
-      if (b.gameId != null && snap.gameId != null && b.gameId !== snap.gameId) return;
+      // never clobber a board that has ALREADY been advanced to a game — whether the
+      // snapshot is for a DIFFERENT game or is a legacy id-less blob (treat a missing
+      // snapshot id as non-matching, so it can't pollute an established new game).
+      if (b.gameId != null && snap.gameId !== b.gameId) return;
       if (snap.gameId != null) b.gameId = snap.gameId;
       b.blockedLoss = { ...(snap.loss || {}) };
       b.blockedDetail = snap.detail ? JSON.parse(JSON.stringify(snap.detail)) : {};
