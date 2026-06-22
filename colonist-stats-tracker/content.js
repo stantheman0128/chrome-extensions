@@ -29,7 +29,11 @@
       const d = m.data;
       try {
         if (d.type === 4) __cstBoard.applyFullState(wsBoard, d.payload);
-        else if (d.type === 91 && d.payload) __cstBoard.applyDiff(wsBoard, d.payload.diff);
+        else if (d.type === 91 && d.payload) {
+          const before = totalBlocked();
+          __cstBoard.applyDiff(wsBoard, d.payload.diff);
+          if (totalBlocked() > before) persistState();   // a block just landed — make it durable now (F5-proof)
+        }
       } catch (err) { /* malformed frame — ignore, the log keeps us safe */ }
     });
   }
@@ -156,9 +160,6 @@
     roundGot: {},     // this round: name -> { res: cards got } (reset each roll)
     roundBlocks: [],  // this round: [{ roll, res }] blocked tiles, settled at round end
     endgameBlocked: null, // {name: cards} read from colonist's Victory table — EXACT, overrides the estimate
-    wsBlocked: {},     // name -> cumulative WS-board blocked-loss, PERSISTED so it survives a
-                       // reload (the board itself can't replay history). A monitored backup
-                       // (shown in the audit) — display still uses the log estimate for now.
     gameStartTs: null, // ms epoch — when the current game's clock started
     gameEndTs: null,   // set when the winner line is seen; freezes the clock
   };
@@ -2698,44 +2699,37 @@
   function blockLossOf(name) {
     // Source of truth, in order:
     //  1. colonist's exact end-game figure, once the Victory table is captured.
-    //  2. the WS GEOMETRY total (persisted in state.wsBlocked, so it survives F5).
-    //     Promoted after the corner-adjacency formula was fixed (1.85) — the old
-    //     "robber-tile tracking isn't landing" under-count WAS that wrong z=1 formula
-    //     (cornersByTile mis-resolved the robber tile's buildings) — and a real game
-    //     verified wsKept == colonist's victory. It beats the log differential, which
-    //     OVER-counts when a tile was robbed while you held fewer buildings than you
-    //     later grew to (produces is learned as the max clean yield).
-    //  3. the log differential, only before the WS board is ready (lobby / pre-handshake).
+    //  2. the WS GEOMETRY total — read LIVE from the board (which self-resets per
+    //     gameSettings.id) and carried across F5 by the persisted blocked snapshot
+    //     restored INTO the board. Promoted after the 1.85 corner-formula fix; it
+    //     beats the log differential (which over-counts when a tile was robbed while
+    //     you held fewer buildings than you later grew to). Only trusted once the
+    //     geometry is actually usable — a type-4 with real tiles+corners, not a shell.
+    //  3. the log differential, before the board's geometry is ready.
     if (state.endgameBlocked && state.endgameBlocked[name] != null) return state.endgameBlocked[name];
-    if (wsBoard && __cstBoard.ready(wsBoard)) return state.wsBlocked[name] || 0;
+    if (wsBoard && __cstBoard.ready(wsBoard) && __cstBoard.geomReady(wsBoard)) {
+      const color = wsColorOf(name);
+      if (color != null) return __cstBoard.blockedLossOf(wsBoard, color);
+    }
     return estimateBlockLoss(name);
   }
 
-  // Mirror the WS board's LIVE blocked-loss into a PERSISTED per-name total so it
-  // survives a reload. The board is rebuilt from scratch each load and can't replay
-  // history (accrueBlocked needs each past roll's robber position), so its own total
-  // only reflects the post-reload accrual. We baseline each name at the board's
-  // current value on first sight (so a new game / cross-game carry-over isn't
-  // double-counted) and add only the monotonic deltas. Display still uses the log
-  // estimate — this is a monitored backup (shown in the audit), to be promoted once
-  // it's verified to match colonist's Victory table across real games.
-  let wsBlockedSeen = {};
-  function accrueWsBlocked() {
-    if (!wsBoard || !__cstBoard.ready(wsBoard)) return;
-    let grew = false;
-    state.players.forEach((p, name) => {
-      const color = wsColorOf(name);
-      if (color == null) return;
-      const cur = __cstBoard.blockedLossOf(wsBoard, color);
-      if (wsBlockedSeen[name] === undefined) { wsBlockedSeen[name] = cur; return; } // baseline
-      const delta = cur - wsBlockedSeen[name];
-      if (delta > 0) {
-        state.wsBlocked[name] = (state.wsBlocked[name] || 0) + delta;
-        wsBlockedSeen[name] = cur;
-        grew = true;
-      }
-    });
-    if (grew) schedulePersist();
+  // The board can't replay past robber positions after an F5, so its live blocked-loss
+  // is persisted (a snapshot tagged with the game id) and restored INTO the board on
+  // reload — a same-game reconnect keeps it; a different game's full state drops it.
+  // `blockedSnap` is the last durable snapshot; it's refreshed from the board whenever
+  // the board is ready and written the instant a block lands (blocks are rare), so no
+  // tick/persist-debounce/F5 window can ever drop one.
+  let blockedSnap = null;
+  function currentBlockedSnap() {
+    if (wsBoard && __cstBoard.ready(wsBoard)) blockedSnap = __cstBoard.blockedSnapshot(wsBoard);
+    return blockedSnap;
+  }
+  function totalBlocked() {
+    if (!wsBoard || !wsBoard.blockedLoss) return 0;
+    let s = 0;
+    for (const k of Object.keys(wsBoard.blockedLoss)) s += wsBoard.blockedLoss[k] || 0;
+    return s;
   }
 
   // The log-only estimate (endgame-exact when captured, else the differential).
@@ -2754,25 +2748,33 @@
     return total;
   }
 
-  // Hover for the block cell: one line per "N res ×times = cards", biggest first.
+  // Hover for the ⛔ cell: one line per "N res ×times = cards", biggest first. Drawn
+  // from the SAME geometry as the headline when the board is ready (so the breakdown
+  // always sums to the displayed number); falls back to the log differential's
+  // breakdown only before the board's geometry is up.
   function blockReportHTML(name) {
-    const ty = state.tally[name] || {};
-    const prod = ty.produces || {};
-    // Aggregate THIS player's block events by (roll,res): times = events, cards = Σ loss
-    // (expected − got). This is the differential's WHICH-rolls-blocked-you breakdown
-    // (and is persisted, so it survives F5); the headline ⛔ now comes from the WS
-    // geometry total, so in the rare grow-into-a-city-on-a-robbed-tile case this
-    // breakdown can sum slightly higher than the displayed number.
-    const agg = {};
-    for (const ev of state.blockEvents || []) {
-      const lost = Math.max(0, ((prod[ev.roll] && prod[ev.roll][ev.res]) || 0) - ((ev.got && ev.got[name]) || 0));
-      if (lost <= 0) continue;                    // not this player's tile / no loss
-      const k = ev.roll + ' ' + ev.res;
-      (agg[k] || (agg[k] = { num: ev.roll, res: ev.res, times: 0, cards: 0 }));
-      agg[k].times += 1;
-      agg[k].cards += lost;
+    const rows = [];
+    const color = wsColorOf(name);
+    if (wsBoard && __cstBoard.ready(wsBoard) && __cstBoard.geomReady(wsBoard) && color != null) {
+      const detail = __cstBoard.blockedDetailOf(wsBoard, color);   // { 'roll|type': {roll, res:tileType, times, cards} }
+      for (const k of Object.keys(detail)) {
+        const e = detail[k];
+        if (e.cards > 0) rows.push({ num: e.roll, res: RESOURCES[e.res - 1], times: e.times, cards: e.cards });
+      }
+    } else {
+      const ty = state.tally[name] || {};
+      const prod = ty.produces || {};
+      const agg = {};
+      for (const ev of state.blockEvents || []) {
+        const lost = Math.max(0, ((prod[ev.roll] && prod[ev.roll][ev.res]) || 0) - ((ev.got && ev.got[name]) || 0));
+        if (lost <= 0) continue;                    // not this player's tile / no loss
+        const k = ev.roll + ' ' + ev.res;
+        (agg[k] || (agg[k] = { num: ev.roll, res: ev.res, times: 0, cards: 0 }));
+        agg[k].times += 1;
+        agg[k].cards += lost;
+      }
+      for (const k of Object.keys(agg)) rows.push(agg[k]);
     }
-    const rows = Object.values(agg);
     if (!rows.length) return '';
     rows.sort((a, b) => b.cards - a.cards);
     const lines = rows.map((r) =>
@@ -3080,7 +3082,6 @@
           synced = syncFromWS();
           if (syncStatsFromWS()) synced = true;
           if (syncDiceFromWS()) synced = true;
-          accrueWsBlocked();   // persist the WS board's blocked-loss (reload-proof backup)
         } else {
           synced = syncFromPanel();
         }
@@ -3138,8 +3139,7 @@
     state.roundGot = {};
     state.roundBlocks = [];
     state.endgameBlocked = null;
-    state.wsBlocked = {};
-    wsBlockedSeen = {};   // re-baseline the WS-blocked delta tracking for the new game
+    blockedSnap = null;   // drop the previous game's persisted blocked snapshot
     // NOTE: the WS board is NOT reset from here. It self-manages via gameSettings.id
     // in applyFullState (a new id clears the accruals the instant the new board's full
     // state arrives). Resetting it from this DOM lifecycle — which fires ~1s LATER —
@@ -3172,7 +3172,7 @@
         blocked: state.blocked,
         blockEvents: state.blockEvents,
         endgameBlocked: state.endgameBlocked,
-        wsBlocked: state.wsBlocked,
+        wsBlockedBoard: currentBlockedSnap(),   // the WS board's blocked-loss + game id, restored INTO the board on reload
         selfName: state.selfName,
         seenIndices: [...state.seenIndices],
         players: [...state.players.values()].map((p) => ({
@@ -3205,8 +3205,10 @@
       : { count: 0, byKey: {} };
     state.blockEvents = Array.isArray(d.blockEvents) ? d.blockEvents : [];
     state.endgameBlocked = (d.endgameBlocked && typeof d.endgameBlocked === 'object') ? d.endgameBlocked : null;
-    state.wsBlocked = (d.wsBlocked && typeof d.wsBlocked === 'object') ? d.wsBlocked : {};
-    wsBlockedSeen = {};       // fresh board after a reload — re-baseline from 0
+    // Restore the WS board's blocked-loss INTO the board (it can't replay history).
+    // Tagged with the game id, so applyFullState drops it if a DIFFERENT game loads.
+    blockedSnap = (d.wsBlockedBoard && typeof d.wsBlockedBoard === 'object') ? d.wsBlockedBoard : null;
+    if (blockedSnap && wsBoard && __cstBoard.restoreBlocked) __cstBoard.restoreBlocked(wsBoard, blockedSnap);
     state.roundGot = {};      // round-internal scratch — restart cleanly on restore
     state.roundBlocks = [];
     state.selfName = d.selfName || null;
@@ -3717,7 +3719,6 @@
       syncFromWS();
       syncStatsFromWS();
       syncDiceFromWS();
-      accrueWsBlocked();
       persistState();
       render();
       return;
@@ -4036,11 +4037,10 @@
         L.push('  steal: ws stole=' + s.stole + ' ' + JSON.stringify(s.stoleRes) + ' lost=' + s.lost + ' ' + JSON.stringify(s.lostRes)
           + ' | panel ⚔️' + JSON.stringify(ty.stoleRes || {}) + ' 💔' + JSON.stringify(ty.lostRes || {}));
       }
-      const kept = state.wsBlocked[name] || 0;
-      // D verification at a glance: does the persisted geometry total (wsKept) match
-      // colonist's exact Victory figure? ✓ → safe to promote wsKept to the panel.
-      const verdict = vic != null ? (kept === vic ? ' [wsKept ✓ victory]' : ' [wsKept ✗ ' + kept + '≠' + vic + ']') : '';
-      L.push('  block: panel=' + blockLossOf(name) + ' wsBoard=' + wsBlock + ' wsKept=' + kept + (vic != null ? ' victory=' + vic : '') + verdict);
+      // The panel now shows the WS geometry total (wsBoard); a glance check that it
+      // still matches colonist's exact Victory figure at game end.
+      const verdict = vic != null ? (wsBlock === vic ? ' [wsBoard ✓ victory]' : ' [wsBoard ✗ ' + wsBlock + '≠' + vic + ']') : '';
+      L.push('  block: panel=' + blockLossOf(name) + ' wsBoard=' + wsBlock + (vic != null ? ' victory=' + vic : '') + verdict);
       L.push('  (log-only) lost=' + (ty.lost || 0) + ' tradeFed=' + tradeFed);
     });
     return L.join('\n');
@@ -4109,7 +4109,6 @@
       syncFromWS,
       syncStatsFromWS,
       syncDiceFromWS,
-      accrueWsBlocked,
       buildAuditReport,
       maybeNewGame,
       persistState,

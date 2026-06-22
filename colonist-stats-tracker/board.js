@@ -21,7 +21,7 @@
     return {
       tiles: {}, coordToTile: {}, corners: {}, cornersByTile: {},
       robberTile: null, selfColor: null, colorToName: {}, hands: {},
-      blockedLoss: {}, wsStats: {}, handRecon: {}, logTypeCounts: {}, seenLog: -1, _ready: false,
+      blockedLoss: {}, blockedDetail: {}, wsStats: {}, handRecon: {}, logTypeCounts: {}, seenLog: -1, _ready: false,
       processedLog: new Set(),                      // log indices already accrued (dedup; survives empty shells + index gaps)
       gameId: null,                                 // gameSettings.id of the current game (new-game detection)
       dice: { counts: {}, total: 0, rolls: [] },   // histogram from type-10 roll events
@@ -41,6 +41,7 @@
     b.wsStats = {};
     b.handRecon = {};
     b.blockedLoss = {};
+    b.blockedDetail = {};
     b.logTypeCounts = {};
     b.dice = { counts: {}, total: 0, rolls: [] };
   }
@@ -328,13 +329,27 @@
     return proj;
   }
 
+  // On a roll of n with the robber on a number-n tile, each adjacent building loses
+  // 1 (settlement) / 2 (city) of that tile's resource. Accrues the per-colour total
+  // AND a per-(roll,resource) detail so the ⛔ hover can be drawn from the SAME
+  // geometry as the headline (one entry per blocked roll, cards = Σ over buildings).
   function accrueBlocked(b, n) {
     const t = b.robberTile != null ? b.tiles[b.robberTile] : null;
     if (!t || t.number !== n || t.type === 0) return; // robber not on a matching numbered tile
+    const byOwner = {};
     for (const ci of b.cornersByTile[b.robberTile] || []) {
       const c = b.corners[ci];
       if (!c || c.owner == null || !c.buildingType) continue;
-      b.blockedLoss[c.owner] = (b.blockedLoss[c.owner] || 0) + (c.buildingType === 2 ? 2 : 1);
+      byOwner[c.owner] = (byOwner[c.owner] || 0) + (c.buildingType === 2 ? 2 : 1);
+    }
+    for (const owner of Object.keys(byOwner)) {
+      const amt = byOwner[owner];
+      b.blockedLoss[owner] = (b.blockedLoss[owner] || 0) + amt;
+      const d = b.blockedDetail[owner] || (b.blockedDetail[owner] = {});
+      const key = n + '|' + t.type;
+      const e = d[key] || (d[key] = { roll: n, res: t.type, times: 0, cards: 0 });
+      e.times += 1;
+      e.cards += amt;
     }
   }
 
@@ -414,6 +429,20 @@
     ready: (b) => b._ready,
     robberTile: (b) => b.robberTile,
     blockedLossOf: (b, color) => b.blockedLoss[color] || 0,
+    blockedDetailOf: (b, color) => b.blockedDetail[color] || {},
+    // geometry is usable for ⛔/pips once a full state has actually populated tiles
+    // AND corners — `ready` alone only means "a type-4 was applied" (could be a shell).
+    geomReady: (b) => Object.keys(b.tiles).length > 0 && Object.keys(b.corners).length > 0,
+    // snapshot/restore the live blocked-loss so it survives F5: the board can't
+    // replay past robber positions, so the displayed value persists through the board
+    // (tagged with the game id, so a different game's restore is dropped by applyFullState).
+    blockedSnapshot: (b) => ({ gameId: b.gameId, loss: { ...b.blockedLoss }, detail: JSON.parse(JSON.stringify(b.blockedDetail || {})) }),
+    restoreBlocked: (b, snap) => {
+      if (!snap) return;
+      if (snap.gameId != null) b.gameId = snap.gameId;
+      b.blockedLoss = { ...(snap.loss || {}) };
+      b.blockedDetail = snap.detail ? JSON.parse(JSON.stringify(snap.detail)) : {};
+    },
     pipsOf, expectedPipsOf,
     // diagnostic: how many built corners the board currently attributes to a colour
     buildingsOf: (b, color) => {
