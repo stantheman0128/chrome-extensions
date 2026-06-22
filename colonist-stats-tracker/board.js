@@ -22,6 +22,7 @@
       tiles: {}, coordToTile: {}, corners: {}, cornersByTile: {},
       robberTile: null, selfColor: null, colorToName: {}, hands: {},
       blockedLoss: {}, wsStats: {}, handRecon: {}, logTypeCounts: {}, seenLog: -1, _ready: false,
+      processedLog: new Set(),                      // log indices already accrued (dedup; survives empty shells + index gaps)
       gameId: null,                                 // gameSettings.id of the current game (new-game detection)
       dice: { counts: {}, total: 0, rolls: [] },   // histogram from type-10 roll events
     };
@@ -36,6 +37,7 @@
   // blanking pips/⛔ until an F5. Cross-game geometry is reset by applyFullState.
   function resetAccrual(b) {
     b.seenLog = -1;
+    b.processedLog = new Set();
     b.wsStats = {};
     b.handRecon = {};
     b.blockedLoss = {};
@@ -63,13 +65,14 @@
   function accrueLog(b, gameLogState, fromDiff) {
     const entries = Object.keys(gameLogState)
       .map((k) => parseInt(k, 10))
-      .filter((k) => k > b.seenLog)
+      .filter((k) => !b.processedLog.has(k))   // dedup by processed-index SET, not a single max
       .sort((a, c) => a - c);
     for (const k of entries) {
-      b.seenLog = k;
       const entry = gameLogState[String(k)];
       const text = entry && entry.text;
-      if (!text) continue;
+      if (!text) continue;                     // empty shell: leave unprocessed so the filled entry is read next frame
+      b.processedLog.add(k);
+      if (k > b.seenLog) b.seenLog = k;        // seenLog = max processed index (audit / compat)
       b.logTypeCounts[text.type] = (b.logTypeCounts[text.type] || 0) + 1; // audit cross-check
       if (text.type === 55) {
         const cards = text.cardEnums || [];
