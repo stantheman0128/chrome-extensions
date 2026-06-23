@@ -164,3 +164,24 @@ test('restoreBlocked refuses a legacy id-less snapshot once the board is in a ga
   assert.equal(B.blockedLossOf(b, 1), 0, 'an id-less snapshot cannot pollute an established game');
   assert.equal(b.gameId, 'established', 'the board keeps its game id');
 });
+
+test('a Victory value with no captured game id is dropped when a new game arrives (Codex #2)', () => {
+  harness();
+  cst.getPlayer('Stan', '#c00');
+  cst.state.endgameBlocked = { Stan: 7 };      // a previous game's exact value...
+  cst.state.endgameBlockedGid = null;          // ...that was never tagged with a game id (the bug)
+  assert.equal(cst.blockLossOf('Stan'), 7);
+
+  relay(fullState('brand-new'));               // a real new game id arrives over the WS
+  assert.equal(cst.state.endgameBlocked, null, 'the untagged stale Victory value is dropped');
+  assert.equal(cst.blockLossOf('Stan'), 0, 'the new clean board shows 0, not the old 7');
+});
+
+test('a Victory value tagged for the current game survives a same-id reconnect', () => {
+  harness();
+  startGame('keep');                           // board.gameId = 'keep'
+  cst.state.endgameBlocked = { Stan: 5 };
+  cst.state.endgameBlockedGid = 'keep';        // tagged for THIS game
+  relay(fullState('keep'));                     // reconnect (same id), not a new game
+  assert.deepEqual(cst.state.endgameBlocked, { Stan: 5 }, 'a same-game reconnect keeps the Victory value');
+});

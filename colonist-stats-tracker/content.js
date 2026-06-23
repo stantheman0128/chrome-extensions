@@ -29,11 +29,16 @@
       const d = m.data;
       try {
         if (d.type === 4) {
-          const prevId = wsBoard.gameId;
           __cstBoard.applyFullState(wsBoard, d.payload);
-          // a genuinely new game arrived via the WS — drop the previous game's Victory
-          // override so it can't outrank the new (clean) board for a beat.
-          if (prevId != null && wsBoard.gameId !== prevId) state.endgameBlocked = null;
+          // a new game arrived via the WS — drop a Victory override that belongs to a
+          // DIFFERENT game. Compare the override's OWN captured game id (not the board's
+          // previous id, which is null on a cold boot or a legacy blob), so a restored
+          // previous-game value can't linger on the new board for a beat.
+          const gid = wsBoard.gameId;
+          if (state.endgameBlocked && gid != null && state.endgameBlockedGid !== gid) {
+            state.endgameBlocked = null;
+            state.endgameBlockedGid = null;
+          }
         } else if (d.type === 91 && d.payload) {
           const before = totalBlocked();
           __cstBoard.applyDiff(wsBoard, d.payload.diff);
@@ -176,6 +181,7 @@
     roundGot: {},     // this round: name -> { res: cards got } (reset each roll)
     roundBlocks: [],  // this round: [{ roll, res }] blocked tiles, settled at round end
     endgameBlocked: null, // {name: cards} read from colonist's Victory table — EXACT, overrides the estimate
+    endgameBlockedGid: null, // the gameSettings.id those Victory values belong to (so a new game drops them)
     gameStartTs: null, // ms epoch — when the current game's clock started
     gameEndTs: null,   // set when the winner line is seen; freezes the clock
   };
@@ -2714,6 +2720,7 @@
     const m = readEndgameBlocked();
     if (!m) return false;
     state.endgameBlocked = m;
+    state.endgameBlockedGid = (wsBoard && wsBoard.gameId != null) ? wsBoard.gameId : null;
     return true;
   }
 
@@ -3172,6 +3179,7 @@
     state.roundGot = {};
     state.roundBlocks = [];
     state.endgameBlocked = null;
+    state.endgameBlockedGid = null;
     blockedSnap = null;   // drop the previous game's persisted blocked snapshot
     // NOTE: the WS board is NOT reset from here. It self-manages via gameSettings.id
     // in applyFullState (a new id clears the accruals the instant the new board's full
@@ -3205,6 +3213,7 @@
         blocked: state.blocked,
         blockEvents: state.blockEvents,
         endgameBlocked: state.endgameBlocked,
+        endgameBlockedGid: state.endgameBlockedGid,
         wsBlockedBoard: currentBlockedSnap(),   // the WS board's blocked-loss + game id, restored INTO the board on reload
         selfName: state.selfName,
         seenIndices: [...state.seenIndices],
@@ -3238,6 +3247,7 @@
       : { count: 0, byKey: {} };
     state.blockEvents = Array.isArray(d.blockEvents) ? d.blockEvents : [];
     state.endgameBlocked = (d.endgameBlocked && typeof d.endgameBlocked === 'object') ? d.endgameBlocked : null;
+    state.endgameBlockedGid = (d.endgameBlockedGid != null) ? d.endgameBlockedGid : null;
     // Restore the WS board's blocked-loss INTO the board (it can't replay history).
     // Tagged with the game id, so applyFullState drops it if a DIFFERENT game loads.
     blockedSnap = (d.wsBlockedBoard && typeof d.wsBlockedBoard === 'object') ? d.wsBlockedBoard : null;
@@ -3369,7 +3379,9 @@
   // history list needs, with no references back into live state.
   function buildGameRecord(winnerName) {
     settleRound();   // the winner line has no "next roll" — settle the final round here
+    if (wsBoard && __cstBoard.auditSettle) __cstBoard.auditSettle(wsBoard);  // settle the final roll's geometry audit
     syncEndgameBlocked();   // snap ⛔ to colonist's exact Victory-table values (if shown)
+    const au = (wsBoard && __cstBoard.auditOf) ? __cstBoard.auditOf(wsBoard) : null;
     return {
       date: state.gameStartTs || Date.now(),
       duration: (state.gameEndTs && state.gameStartTs)
@@ -3387,6 +3399,10 @@
       blockLoss: [...state.players.keys()].reduce((m, n) => {
         m[n] = blockLossOf(n); return m;
       }, {}),
+      // geometry self-audit summary for this game — evidence the corner→tile geometry
+      // (and the blocked-loss it feeds) held up against colonist's actual production.
+      geomAudit: au ? { confirms: au.confirms, conflicts: au.conflicts,
+        conflictSamples: (au.trail || []).filter((t) => !t.ok).slice(-5) } : null,
     };
   }
 
@@ -4038,6 +4054,16 @@
         + ' | gameEndTs: ' + (state.gameEndTs || 'null')];
     if (wsReady) L.push('events (gameLogState by type): ' + JSON.stringify(__cstBoard.logTypeCountsOf(wsBoard)));
     if (wsReady) L.push('corners: ' + JSON.stringify(__cstBoard.cornerDiag(wsBoard)) + '  (total stored / geom=have-position / built / phantom=built-but-no-tiles)');
+    if (wsReady && __cstBoard.auditOf) {
+      // geometry self-audit: each roll, did our predicted production match colonist's
+      // actual type-47 broadcast? A clean record is the evidence the geometry (and so
+      // the blocked-loss it feeds) is right on this board. ✗ = a real geometry bug.
+      const au = __cstBoard.auditOf(wsBoard);
+      const lastBad = (au.trail || []).filter((t) => !t.ok).slice(-1)[0];
+      L.push('geometry audit: ' + au.confirms + ' ✓ / ' + au.conflicts + ' ✗'
+        + (au.conflicts ? '  ⚠️ GEOMETRY MISMATCH' : '')
+        + (lastBad ? ' | last✗ roll ' + lastBad.roll + ' pred=' + JSON.stringify(lastBad.pred) + ' got=' + JSON.stringify(lastBad.actual) : ''));
+    }
     state.players.forEach((p, name) => {
       const color = wsColorOf(name);
       const ty = tallyOf(name);

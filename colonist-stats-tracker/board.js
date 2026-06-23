@@ -17,6 +17,12 @@
       : [[x, y], [x - 1, y + 1], [x, y + 1]];
   }
 
+  // Live geometry self-audit accumulator: each roll we PREDICT production from the
+  // geometry and compare to colonist's actual type-47 broadcast. `expect`/`actual`
+  // are the in-flight roll (settled on the next roll); trail keeps the recent
+  // verdicts as a small evidence log. Conflicts are recorded, not acted on.
+  function freshAudit() { return { confirms: 0, conflicts: 0, trail: [], expect: null, actual: {} }; }
+
   function createBoard() {
     return {
       tiles: {}, coordToTile: {}, corners: {}, cornersByTile: {},
@@ -25,6 +31,7 @@
       processedLog: new Set(),                      // log indices already accrued (dedup; survives empty shells + index gaps)
       gameId: null,                                 // gameSettings.id of the current game (new-game detection)
       dice: { counts: {}, total: 0, rolls: [] },   // histogram from type-10 roll events
+      audit: freshAudit(),                          // geometry-vs-production self-audit
     };
   }
 
@@ -44,6 +51,7 @@
     b.blockedDetail = {};
     b.logTypeCounts = {};
     b.dice = { counts: {}, total: 0, rolls: [] };
+    b.audit = freshAudit();
   }
 
   // Per-colour Stats accumulators sourced from the WS game log (the Stats section
@@ -93,6 +101,8 @@
           for (const c of cards) { s.gained += 1; s.gainedRes[c] = (s.gainedRes[c] || 0) + 1; }
           reconApply(b, text.playerColor, cards, +1);
         }
+        // roll production (47, not Year of Plenty 21) feeds the geometry self-audit
+        if (text.type === 47 && fromDiff) auditProduce(b, text.playerColor, text.cardsToBroadcast || []);
       } else if (text.type === 116) {
         // Bank/port trade: this player only. -given +received.
         reconApply(b, text.playerColor, text.givenCardEnums || [], -1);
@@ -169,6 +179,7 @@
           if (b.dice.rolls.length > 256) b.dice.rolls = b.dice.rolls.slice(-256);
         }
         if (fromDiff) accrueBlocked(b, sum);   // blocked-loss needs the live robber tile
+        if (fromDiff) auditRoll(b, sum);       // geometry self-audit: settle prev, snapshot this roll
       }
     }
   }
@@ -353,6 +364,72 @@
     }
   }
 
+  // ---- live geometry self-audit (validates the corner→tile geometry) ----
+  // What the geometry SAYS should be produced on a roll of n: every building on a
+  // number-n tile that ISN'T robbed yields its tile's resource (settlement 1 /
+  // city 2). Sibling of accrueBlocked — that reads the robbed tile (the loss), this
+  // reads the un-robbed ones (where the server actually broadcasts, so we can check).
+  function predictProduction(b, n) {
+    const out = {};
+    for (const ti of Object.keys(b.tiles)) {
+      const t = b.tiles[ti];
+      if (!t || t.number !== n || t.type < 1 || t.type > 5) continue;
+      if (b.robberTile != null && String(ti) === String(b.robberTile)) continue; // blocked → no production
+      for (const ci of b.cornersByTile[ti] || []) {
+        const c = b.corners[ci];
+        if (!c || c.owner == null || !c.buildingType) continue;
+        const o = out[c.owner] || (out[c.owner] = {});
+        o[t.type] = (o[t.type] || 0) + (c.buildingType === 2 ? 2 : 1);
+      }
+    }
+    return out;
+  }
+  // Deep-equal two {colour:{resId:amt}} production maps (zero-amounts ignored).
+  function productionEqual(x, y) {
+    for (const col of new Set([...Object.keys(x), ...Object.keys(y)])) {
+      const a = x[col] || {}, c = y[col] || {};
+      for (const r of new Set([...Object.keys(a), ...Object.keys(c)])) {
+        if ((a[r] || 0) !== (c[r] || 0)) return false;
+      }
+    }
+    return true;
+  }
+  // Settle the in-flight roll: compare what the geometry predicted to what colonist
+  // actually broadcast, record the verdict (and warn on a conflict — a geometry bug
+  // on this board). A match on the un-robbed tiles is the evidence that the SAME
+  // geometry feeding blocked-loss on the robbed tile is correct too.
+  function settleAudit(b) {
+    const au = b.audit;
+    if (!au || !au.expect) return;
+    const pred = au.expect.pred, act = au.actual || {};
+    const ok = productionEqual(pred, act);
+    if (ok) au.confirms += 1; else au.conflicts += 1;
+    au.trail.push({ roll: au.expect.roll, robber: au.expect.robber, pred, actual: act, ok });
+    if (au.trail.length > 64) au.trail.shift();
+    if (!ok && typeof console !== 'undefined' && console.warn) {
+      console.warn('[CST] geometry audit conflict on roll ' + au.expect.roll +
+        ' — predicted ' + JSON.stringify(pred) + ' but server produced ' + JSON.stringify(act));
+    }
+    au.expect = null;
+    au.actual = {};
+  }
+  // A roll arrived: close out the previous roll, then snapshot the prediction for
+  // this one (using the robber position at roll time).
+  function auditRoll(b, n) {
+    settleAudit(b);
+    b.audit.expect = { roll: n, robber: b.robberTile, pred: predictProduction(b, n) };
+    b.audit.actual = {};
+  }
+  // A type-47 production broadcast: accumulate the real cards into the in-flight
+  // roll's actual tally (only between a roll and the next — setup placement 47s
+  // arrive with no roll open and are ignored).
+  function auditProduce(b, color, cards) {
+    const au = b.audit;
+    if (!au || !au.expect || color == null || !cards || !cards.length) return;
+    const o = au.actual[color] || (au.actual[color] = {});
+    for (const c of cards) if (c >= 1 && c <= 5) o[c] = (o[c] || 0) + 1;
+  }
+
   function tilesOfCornerIdx(b, idx) {
     const c = b.corners[idx];
     if (!c) return [];
@@ -430,6 +507,11 @@
     robberTile: (b) => b.robberTile,
     blockedLossOf: (b, color) => b.blockedLoss[color] || 0,
     blockedDetailOf: (b, color) => b.blockedDetail[color] || {},
+    // geometry self-audit: {confirms, conflicts, trail[]}. auditSettle closes the
+    // last in-flight roll on demand (game end) so its verdict isn't lost.
+    auditOf: (b) => b.audit,
+    auditSettle: (b) => settleAudit(b),
+    predictProduction,
     // geometry is usable for ⛔ once a full state has populated tiles AND corners,
     // AND the current robber tile is actually loaded — a partial/early snapshot that
     // doesn't yet contain the robber's hex can't be trusted to read a 0 (vs a shell,
