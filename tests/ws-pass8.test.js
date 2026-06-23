@@ -9,7 +9,13 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const { cst } = require('./helpers/setup');
 const B = require('../colonist-stats-tracker/board.js');
+const window = global.window;
+
+function relay(data) {
+  window.dispatchEvent(new window.MessageEvent('message', { data: { __cstWS: 'state', msg: { id: '130', data } } }));
+}
 
 test('#2 projectRecon clamps to handCount even when the dev-card resources are absent', () => {
   const b = B.createBoard();
@@ -46,4 +52,24 @@ test('P2 a real complete board passes geomComplete (no false positive)', () => {
   B.applyFullState(b, require('./fixtures/ws-fullstate-2p.json'));
   assert.equal(B.geomComplete(b), true, 'the genuine 19-tile / 54-corner board is complete');
   assert.equal(B.geomReady(b), true, 'and still geometry-ready');
+});
+
+test('#3 an opponent with no authoritative WS count is not overwritten by the un-reconciled recon', () => {
+  cst.resetState();
+  // a full state that NAMES colour 4 but does NOT include it in playerStates (no hand) —
+  // so handCountOf(4) is null while we still have a (possibly over-counting) raw recon.
+  relay({ type: 4, payload: {
+    gameSettings: { id: 'nocount' },
+    gameState: { playerColor: 1, mapState: { tileHexStates: {}, tileCornerStates: {} }, playerStates: { 1: { resourceCards: { cards: [] } } } },
+    playerUserStates: [{ selectedColor: 1, username: 'Me' }, { selectedColor: 4, username: 'Opp' }],
+  } });
+  const b = cst.getWsBoard();
+  B.__setRecon(b, 4, { 1: 9 });                      // raw over-counts: 9 lumber, no authoritative count
+  assert.equal(B.handCountOf(b, 4), null, 'colour 4 has no WS hand → handCount null');
+
+  const opp = cst.getPlayer('Opp', '#888');
+  opp.resources.brick = 2;                           // a DOM/log-derived baseline of 2
+  cst.syncFromWS();
+  assert.equal(opp.resources.lumber, 0, 'the un-reconciled 9-lumber recon is NOT written');
+  assert.equal(opp.resources.brick, 2, 'the existing DOM value is left in place');
 });

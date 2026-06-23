@@ -4079,7 +4079,11 @@
       const color = wsColorOf(name);
       if (color == null) return;
       const bd = __cstBoard.handBreakdownOf(wsBoard, color);
-      const rec = bd ? null : __cstBoard.reconBreakdownOf(wsBoard, color);
+      const cnt = __cstBoard.handCountOf(wsBoard, color);
+      // An opponent we have NO authoritative WS count for yet (in the log but not yet in
+      // playerStates): don't write the un-reconciled recon — it can over-count. Leave the
+      // existing DOM/log value until colonist sends the count (Codex pass-8 #3).
+      const rec = (bd || cnt == null) ? null : __cstBoard.reconBreakdownOf(wsBoard, color);
       const breakdown = bd || rec;                // self: revealed; opponent: reconstructed
       if (breakdown) {
         for (let i = 0; i < RESOURCES.length; i++) {
@@ -4088,8 +4092,7 @@
         }
         const unk = bd ? 0 : (rec.unknown || 0);  // self has no hidden cards
         if (p.unknown !== unk) { p.unknown = unk; changed = true; }
-      } else {                                    // opponent, no recon yet → fix total only
-        const cnt = __cstBoard.handCountOf(wsBoard, color);
+      } else {                                    // opponent, no recon/count yet → fix total only
         if (cnt != null && reconcileTotal(p, cnt)) changed = true;
       }
     });
