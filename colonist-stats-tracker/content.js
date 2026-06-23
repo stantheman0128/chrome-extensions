@@ -3385,13 +3385,15 @@
         if (wsBoard && __cstBoard.ready(wsBoard)) {
           let ch = syncFromWS();
           if (syncStatsFromWS()) ch = true;
-          if (ch) renderSoon();
+          // A late WS frame corrected the live hands/tally → patch the archived record too,
+          // so history doesn't keep the stale snapshot taken at the winner line.
+          if (ch) { resaveEndgameRecord(); renderSoon(); }
         }
         if (!auditPrinted) { auditPrinted = true; try { console.log(buildAuditReport()); } catch (e) { /* ignore */ } }
         // The Victory table can render a beat after the winner log line, so the
         // capture in buildGameRecord may have been too early. Keep trying until
         // we have colonist's exact ⛔, then refresh the panel + the saved record.
-        if (!state.endgameBlocked && syncEndgameBlocked()) { resaveEndgameBlockLoss(); persistState(); renderSoon(); }
+        if (!state.endgameBlocked && syncEndgameBlocked()) { resaveEndgameRecord(); persistState(); renderSoon(); }
       }
     }, 1000);
 
@@ -3686,20 +3688,34 @@
     } catch (e) { /* storage unavailable — history is best-effort */ }
   }
 
-  // If the Victory table only became readable AFTER the record was saved (the
-  // table lagged the winner line), patch this game's already-stored blockLoss to
-  // the now-exact values so the popup history isn't left with the estimate.
-  function resaveEndgameBlockLoss() {
-    if (!state.endgameBlocked) return;
+  // Keep the saved Victory record current while ENDED. A final DOM gain/discard can land
+  // after the winner row but BEFORE the last WS frame finishes decoding + relaying, so the
+  // record first written by onGameWon can hold a stale snapshot (buildGameRecord only sees
+  // frames already relayed; it can even overwrite a correct DOM discard with a not-yet-
+  // arrived WS 0). The ENDED tick re-syncs LIVE state from the WS each second; mirror those
+  // corrected values into the stored record — matched to THIS game by its start date — so
+  // history converges too, not just blockLoss (incl. the late-readable Victory ⛔ table).
+  // Idempotent: rewrites the same fields each call and naturally stops once the re-sync
+  // reports no more changes (and no-ops once a new game shifts gameStartTs).
+  function resaveEndgameRecord() {
+    if (!state.gameStartTs) return;
     try {
       if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
       chrome.storage.local.get([HISTORY_KEY], (data) => {
         const list = Array.isArray(data && data[HISTORY_KEY]) ? data[HISTORY_KEY] : [];
-        const last = list[list.length - 1];
-        if (!last || !state.gameStartTs || last.date !== state.gameStartTs) return;  // only THIS game's record
-        last.blockLoss = last.blockLoss || {};
-        for (const name of Object.keys(last.blockLoss)) {
-          if (state.endgameBlocked[name] != null) last.blockLoss[name] = state.endgameBlocked[name];
+        const rec = list.find((g) => g && g.date === state.gameStartTs);   // only THIS game's record
+        if (!rec) return;
+        rec.players = [...state.players.values()].map((p) => ({
+          name: p.name, color: p.color, hand: { ...p.resources }, unknown: p.unknown,
+        }));
+        rec.tally = JSON.parse(JSON.stringify(state.tally));
+        rec.blocked = JSON.parse(JSON.stringify(state.blocked));
+        rec.blockEvents = JSON.parse(JSON.stringify(state.blockEvents));
+        rec.blockLoss = [...state.players.keys()].reduce((m, n) => { m[n] = blockLossOf(n); return m; }, {});
+        if (state.endgameBlocked) {                          // Victory ⛔ table wins when it's readable
+          for (const name of Object.keys(rec.blockLoss)) {
+            if (state.endgameBlocked[name] != null) rec.blockLoss[name] = state.endgameBlocked[name];
+          }
         }
         chrome.storage.local.set({ [HISTORY_KEY]: list });
       });
@@ -4504,6 +4520,8 @@
       getWsBoard: () => wsBoard,   // test-only handle onto the live WS board model
       timerText,
       buildGameRecord,
+      saveGameRecord,
+      resaveEndgameRecord,
       coldestSum,
       chiSquare,
       luckTier,
