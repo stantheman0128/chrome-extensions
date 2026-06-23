@@ -687,6 +687,36 @@
     .tooltip-date { font-weight: 600; color: ${C.text}; }
     .tooltip-status { color: ${C.textSec}; }
 
+    /* ── Day incidents popover (click a bar) ── */
+    .daypop {
+      position: fixed; z-index: 12;
+      width: 280px; max-width: calc(100vw - 16px);
+      max-height: 320px; overflow-y: auto;
+      background: ${C.surface};
+      border: 1px solid ${C.borderSub};
+      border-radius: 10px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.16);
+      padding: 10px 12px;
+      pointer-events: none;
+      visibility: hidden; opacity: 0;
+      transition: opacity .12s ease;
+    }
+    .daypop.show { visibility: visible; opacity: 1; pointer-events: auto; }
+    .daypop::-webkit-scrollbar { width: 3px; }
+    .daypop::-webkit-scrollbar-thumb { background: ${C.borderSub}; border-radius: 2px; }
+    .daypop-head {
+      font-size: .79em; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .5px; color: ${C.textMut}; margin-bottom: 8px;
+    }
+    .daypop-inc { padding: 8px 0; border-top: 1px solid ${C.border}; }
+    .daypop-inc:first-of-type { border-top: none; padding-top: 0; }
+    .daypop-inc-head { display: flex; align-items: flex-start; gap: 7px; margin-bottom: 4px; }
+    .daypop-inc-name { font-size: .9em; font-weight: 600; line-height: 1.3; }
+    .daypop-body {
+      font-size: .83em; color: ${C.textSec}; line-height: 1.45; margin-top: 3px;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    }
+
     .loading, .error {
       display: flex; align-items: center; justify-content: center;
       height: 100%; text-align: center; font-size: .93em; color: ${C.textMut};
@@ -754,9 +784,13 @@
   const tooltip = document.createElement("div");
   tooltip.className = "tooltip";
 
+  const dayPop = document.createElement("div");
+  dayPop.className = "daypop";
+
   wrap.appendChild(badge);
   wrap.appendChild(tooltip);
   shadow.appendChild(panel);
+  shadow.appendChild(dayPop);
   shadow.appendChild(wrap);
   document.body.appendChild(host);
 
@@ -785,6 +819,7 @@
   let dates = buildDates();
   let badgeResizeState = null;
   let pollTimer = null, tickTimer = null;
+  let dayPopOpen = false, dayPopBar = null;
 
   // ── Smart panel positioning ──────────────────────────────────────
   // Centers panel horizontally on badge, opens vertically toward screen center
@@ -859,6 +894,7 @@
     panel.classList.remove("open");
     badge.classList.remove("hide");
     hideTooltip();
+    closeDayPop();
   }
 
   badge.addEventListener("click", (e) => {
@@ -1200,6 +1236,78 @@
     if (e.target.closest(".bar")) hideTooltip();
   });
 
+  // ── Day incidents popover (click a bar) ──────────────────────────
+  function closeDayPop() {
+    dayPop.classList.remove("show");
+    dayPopOpen = false;
+    dayPopBar = null;
+  }
+  function positionDayPop(barEl) {
+    const r = barEl.getBoundingClientRect();
+    const pr = dayPop.getBoundingClientRect(); // measured while still hidden
+    const margin = 8;
+    const left = clamp(r.left + r.width / 2 - pr.width / 2, margin, window.innerWidth - pr.width - margin);
+    let top = r.top - 8 - pr.height;
+    if (top < margin) top = r.bottom + 8; // not enough room above → drop below
+    top = clamp(top, margin, window.innerHeight - pr.height - margin);
+    dayPop.style.left = left + "px";
+    dayPop.style.top = top + "px";
+  }
+  function openDayPop(barEl, compId, idx) {
+    if (dayPopOpen && dayPopBar === barEl) { closeDayPop(); return; } // toggle
+    const incIds = lastData?.dayIncidents?.[compId]?.[idx] || [];
+    if (!incIds.length) { closeDayPop(); return; }
+    const byId = lastData?.incidentsById || {};
+    const d = dates[idx];
+
+    let html = `<div class="daypop-head">${d ? esc(fmtDate(d)) : ""}</div>`;
+    for (const id of incIds) {
+      const inc = byId[id];
+      if (!inc) continue;
+      const ic = INDICATOR_COLOR[inc.impact] || C.gray;
+      const latest = inc.updates && inc.updates[0];
+      html += `<div class="daypop-inc">
+        <div class="daypop-inc-head">
+          <span class="inc-dot" style="background:${ic}"></span>
+          <span class="daypop-inc-name">${esc(inc.name)}</span>
+        </div>`;
+      if (latest) {
+        const sc = UPDATE_COLOR[latest.status] || C.textSec;
+        html += `<div class="inc-status-line">
+            <span class="inc-status-badge" style="color:${sc}">${incStatusLabel(latest.status)}</span>
+            <span class="inc-time">${timeAgo(latest.updated_at)}</span>
+          </div>
+          <div class="daypop-body">${esc(latest.body)}</div>`;
+      }
+      html += `</div>`;
+    }
+
+    dayPop.innerHTML = html;
+    hideTooltip();
+    positionDayPop(barEl);
+    dayPop.classList.add("show");
+    dayPopOpen = true;
+    dayPopBar = barEl;
+  }
+
+  colLeft.addEventListener("click", (e) => {
+    const bar = e.target.closest(".bar");
+    if (!bar) return;
+    openDayPop(bar, bar.dataset.comp, +bar.dataset.idx);
+  });
+  colLeft.addEventListener("scroll", () => { if (dayPopOpen) closeDayPop(); });
+
+  // Click anywhere else inside the panel closes the popover (panel stops
+  // pointerdown propagation, so we listen for click here rather than on shadow).
+  panel.addEventListener("click", (e) => {
+    if (!dayPopOpen) return;
+    if (e.target.closest(".bar")) return; // bar clicks are handled above
+    closeDayPop();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && dayPopOpen) closeDayPop();
+  });
+
   // ── Right column click handling ──────────────────────────────────
   colRight.addEventListener("click", (e) => {
     // Recent incidents toggle
@@ -1297,6 +1405,7 @@
   function render(data) {
     lastData = data;
     hideTooltip();
+    closeDayPop();
     dayCount = data.historyDays || DAYS;
     dates = buildDates();
 
@@ -1332,7 +1441,7 @@
         <div class="bars">`;
       for (let i = 0; i < dayCount; i++) {
         const st = hist[i] || "operational";
-        left += `<div class="bar" style="background:${BAR_COLOR[st] || C.barEmpty}" data-idx="${i}" data-status="${st}"></div>`;
+        left += `<div class="bar" style="background:${BAR_COLOR[st] || C.barEmpty}" data-idx="${i}" data-status="${st}" data-comp="${comp.id}"></div>`;
       }
       left += `</div>
         <div class="bar-labels">

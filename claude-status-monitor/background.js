@@ -39,11 +39,14 @@ async function fetchStatusData() {
   today.setHours(0, 0, 0, 0);
 
   const history = {};
+  const dayIncidents = {}; // comp.id -> [day0..dayN], each an array of incident ids
   for (const comp of summary.components) {
     history[comp.id] = new Array(HISTORY_DAYS).fill("operational");
+    dayIncidents[comp.id] = Array.from({ length: HISTORY_DAYS }, () => []);
   }
 
   const SEVERITY = { operational: 0, none: 1, minor: 2, major: 3, critical: 4 };
+  const referenced = new Set();
 
   for (const inc of allIncidents.incidents) {
     const start = new Date(inc.created_at);
@@ -64,9 +67,34 @@ async function fetchStatusData() {
           if ((SEVERITY[impact] || 0) > (SEVERITY[cur] || 0)) {
             history[comp.id][d] = impact;
           }
+          // Same span as the bar colour, so the popover and the bar agree on
+          // which days an incident "happened" on (e.g. a parked monitoring
+          // announcement is only listed on its publish day).
+          dayIncidents[comp.id][d].push(inc.id);
+          referenced.add(inc.id);
         }
       }
     }
+  }
+
+  // Trimmed incident detail for the per-day popover — only incidents that
+  // actually touch a tracked component inside the window.
+  const incidentsById = {};
+  for (const inc of allIncidents.incidents) {
+    if (!referenced.has(inc.id)) continue;
+    incidentsById[inc.id] = {
+      id: inc.id,
+      name: inc.name,
+      impact: inc.impact,
+      status: inc.status,
+      created_at: inc.created_at,
+      resolved_at: inc.resolved_at,
+      updates: (inc.incident_updates || []).map((u) => ({
+        status: u.status,
+        body: u.body,
+        updated_at: u.updated_at,
+      })),
+    };
   }
 
   // Recent resolved incidents (for display when no active incidents)
@@ -80,6 +108,8 @@ async function fetchStatusData() {
     incidents: unresolved.incidents,
     recentIncidents,
     history,
+    dayIncidents,
+    incidentsById,
     historyDays: HISTORY_DAYS,
     updated_at: summary.page.updated_at,
   };
