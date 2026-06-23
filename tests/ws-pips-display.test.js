@@ -42,9 +42,11 @@ test('pips are hidden until a player name is clicked, then the badge shows', () 
   cst.getPlayer('StanTheMan01', '#CF4449');
   relayBoardWithSettlement();
   cst.render();
-  assert.doesNotMatch(document.querySelector('#colonist-stats-tracker').innerHTML, /⚅/, 'no pip badge before selecting');
+  // Scope to the table where the badge actually renders — static UI elsewhere (e.g.
+  // the how-to overlay) may legitimately mention the ⚅ glyph in its text.
+  assert.doesNotMatch(document.querySelector('#cst-resources').innerHTML, /⚅/, 'no pip badge before selecting');
   cst.selectPipPlayer('StanTheMan01');
-  const html = document.querySelector('#colonist-stats-tracker').innerHTML;
+  const html = document.querySelector('#cst-resources').innerHTML;
   assert.match(html, /⚅7/, 'after selecting: pip badge = grain 4 + wool 3 (brick robbed → excluded)');
 });
 

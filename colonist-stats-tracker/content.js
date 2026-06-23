@@ -1000,6 +1000,15 @@
   const ICON_MORE = '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" ' +
     'aria-hidden="true" style="display:block;"><circle cx="12" cy="5" r="1.7"/>' +
     '<circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>';  // more → presets menu
+  const ICON_HELP = svgIcon('<circle cx="12" cy="12" r="10"/>' +
+    '<path d="M9.1 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>');     // ? → how-to overlay
+  // One row in the how-to overlay: an emoji marker + a bold title + a dim body.
+  function helpItem(icon, title, body) {
+    return `<div style="display:flex;gap:9px;margin:9px 0;">` +
+      `<span style="flex:0 0 auto;font-size:15px;line-height:1.35;">${icon}</span>` +
+      `<div><div style="font-weight:700;margin-bottom:1px;">${title}</div>` +
+      `<div style="color:${THEME.textDim};font-size:12px;">${body}</div></div></div>`;
+  }
 
   // The extension version (from the manifest), shown in the ⋮ menu footer so a
   // reload can be confirmed at a glance — the manifest reloads with the extension.
@@ -1425,6 +1434,7 @@
         <div id="cst-controls" style="display:flex;gap:4px;align-items:center;">
           ${ctrlBtn('cst-resync', ICON_SYNC, t('tipResync', 'Deep re-sync: re-read the whole game log from the top'))}
           ${ctrlBtn('cst-size', ICON_SHRINK, t('tipSizeToggle', 'Toggle large / small layout'))}
+          ${ctrlBtn('cst-help', ICON_HELP, t('tipHelp', 'How to use — the click actions worth knowing'))}
           ${ctrlBtn('cst-prefs', ICON_MORE, t('tipPresets', 'Layout presets'))}
         </div>
         <div id="cst-menu" style="display:none;position:absolute;top:40px;right:10px;z-index:6;
@@ -1439,6 +1449,21 @@
             <button data-act="font-up" data-tip="${t('tipLargerText', 'Larger text')}" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A+</button>
           </div>
           <div style="padding:6px 8px 2px;margin-top:3px;border-top:1px solid ${THEME.border};font-size:0.72em;color:${THEME.textDim};text-align:right;" data-tip="${t('tipVersion', 'Extension version — confirm this updated after reloading the extension')}">v${extVersion()}</div>
+        </div>
+      </div>
+      <div id="cst-help-overlay" style="display:none;position:fixed;inset:0;z-index:2147483646;background:rgba(20,14,4,.45);align-items:center;justify-content:center;">
+        <div style="background:${THEME.bg};color:${THEME.text};max-width:340px;width:86vw;max-height:80vh;overflow:auto;border:1px solid ${THEME.border};border-radius:12px;box-shadow:0 12px 40px rgba(30,20,5,.5);padding:16px 18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <strong style="font-size:15px;color:${THEME.accent};">${t('helpTitle', 'How to use')}</strong>
+            <button id="cst-help-close" aria-label="${t('close', 'Close')}" style="background:transparent;border:0;color:${THEME.textDim};font-size:18px;line-height:1;cursor:pointer;padding:0 2px;">✕</button>
+          </div>
+          <p style="margin:.1em 0 .6em;color:${THEME.textDim};font-size:12px;line-height:1.5;">${t('helpIntro', 'Most things explain themselves on hover. These are the click actions worth knowing:')}</p>
+          ${helpItem('🖱️', t('help1Title', 'Highlight a number'), t('help1Body', 'Click any value cell, or a dice column, to pin a soft highlight you can follow through the game. Click it again to clear.'))}
+          ${helpItem('👤', t('help2Title', 'A player’s setup pips'), t('help2Body', 'Click a player’s name to show their ⚅ pips (board strength) with a per-resource breakdown. Click the ⚅ number to switch coverage ⇄ expected cards per roll. Click the name again to hide.'))}
+          ${helpItem('📊', t('help3Title', 'Opponents’ holding of a resource'), t('help3Body', 'Click a resource icon header to highlight that column down every opponent and show their total of it — what a Monopoly would take. Click again to unpin.'))}
+          ${helpItem('🔀', t('help4Title', 'Switch & collapse'), t('help4Body', 'Click “Resources / Stats” to switch tables. Click a section header (or press R / S / D) to fold it, and the 🎲 in the corner (or press C) to collapse the whole panel.'))}
+          ${helpItem('🔄', t('help5Title', 'Reload'), t('help5Body', 'Re-syncs the panel from the live game. Back at the lobby with a finished game still shown, it clears it instead. A small tag confirms it ran.'))}
+          <div style="margin-top:12px;text-align:right;color:${THEME.textDim};font-size:11px;">v${extVersion()}</div>
         </div>
       </div>
       <div id="cst-body" style="display:flex;flex-direction:column;flex:1 1 auto;min-height:0;
@@ -1563,6 +1588,18 @@
     document.addEventListener('click', (e) => {
       if (menu.style.display !== 'none' && !menu.contains(e.target) && !prefsBtn.contains(e.target)) closeMenu();
     });
+
+    // How-to (?) overlay: open from the header button, close via ✕ or a backdrop click.
+    const helpBtn = host.querySelector('#cst-help');
+    const helpOverlay = host.querySelector('#cst-help-overlay');
+    if (helpBtn && helpOverlay) {
+      helpBtn.addEventListener('click', (e) => { e.stopPropagation(); helpOverlay.style.display = 'flex'; });
+      helpOverlay.addEventListener('click', (e) => {
+        if (e.target === helpOverlay || (e.target.closest && e.target.closest('#cst-help-close'))) {
+          helpOverlay.style.display = 'none';
+        }
+      });
+    }
 
     // Hover a resource COLUMN → highlight it with an overlay tinted in THAT
     // resource's own colour (soft fill + bright neon side bars + a fluorescent
@@ -2164,12 +2201,16 @@
   // turn/trade — not just the frequency histogram. The strip ALWAYS occupies its
   // row (blank but full-height before the first roll) so the panel doesn't jump
   // when the first chip appears.
-  const ROLL_STRIP_N = 12;
-  const CHIP_BASE = 'display:inline-flex;align-items:center;justify-content:center;' +
+  // Render up to this many recent rolls; the row then shows as many as the width
+  // FITS (newest on the right), clipping and fading the oldest at the label's right
+  // edge. So a wider panel reveals more of the run, and the chips never cross under
+  // the "Roll order" label. (flex:0 0 auto keeps each chip its full size.)
+  const ROLL_STRIP_MAX = 40;
+  const CHIP_BASE = 'flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;' +
     'min-width:1.55em;height:1.55em;padding:0 0.2em;border-radius:0.35em;' +
     'font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;';
   function renderRollStrip() {
-    const recent = state.rollHistory.slice(-ROLL_STRIP_N);
+    const recent = state.rollHistory.slice(-ROLL_STRIP_MAX);
     const empty = !recent.length;
     const chips = empty
       // One hidden chip reserves exactly the populated row's height.
@@ -2182,12 +2223,14 @@
           `border:1px solid ${seven ? THEME.bad : THEME.border};` +
           `${newest ? `box-shadow:0 0 0 2px ${THEME.accent}55;` : 'opacity:.9;'}">${n}</span>`;
       }).join('');
-    const tip = empty ? '' : ` data-tip="${t('tipLastRolls', 'Last {n} rolls (oldest → newest)', { n: recent.length })}"`;
-    return `<div${tip} ` +
-      `style="display:flex;gap:0.25em;align-items:center;justify-content:flex-end;` +
-      `overflow:hidden;margin:0 0 0.6em;flex:0 0 auto;">` +
-      `<span style="color:${THEME.textDim};font-size:0.7em;margin-right:auto;white-space:nowrap;` +
-      `${empty ? 'visibility:hidden;' : ''}">${t('rollOrder', 'Roll order')}</span>${chips}</div>`;
+    const tip = empty ? '' : ` data-tip="${t('tipLastRolls', 'Recent rolls — newest on the right; the oldest fade out on the left as the panel narrows')}"`;
+    // The label is fixed on the left; the chips live in their own overflow-hidden
+    // box that starts at the label's right edge and right-aligns, so widening the
+    // panel simply shows more chips. A left fade mask softens the clipped oldest one.
+    const fadeMask = 'mask:linear-gradient(to right,transparent,#000 1.4em);-webkit-mask:linear-gradient(to right,transparent,#000 1.4em);';
+    return `<div style="display:flex;gap:0.45em;align-items:center;margin:0 0 0.6em;flex:0 0 auto;">` +
+      `<span style="flex:0 0 auto;color:${THEME.textDim};font-size:0.7em;white-space:nowrap;${empty ? 'visibility:hidden;' : ''}">${t('rollOrder', 'Roll order')}</span>` +
+      `<div${tip} style="flex:1 1 auto;min-width:0;display:flex;gap:0.25em;align-items:center;justify-content:flex-end;overflow:hidden;${empty ? '' : fadeMask}">${chips}</div></div>`;
   }
 
   // Dice histogram bars (the section header lives in the static skeleton).
@@ -3847,6 +3890,30 @@
   // and dim the body for the operation's duration, with a 450ms floor so the (now
   // instant) WS path still registers as a deliberate reload. The class doubles as
   // the re-entrancy guard, so a second click mid-spin is a no-op.
+  // A brief floating confirmation over the panel's top edge — so a manual reload
+  // visibly registers even when (the common case) the data was already correct and
+  // nothing on the panel changed. Fixed-positioned off the panel's rect so it never
+  // depends on the panel's own stacking/overflow.
+  function flashToast(msg) {
+    if (!panel || typeof document === 'undefined') return;
+    const pr = panel.getBoundingClientRect();
+    const el = document.createElement('div');
+    el.textContent = msg;
+    el.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;white-space:nowrap;' +
+      `left:${pr.left + pr.width / 2}px;top:${pr.top + 10}px;transform:translate(-50%,-4px);` +
+      `background:${THEME.accent};color:#fff;font-size:12px;font-weight:700;padding:4px 12px;` +
+      'border-radius:999px;box-shadow:0 4px 14px rgba(40,30,10,.35);opacity:0;' +
+      'transition:opacity .15s ease, transform .3s ease;';
+    document.body.appendChild(el);
+    void el.offsetHeight;
+    el.style.opacity = '1';
+    el.style.transform = 'translate(-50%,2px)';
+    setTimeout(() => {
+      el.style.opacity = '0'; el.style.transform = 'translate(-50%,-4px)';
+      setTimeout(() => el.remove(), 250);
+    }, 1100);
+  }
+
   // Wipe a leftover finished game once we're back at the lobby / main screen — a
   // manual reload there means "I'm done with that game". Mirrors a new-game
   // transition without waiting for the next game to begin.
@@ -3865,16 +3932,18 @@
     panel.classList.add('cst-syncing');
     if (clearHighlights()) render();   // a manual resync also drops any pinned highlights
     const started = Date.now();
+    let cleared = false;
     try {
       // Back at the lobby / main screen with a finished game still on the panel, a
       // manual reload means "clear it". During a live game (or on the Victory screen,
       // where you're reading the stats), it stays a deep re-sync as before.
-      if (lifecycle === LIFE.LOBBY) clearEndedGame();
+      if (lifecycle === LIFE.LOBBY) { clearEndedGame(); cleared = true; }
       else await deepRescrape();
     } finally {
       const elapsed = Date.now() - started;
       if (elapsed < 450) await sleep(450 - elapsed);
       if (panel) panel.classList.remove('cst-syncing');
+      flashToast(cleared ? t('toastCleared', '✓ Cleared') : t('toastSynced', '✓ Re-synced'));
     }
   }
 
