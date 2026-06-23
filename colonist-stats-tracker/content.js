@@ -346,9 +346,18 @@
     return false;
   }
 
+  // Single writer for hands: once the WS board is the authoritative source, the DOM
+  // log must NOT also mutate p.resources. Otherwise the same event (a roll's
+  // production, a steal) is applied twice — once by syncFromWS, once by the DOM parser
+  // — and the floating "+N" briefly shows the doubled value (e.g. +4) before the next
+  // sync trims it (−2). The WS path owns the resource counts here; the DOM path still
+  // does yield-learning, the block differential and the Stats tally, just not the hand
+  // totals. It falls back to mutating hands only before the WS board is ready.
+  function wsOwnsHands() { return !!(wsBoard && __cstBoard && __cstBoard.ready(wsBoard)); }
+
   // Add cards of known type.
   function giveResource(p, type, n = 1) {
-    if (!p || !type) return;
+    if (!p || !type || wsOwnsHands()) return;
     p.resources[type] += n;
   }
 
@@ -356,7 +365,7 @@
   // that type in the known pool, the shortfall comes out of the unknown
   // pool — meaning those stolen cards are retroactively identified.
   function takeResource(p, type, n = 1) {
-    if (!p || !type) return;
+    if (!p || !type || wsOwnsHands()) return;
     const have = p.resources[type];
     if (have >= n) {
       p.resources[type] -= n;
@@ -386,7 +395,7 @@
   }
 
   function transferUnknown(fromP, toP) {
-    if (!fromP || !toP) return;
+    if (!fromP || !toP || wsOwnsHands()) return;
     if (fromP.unknown > 0) {
       fromP.unknown -= 1;
     } else {

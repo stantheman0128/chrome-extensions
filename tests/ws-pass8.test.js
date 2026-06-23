@@ -73,3 +73,19 @@ test('#3 an opponent with no authoritative WS count is not overwritten by the un
   assert.equal(opp.resources.lumber, 0, 'the un-reconciled 9-lumber recon is NOT written');
   assert.equal(opp.resources.brick, 2, 'the existing DOM value is left in place');
 });
+
+test('single writer: with the WS board ready, the DOM resource mutators are no-ops', () => {
+  cst.resetState();
+  relay({ type: 4, payload: {
+    gameSettings: { id: 'sw' },
+    gameState: { playerColor: 1, mapState: { tileHexStates: {}, tileCornerStates: {} }, playerStates: { 1: { resourceCards: { cards: [] } } } },
+    playerUserStates: [{ selectedColor: 1, username: 'X' }],
+  } });
+  assert.equal(B.ready(cst.getWsBoard()), true, 'WS board is the authoritative source');
+  const p = cst.getPlayer('X', '#c00');
+  p.resources.wool = 1;
+  cst.giveResource(p, 'wool', 2);                    // a DOM-path add — must be ignored
+  assert.equal(p.resources.wool, 1, 'WS owns hands → the DOM give is skipped (no double-count)');
+  cst.takeResource(p, 'wool', 1);
+  assert.equal(p.resources.wool, 1, 'the DOM take is skipped too');
+});
