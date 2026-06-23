@@ -23,10 +23,12 @@
   const logEntries = {};
   const robberProbe = { diffKeys: {}, samples: [] };  // ⛔ blocked-loss investigation
   let meta = null;
+  let lastFull = null;   // the most recent type-4 frame, kept so a late save() is still replayable
   function harvestLog(obj) {
     const d = obj && obj.data;
     if (!d) return;
     if (d.type === 4 && d.payload) {
+      lastFull = obj;     // pin it: the 500-frame buffer drops it on a long game
       const gs = d.payload.gameState || {};
       meta = {
         playerColor: gs.playerColor,
@@ -215,13 +217,19 @@
     // ordering, not hand-authored ideal input).
     save() {
       try {
-        const blob = new Blob([JSON.stringify(buf, bigintReplacer)], { type: 'application/json' });
+        // Save the recent frame buffer AND the uncapped game log AND the last full
+        // state, so a capture taken late in a long game is still fully replayable
+        // (the recon rebuilds deterministically from `log`; `fullState` carries the
+        // geometry / colour↔name map / hand baseline the 500-frame buffer drops).
+        const dump = { frames: buf, log: logEntries, fullState: lastFull, savedAtFrame: buf.length };
+        const blob = new Blob([JSON.stringify(dump, bigintReplacer)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = 'cst-ws-frames.json';
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
-        return 'saved ' + buf.length + ' frames to cst-ws-frames.json';
+        return 'saved ' + buf.length + ' frames + ' + Object.keys(logEntries).length + ' log entries' +
+          (lastFull ? ' + full state' : ' (no full state seen yet)') + ' to cst-ws-frames.json';
       } catch (e) { return 'save failed: ' + e; }
     },
   };

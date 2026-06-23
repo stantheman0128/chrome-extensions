@@ -1448,7 +1448,6 @@
             <button data-act="font-down" data-tip="${t('tipSmallerText', 'Smaller text')}" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A−</button>
             <button data-act="font-up" data-tip="${t('tipLargerText', 'Larger text')}" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A+</button>
           </div>
-          <div style="padding:6px 8px 2px;margin-top:3px;border-top:1px solid ${THEME.border};font-size:0.72em;color:${THEME.textDim};text-align:right;" data-tip="${t('tipVersion', 'Extension version — confirm this updated after reloading the extension')}">v${extVersion()}</div>
         </div>
       </div>
       <div id="cst-help-overlay" style="display:none;position:fixed;inset:0;z-index:2147483646;background:rgba(20,14,4,.45);align-items:center;justify-content:center;">
@@ -1480,6 +1479,7 @@
             <span style="color:${THEME.textDim};font-weight:400;">·</span>
             <span class="cst-vtab" data-resview="stats" data-tip="${t('tipStatsTab', 'Stats (press S · again to collapse)')}">${t('statsTab', 'Stats')}</span>
           </strong>
+          <span style="flex:0 0 auto;font-size:0.7em;color:${THEME.textDim};font-weight:400;white-space:nowrap;align-self:center;" data-tip="${t('tipVersion', 'Extension version — confirm it updated after reloading the extension')}">v${extVersion()}</span>
         </div>
         <div id="cst-res-wrap" style="flex:1 0 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;transition:max-height .28s ease;"><div id="cst-resources" style="flex:1 1 auto;display:flex;flex-direction:column;"></div></div>
       </div>`;
@@ -1503,7 +1503,12 @@
         '#colonist-stats-tracker #cst-body{transition:opacity .25s ease;}' +
         '#colonist-stats-tracker.cst-syncing #cst-body{opacity:.45;}' +
         '#colonist-stats-tracker.cst-syncing #cst-resync svg{animation:cst-spin .6s linear infinite;}' +
-        '@keyframes cst-spin{to{transform:rotate(360deg);}}';
+        '@keyframes cst-spin{to{transform:rotate(360deg);}}' +
+        // A thin scrollbar on the roll-order strip (so it reads as scrollable).
+        '#colonist-stats-tracker .cst-roll-scroll{scrollbar-width:thin;scrollbar-color:' + THEME.border + ' transparent;}' +
+        '#colonist-stats-tracker .cst-roll-scroll::-webkit-scrollbar{height:5px;}' +
+        '#colonist-stats-tracker .cst-roll-scroll::-webkit-scrollbar-thumb{background:' + THEME.border + ';border-radius:3px;}' +
+        '#colonist-stats-tracker .cst-roll-scroll::-webkit-scrollbar-track{background:transparent;}';
       (document.head || document.documentElement).appendChild(st);
     }
 
@@ -2196,15 +2201,12 @@
       `</span><br><span style="color:${THEME.textDim};">${expected}</span>`;
   }
 
-  // The last ~12 rolls as a left→right strip (newest on the right, with an
-  // accent ring; 7s flagged in red) so you can read the RUN of rolls during a
-  // turn/trade — not just the frequency histogram. The strip ALWAYS occupies its
-  // row (blank but full-height before the first roll) so the panel doesn't jump
-  // when the first chip appears.
-  // Render up to this many recent rolls; the row then shows as many as the width
-  // FITS (newest on the right), clipping and fading the oldest at the label's right
-  // edge. So a wider panel reveals more of the run, and the chips never cross under
-  // the "Roll order" label. (flex:0 0 auto keeps each chip its full size.)
+  // The recent rolls as a horizontal strip (newest on the right, accent ring; 7s in
+  // red) so you can read the RUN of rolls. The chips live in their own SCROLLABLE box
+  // that starts at the "Roll order" label's right edge — scroll back to see earlier
+  // rolls instead of losing them, and the row never crosses under the label. render()
+  // keeps it scrolled to the newest end. The row always reserves its height (a hidden
+  // placeholder before the first roll) so the panel doesn't jump.
   const ROLL_STRIP_MAX = 40;
   const CHIP_BASE = 'flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;' +
     'min-width:1.55em;height:1.55em;padding:0 0.2em;border-radius:0.35em;' +
@@ -2223,14 +2225,10 @@
           `border:1px solid ${seven ? THEME.bad : THEME.border};` +
           `${newest ? `box-shadow:0 0 0 2px ${THEME.accent}55;` : 'opacity:.9;'}">${n}</span>`;
       }).join('');
-    const tip = empty ? '' : ` data-tip="${t('tipLastRolls', 'Recent rolls — newest on the right; the oldest fade out on the left as the panel narrows')}"`;
-    // The label is fixed on the left; the chips live in their own overflow-hidden
-    // box that starts at the label's right edge and right-aligns, so widening the
-    // panel simply shows more chips. A left fade mask softens the clipped oldest one.
-    const fadeMask = 'mask:linear-gradient(to right,transparent,#000 1.4em);-webkit-mask:linear-gradient(to right,transparent,#000 1.4em);';
+    const tip = empty ? '' : ` data-tip="${t('tipLastRolls', 'Recent rolls — scroll to see earlier ones; newest on the right')}"`;
     return `<div style="display:flex;gap:0.45em;align-items:center;margin:0 0 0.6em;flex:0 0 auto;">` +
       `<span style="flex:0 0 auto;color:${THEME.textDim};font-size:0.7em;white-space:nowrap;${empty ? 'visibility:hidden;' : ''}">${t('rollOrder', 'Roll order')}</span>` +
-      `<div${tip} style="flex:1 1 auto;min-width:0;display:flex;gap:0.25em;align-items:center;justify-content:flex-end;overflow:hidden;${empty ? '' : fadeMask}">${chips}</div></div>`;
+      `<div id="cst-roll-scroll" class="cst-roll-scroll"${tip} style="flex:1 1 auto;min-width:0;display:flex;gap:0.25em;align-items:center;overflow-x:auto;overflow-y:hidden;padding:1px 1px 2px;">${chips}</div></div>`;
   }
 
   // Dice histogram bars (the section header lives in the static skeleton).
@@ -3079,6 +3077,8 @@
     discardCap = discardLimit();   // refresh once; nameCell reads it per row
     const d = panel.querySelector('#cst-dice');
     if (d) d.innerHTML = renderDiceBars();
+    const rollScroll = panel.querySelector('#cst-roll-scroll');
+    if (rollScroll) rollScroll.scrollLeft = rollScroll.scrollWidth;   // keep the newest roll in view
     const r = panel.querySelector('#cst-resources');
     if (r) r.innerHTML = renderResTable();
     spawnGainFloats();
