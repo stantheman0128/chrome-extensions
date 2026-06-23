@@ -74,6 +74,9 @@
       sectionIncidents: "Incidents",
       allOperational: "All Systems Operational",
       noActiveIncidents: "No active incidents",
+      clickForDetail: "Click to pin details →",
+      backToIncidents: "← Incidents",
+      durationOngoing: "ongoing",
       recentIncidents: "Recent Incidents",
       today: "Today",
       uptime: "% uptime",
@@ -122,6 +125,9 @@
       sectionIncidents: "\u4E8B\u4EF6",
       allOperational: "\u6240\u6709\u7CFB\u7D71\u6B63\u5E38\u904B\u4F5C",
       noActiveIncidents: "\u76EE\u524D\u7121\u9032\u884C\u4E2D\u7684\u4E8B\u4EF6",
+      clickForDetail: "\u9EDE\u64CA\u91D8\u9078\u8A73\u60C5 \u2192",
+      backToIncidents: "\u2190 \u4E8B\u4EF6",
+      durationOngoing: "\u9032\u884C\u4E2D",
       recentIncidents: "\u8FD1\u671F\u4E8B\u4EF6",
       today: "\u4ECA\u5929",
       uptime: "% \u6B63\u5E38\u904B\u884C",
@@ -205,6 +211,26 @@
   }
   function fmtDate(d) {
     return d.toLocaleDateString(msg("dateLocale"), { month: "short", day: "numeric" });
+  }
+  function fmtDuration(ms) {
+    const m = Math.max(0, Math.round(ms / 60000));
+    if (m < 1) return "<1m";
+    if (m < 60) return m + "m";
+    const h = Math.floor(m / 60), rm = m % 60;
+    if (h < 24) return rm ? `${h}h ${rm}m` : `${h}h`;
+    const d = Math.floor(h / 24), rh = h % 24;
+    return rh ? `${d}d ${rh}h` : `${d}d`;
+  }
+  // Outage window, same rule as the bars: a monitoring incident counts service
+  // as restored at monitoring_at; a still-investigating one runs to now.
+  function outageText(inc) {
+    const start = new Date(inc.started_at || inc.created_at);
+    let end, ongoing = false;
+    if (inc.resolved_at) end = new Date(inc.resolved_at);
+    else if (inc.status === "monitoring" && inc.monitoring_at) end = new Date(inc.monitoring_at);
+    else { end = new Date(); ongoing = true; }
+    const dur = fmtDuration(end - start);
+    return ongoing ? `${msg("durationOngoing")} · ${dur}` : dur;
   }
   function esc(s) {
     const el = document.createElement("span");
@@ -687,11 +713,11 @@
     .tooltip-date { font-weight: 600; color: ${C.text}; }
     .tooltip-status { color: ${C.textSec}; }
 
-    /* ── Day incidents popover (click a bar) ── */
+    /* ── Day preview flyout (hover a bar) — pure preview, never interactive ── */
     .daypop {
       position: fixed; z-index: 12;
       width: 280px; max-width: calc(100vw - 16px);
-      max-height: 320px; overflow-y: auto;
+      max-height: 300px; overflow: hidden;
       background: ${C.surface};
       border: 1px solid ${C.borderSub};
       border-radius: 10px;
@@ -701,9 +727,7 @@
       visibility: hidden; opacity: 0;
       transition: opacity .12s ease;
     }
-    .daypop.show { visibility: visible; opacity: 1; pointer-events: auto; }
-    .daypop::-webkit-scrollbar { width: 3px; }
-    .daypop::-webkit-scrollbar-thumb { background: ${C.borderSub}; border-radius: 2px; }
+    .daypop.show { visibility: visible; opacity: 1; }
     .daypop-head {
       font-size: .79em; font-weight: 600; text-transform: uppercase;
       letter-spacing: .5px; color: ${C.textMut}; margin-bottom: 8px;
@@ -714,7 +738,30 @@
     .daypop-inc-name { font-size: .9em; font-weight: 600; line-height: 1.3; }
     .daypop-body {
       font-size: .83em; color: ${C.textSec}; line-height: 1.45; margin-top: 3px;
-      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .daypop-hint {
+      margin-top: 8px; padding-top: 7px; border-top: 1px solid ${C.border};
+      font-size: .76em; color: ${C.accent};
+    }
+    .inc-dur { font-size: .79em; color: ${C.textMut}; white-space: nowrap; }
+
+    /* ── Selected-day detail (right column takeover) ── */
+    .day-detail-head {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+    }
+    .back-btn {
+      flex-shrink: 0;
+      background: ${C.bg}; border: 1px solid ${C.border};
+      color: ${C.textSec}; cursor: pointer;
+      font-size: .82em; font-weight: 500;
+      padding: 4px 10px; border-radius: 8px;
+      transition: all .15s ease; white-space: nowrap;
+    }
+    .back-btn:hover { color: ${C.text}; background: ${C.elevated}; border-color: ${C.borderSub}; }
+    .day-detail-title {
+      font-size: .82em; font-weight: 600; color: ${C.textSec};
+      min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
     .loading, .error {
@@ -819,7 +866,7 @@
   let dates = buildDates();
   let badgeResizeState = null;
   let pollTimer = null, tickTimer = null;
-  let dayPopOpen = false, dayPopBar = null;
+  let selectedDay = null; // {compId, idx} of the pinned day, or null
 
   // ── Smart panel positioning ──────────────────────────────────────
   // Centers panel horizontally on badge, opens vertically toward screen center
@@ -894,7 +941,8 @@
     panel.classList.remove("open");
     badge.classList.remove("hide");
     hideTooltip();
-    closeDayPop();
+    hideDayFlyout();
+    clearDaySelection();
   }
 
   badge.addEventListener("click", (e) => {
@@ -1230,18 +1278,16 @@
 
   colLeft.addEventListener("mouseover", (e) => {
     const bar = e.target.closest(".bar");
-    if (bar) showTooltip(bar, +bar.dataset.idx, bar.dataset.status);
+    if (!bar) return;
+    const shown = showDayFlyout(bar, bar.dataset.comp, +bar.dataset.idx);
+    if (!shown) showTooltip(bar, +bar.dataset.idx, bar.dataset.status);
   });
   colLeft.addEventListener("mouseout", (e) => {
-    if (e.target.closest(".bar")) hideTooltip();
+    if (e.target.closest(".bar")) { hideTooltip(); hideDayFlyout(); }
   });
+  colLeft.addEventListener("scroll", () => { hideTooltip(); hideDayFlyout(); });
 
-  // ── Day incidents popover (click a bar) ──────────────────────────
-  function closeDayPop() {
-    dayPop.classList.remove("show");
-    dayPopOpen = false;
-    dayPopBar = null;
-  }
+  // ── Day preview flyout (hover) — read-only peek ──────────────────
   function positionDayPop(barEl) {
     const r = barEl.getBoundingClientRect();
     const pr = dayPop.getBoundingClientRect(); // measured while still hidden
@@ -1253,10 +1299,10 @@
     dayPop.style.left = left + "px";
     dayPop.style.top = top + "px";
   }
-  function openDayPop(barEl, compId, idx) {
-    if (dayPopOpen && dayPopBar === barEl) { closeDayPop(); return; } // toggle
+  function hideDayFlyout() { dayPop.classList.remove("show"); }
+  function showDayFlyout(barEl, compId, idx) {
     const incIds = lastData?.dayIncidents?.[compId]?.[idx] || [];
-    if (!incIds.length) { closeDayPop(); return; }
+    if (!incIds.length) return false;
     const byId = lastData?.incidentsById || {};
     const d = dates[idx];
 
@@ -1265,51 +1311,85 @@
       const inc = byId[id];
       if (!inc) continue;
       const ic = INDICATOR_COLOR[inc.impact] || C.gray;
-      const latest = inc.updates && inc.updates[0];
+      const latest = inc.incident_updates && inc.incident_updates[0];
+      const sc = latest ? (UPDATE_COLOR[latest.status] || C.textSec) : C.textSec;
       html += `<div class="daypop-inc">
         <div class="daypop-inc-head">
           <span class="inc-dot" style="background:${ic}"></span>
           <span class="daypop-inc-name">${esc(inc.name)}</span>
+        </div>
+        <div class="inc-status-line">
+          ${latest ? `<span class="inc-status-badge" style="color:${sc}">${incStatusLabel(latest.status)}</span>` : ""}
+          <span class="inc-dur">⏱ ${esc(outageText(inc))}</span>
         </div>`;
-      if (latest) {
-        const sc = UPDATE_COLOR[latest.status] || C.textSec;
-        html += `<div class="inc-status-line">
-            <span class="inc-status-badge" style="color:${sc}">${incStatusLabel(latest.status)}</span>
-            <span class="inc-time">${timeAgo(latest.updated_at)}</span>
-          </div>
-          <div class="daypop-body">${esc(latest.body)}</div>`;
-      }
+      if (latest) html += `<div class="daypop-body">${esc(latest.body)}</div>`;
       html += `</div>`;
     }
+    html += `<div class="daypop-hint">${msg("clickForDetail")}</div>`;
 
     dayPop.innerHTML = html;
     hideTooltip();
     positionDayPop(barEl);
     dayPop.classList.add("show");
-    dayPopOpen = true;
-    dayPopBar = barEl;
+    return true;
+  }
+
+  // ── Pin a day's incidents into the right column (click) ──────────
+  function selectDay(compId, idx) {
+    const incIds = lastData?.dayIncidents?.[compId]?.[idx] || [];
+    if (!incIds.length) { clearDaySelection(); return; }
+    // Re-clicking the pinned day returns to Active Incidents
+    if (selectedDay && selectedDay.compId === compId && selectedDay.idx === idx) {
+      clearDaySelection();
+      return;
+    }
+    selectedDay = { compId, idx };
+    renderDayDetail();
+  }
+  function clearDaySelection() {
+    if (!selectedDay) return;
+    selectedDay = null;
+    if (lastData) renderActiveIncidents(lastData);
+  }
+  function renderDayDetail() {
+    if (!selectedDay || !lastData) return;
+    const { compId, idx } = selectedDay;
+    const incIds = lastData.dayIncidents?.[compId]?.[idx] || [];
+    const byId = lastData.incidentsById || {};
+    const comp = (lastData.components || []).find((c) => c.id === compId);
+    const d = dates[idx];
+
+    let html = `<div class="day-detail-head">
+        <button class="back-btn">${msg("backToIncidents")}</button>
+        <div class="day-detail-title">${comp ? esc(cleanName(comp.name)) + " · " : ""}${d ? esc(fmtDate(d)) : ""}</div>
+      </div>`;
+    for (const id of incIds) {
+      const inc = byId[id];
+      if (inc) html += renderIncidentCard(inc);
+    }
+    colRight.innerHTML = html;
+    colRight.style.display = "";
+    colDivider.style.display = "";
   }
 
   colLeft.addEventListener("click", (e) => {
     const bar = e.target.closest(".bar");
     if (!bar) return;
-    openDayPop(bar, bar.dataset.comp, +bar.dataset.idx);
-  });
-  colLeft.addEventListener("scroll", () => { if (dayPopOpen) closeDayPop(); });
-
-  // Click anywhere else inside the panel closes the popover (panel stops
-  // pointerdown propagation, so we listen for click here rather than on shadow).
-  panel.addEventListener("click", (e) => {
-    if (!dayPopOpen) return;
-    if (e.target.closest(".bar")) return; // bar clicks are handled above
-    closeDayPop();
+    hideDayFlyout();
+    selectDay(bar.dataset.comp, +bar.dataset.idx);
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && dayPopOpen) closeDayPop();
+    if (e.key === "Escape" && selectedDay) clearDaySelection();
   });
 
   // ── Right column click handling ──────────────────────────────────
   colRight.addEventListener("click", (e) => {
+    // Back from a pinned day → Active Incidents
+    if (e.target.closest(".back-btn")) {
+      clearDaySelection();
+      return;
+    }
+
     // Recent incidents toggle
     const recentToggle = e.target.closest(".recent-toggle");
     if (recentToggle) {
@@ -1367,6 +1447,7 @@
       html += `<div class="inc-status-line">
           <span class="inc-status-badge" style="color:${sc}">${incStatusLabel(latest.status)}</span>
           <span class="inc-time">${timeAgo(latest.updated_at)}</span>
+          <span class="inc-dur">⏱ ${esc(outageText(inc))}</span>
         </div>
         <div class="inc-body">${esc(latest.body)}</div>`;
     }
@@ -1405,7 +1486,7 @@
   function render(data) {
     lastData = data;
     hideTooltip();
-    closeDayPop();
+    hideDayFlyout();
     dayCount = data.historyDays || DAYS;
     dates = buildDates();
 
@@ -1452,7 +1533,20 @@
     }
     colLeft.innerHTML = left;
 
-    // ── Right column: incidents ──
+    // ── Right column: active incidents (or the pinned day) ──
+    renderActiveIncidents(data);
+    if (selectedDay) {
+      const ids = data.dayIncidents?.[selectedDay.compId]?.[selectedDay.idx] || [];
+      if (ids.length) renderDayDetail();
+      else selectedDay = null;
+    }
+
+    lastUpdatedAt = data.updated_at;
+    updateFooterTime();
+  }
+
+  // ── Right column renderer (Active Incidents / recent list) ────────
+  function renderActiveIncidents(data) {
     const hasActive = data.incidents?.length > 0;
     const recentIncs = data.recentIncidents || [];
     const hasRecent = recentIncs.length > 0;
@@ -1505,9 +1599,6 @@
     }
 
     colRight.innerHTML = right;
-
-    lastUpdatedAt = data.updated_at;
-    updateFooterTime();
   }
 
   function renderError(errText) {

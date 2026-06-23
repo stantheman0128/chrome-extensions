@@ -88,8 +88,10 @@ async function fetchStatusData() {
       impact: inc.impact,
       status: inc.status,
       created_at: inc.created_at,
+      started_at: inc.started_at || inc.created_at,
+      monitoring_at: inc.monitoring_at || null,
       resolved_at: inc.resolved_at,
-      updates: (inc.incident_updates || []).map((u) => ({
+      incident_updates: (inc.incident_updates || []).map((u) => ({
         status: u.status,
         body: u.body,
         updated_at: u.updated_at,
