@@ -1564,11 +1564,19 @@
         '#colonist-stats-tracker.cst-syncing #cst-body{opacity:.45;}' +
         '#colonist-stats-tracker.cst-syncing #cst-resync svg{animation:cst-spin .6s linear infinite;}' +
         '@keyframes cst-spin{to{transform:rotate(360deg);}}' +
-        // A thin scrollbar on the roll-order strip (so it reads as scrollable).
-        // The roll strip scrolls by drag / wheel — hide the scrollbar entirely.
-        '#colonist-stats-tracker .cst-roll-scroll{scrollbar-width:none;-ms-overflow-style:none;}' +
+        // The roll strip scrolls by drag / wheel — hide the scrollbar entirely, and
+        // soft-fade both ends so chips dissolve into the edge instead of a hard cut.
+        // The right fade lives in the strip's 14px right padding, so the newest chip —
+        // pinned just inside it — stays fully crisp while older ones melt off the left.
+        '#colonist-stats-tracker .cst-roll-scroll{scrollbar-width:none;-ms-overflow-style:none;' +
+          '-webkit-mask-image:linear-gradient(to right,transparent 0,#000 18px,#000 calc(100% - 14px),transparent 100%);' +
+          'mask-image:linear-gradient(to right,transparent 0,#000 18px,#000 calc(100% - 14px),transparent 100%);}' +
         '#colonist-stats-tracker .cst-roll-scroll::-webkit-scrollbar{display:none;}' +
-        '#colonist-stats-tracker .cst-roll-scroll:active{cursor:grabbing;}';
+        '#colonist-stats-tracker .cst-roll-scroll:active{cursor:grabbing;}' +
+        // The chip that just landed pulses its brightness so the current roll reads at a
+        // glance — kept inside the chip box so the strip's overflow clipping never eats it.
+        '#colonist-stats-tracker .cst-roll-now{animation:cst-roll-now 1.6s ease-in-out infinite;}' +
+        '@keyframes cst-roll-now{0%,100%{filter:brightness(1);}50%{filter:brightness(1.22);}}';
       (document.head || document.documentElement).appendChild(st);
     }
 
@@ -2311,18 +2319,23 @@
       : recent.map((n, i) => {
         const newest = i === recent.length - 1;
         const seven = n === 7;
+        // The chip that just landed gets a FILLED highlight (accent blue, or the 7-red
+        // kept for 7s) with white text + a soft inner/outer ring, so it's unmistakably
+        // the current roll instead of the old faint grey outline. Older chips just dim.
+        const bg = newest ? (seven ? THEME.bad : THEME.accent) : (seven ? THEME.bad : '#fbf9f4');
+        const fg = (newest || seven) ? '#fff' : THEME.text;
+        const bd = newest ? (seven ? THEME.bad : THEME.accent) : (seven ? THEME.bad : THEME.border);
         // margin-left:auto on the OLDEST chip right-aligns the group when it fits
         // (newest on the right, as before); once it overflows the auto margin
         // collapses and the row scrolls (drag / wheel) instead.
-        return `<span style="${CHIP_BASE}${i === 0 ? 'margin-left:auto;' : ''}` +
-          `background:${seven ? THEME.bad : '#fbf9f4'};color:${seven ? '#fff' : THEME.text};` +
-          `border:1px solid ${seven ? THEME.bad : THEME.border};` +
-          `${newest ? `box-shadow:0 0 0 2px ${THEME.accent}55;` : 'opacity:.9;'}">${n}</span>`;
+        return `<span${newest ? ' class="cst-roll-now"' : ''} style="${CHIP_BASE}${i === 0 ? 'margin-left:auto;' : ''}` +
+          `background:${bg};color:${fg};border:1px solid ${bd};` +
+          `${newest ? `box-shadow:inset 0 0 0 1px rgba(255,255,255,.5),0 0 0 1px ${THEME.accent};` : 'opacity:.9;'}">${n}</span>`;
       }).join('');
     const tip = empty ? '' : ` data-tip="${t('tipLastRolls', 'Recent rolls — newest on the right; drag or scroll to see earlier ones')}"`;
     return `<div style="display:flex;gap:0.45em;align-items:center;margin:0 0 0.6em;flex:0 0 auto;">` +
       `<span style="flex:0 0 auto;color:${THEME.textDim};font-size:0.7em;white-space:nowrap;${empty ? 'visibility:hidden;' : ''}">${t('rollOrder', 'Roll order')}</span>` +
-      `<div id="cst-roll-scroll" class="cst-roll-scroll"${tip} style="flex:1 1 auto;min-width:0;display:flex;gap:0.25em;align-items:center;overflow-x:auto;overflow-y:hidden;padding:1px 1px 2px;cursor:grab;">${chips}</div></div>`;
+      `<div id="cst-roll-scroll" class="cst-roll-scroll"${tip} style="flex:1 1 auto;min-width:0;display:flex;gap:0.25em;align-items:center;overflow-x:auto;overflow-y:hidden;padding:1px 14px 2px 1px;cursor:grab;">${chips}</div></div>`;
   }
 
   // Dice histogram bars (the section header lives in the static skeleton).
