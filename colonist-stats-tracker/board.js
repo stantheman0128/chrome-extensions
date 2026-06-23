@@ -430,11 +430,39 @@
     au.expect = null;
     au.actual = {};
   }
+  // Is the corner geometry complete? total stored corners, how many carry a position
+  // (x set), how many are built, and how many of those built ones resolve to NO tiles
+  // (phantoms — built corners whose hex geometry we never captured: either the slot
+  // came in without coordinates, or the surrounding tiles are missing). map-agnostic:
+  // counts, never compared to a fixed board size.
+  function cornerDiag(b) {
+    let total = 0, geom = 0, built = 0, phantom = 0;
+    for (const ci of Object.keys(b.corners)) {
+      total += 1;
+      const c = b.corners[ci];
+      if (c.x != null) geom += 1;
+      if (c.owner != null && c.buildingType) {
+        built += 1;
+        if (c.x == null || tilesOfCornerIdx(b, ci).length === 0) phantom += 1;
+      }
+    }
+    return { total, geom, built, phantom };
+  }
+
   // Geometry is usable for prediction/blocked-loss once a full state has populated
-  // tiles AND corners, AND the current robber tile is actually loaded.
+  // tiles AND corners, AND the current robber tile is actually loaded — AND the
+  // captured geometry is COMPLETE for what's built. A non-empty board still isn't
+  // trustworthy if any BUILT corner is a phantom (resolves to zero tiles, or carries
+  // a building with no coordinates): that's a building whose hex geometry we failed to
+  // capture, so predictProduction silently under-counts it and the live audit settles
+  // a false conflict (and blocked-loss reads a wrong 0). The phantom signal is
+  // map-agnostic — it's "a built thing we can't place", not a fixed 19/54 count — so it
+  // holds on colonist's variable/alternate maps. A real colonist full state is sent
+  // atomically and complete, so phantom stays 0 there and the audit still runs.
   function geomReady(b) {
     return Object.keys(b.tiles).length > 0 && Object.keys(b.corners).length > 0
-      && (b.robberTile == null || b.tiles[b.robberTile] != null);
+      && (b.robberTile == null || b.tiles[b.robberTile] != null)
+      && cornerDiag(b).phantom === 0;
   }
   // A roll arrived: close out the previous roll, then snapshot the prediction for
   // this one (using the robber position at roll time). Only audit a roll when the
@@ -572,20 +600,9 @@
     },
     // diagnostic: is the corner geometry complete? total stored corners, how many
     // carry a position (x set), how many are built, and how many of those built ones
-    // resolve to NO tiles (phantoms — geometry we never captured).
-    cornerDiag: (b) => {
-      let total = 0, geom = 0, built = 0, phantom = 0;
-      for (const ci of Object.keys(b.corners)) {
-        total += 1;
-        const c = b.corners[ci];
-        if (c.x != null) geom += 1;
-        if (c.owner != null && c.buildingType) {
-          built += 1;
-          if (tilesOfCornerIdx(b, ci).length === 0) phantom += 1;
-        }
-      }
-      return { total, geom, built, phantom };
-    },
+    // are phantoms (no coordinates, or resolve to NO tiles — geometry we never
+    // captured). geomReady gates on phantom === 0.
+    cornerDiag,
     // diagnostic: each built corner for a colour as `idx:t<type>@<adjacent numbers>`
     buildingsListOf: (b, color) => {
       const out = [];

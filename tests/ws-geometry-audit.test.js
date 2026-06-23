@@ -163,3 +163,61 @@ test('a new game resets the audit', () => {
   assert.equal(a.conflicts, 0);
   assert.equal(a.trail.length, 0);
 });
+
+// ---- incomplete geometry must not audit (Codex P2 defensive gap) ----
+// geomReady checked only that tiles AND corners were non-empty, never that the
+// geometry was COMPLETE for what's built. A real captured full state with one
+// built corner missing its hex geometry still passed, and the audit then settled a
+// FALSE conflict: predictProduction silently under-counts the missing building, so
+// when colonist broadcasts that building's owner producing, the prediction is short.
+// The map-agnostic fix: a BUILT corner that resolves to zero tiles (or carries a
+// building with no coordinates) is a phantom → geometry incomplete → don't audit.
+// We use the real fixture so the "complete" leg is genuine colonist data, not a
+// hand-authored board, and prove the two legs diverge.
+const realPayload = require('./fixtures/ws-fullstate-2p.json');
+
+// In the captured 2p board, corner 33 (owner 2, settlement) is the only building on
+// a number-11 tile. So a roll of 11 produces exactly one ore-side card for colour 2
+// from THAT corner — the cleanest single-building probe of one corner's geometry.
+function realRoll(b, sum) {
+  B.applyDiff(b, { gameLogState: { [++idx]: { text: { type: 10, firstDice: 1, secondDice: sum - 1 } } } });
+}
+function realProduce(b, color, cards) {
+  B.applyDiff(b, { gameLogState: { [++idx]: { text: { type: 47, playerColor: color, cardsToBroadcast: cards, distributionType: 1 } } } });
+}
+
+test('a real complete board audits roll-11 production as a confirm', () => {
+  const b = B.createBoard();
+  B.applyFullState(b, JSON.parse(JSON.stringify(realPayload)));
+  assert.equal(B.geomReady(b), true, 'a complete capture is usable geometry');
+  assert.deepEqual(B.cornerDiag(b), { total: 54, geom: 54, built: 6, phantom: 0 });
+
+  realRoll(b, 11);            // geometry predicts colour 2 gets 1 of the 11-tile resource
+  realProduce(b, 2, [2]);     // colonist's real broadcast: colour 2 produced exactly that
+  realRoll(b, 6);            // settle the 11
+  const a = B.auditOf(b);
+  assert.equal(a.confirms, 1, 'the complete board confirms the production it predicted');
+  assert.equal(a.conflicts, 0);
+});
+
+test('the SAME board with one built corner omitted does NOT audit (no false conflict)', () => {
+  // identical to the complete board, except corner 33's hex geometry is omitted from
+  // the full state and the building then lands via an index-only placement diff —
+  // exactly how colonist sends placements (the diff carries the corner index, no
+  // coordinates). That leaves corner 33 built but coordinate-less → a phantom.
+  const partial = JSON.parse(JSON.stringify(realPayload));
+  delete partial.gameState.mapState.tileCornerStates['33'];
+  const b = B.createBoard();
+  B.applyFullState(b, partial);
+  B.applyDiff(b, { mapState: { tileCornerStates: { 33: { owner: 2, buildingType: 1 } } } });
+
+  assert.equal(B.cornerDiag(b).phantom, 1, 'the omitted-but-built corner is a phantom');
+  assert.equal(B.geomReady(b), false, 'incomplete geometry is not usable — even though tiles and corners are non-empty');
+
+  realRoll(b, 11);            // colour 2 WOULD produce from the missing corner...
+  realProduce(b, 2, [2]);     // ...and colonist broadcasts it — under the old gate this settled a false conflict
+  realRoll(b, 6);            // settle the 11
+  const a = B.auditOf(b);
+  assert.equal(a.conflicts, 0, 'incomplete geometry stays silent — no false conflict from the missing building');
+  assert.equal(a.confirms, 0, 'and it is not counted as a confirmation either');
+});
