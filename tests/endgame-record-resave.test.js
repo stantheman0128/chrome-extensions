@@ -10,6 +10,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { cst } = require('./helpers/setup');
+const window = global.window;
 
 const HISTORY_KEY = 'cst-history';
 
@@ -22,6 +23,14 @@ function mockStorage() {
     } },
   };
   return store;
+}
+
+function relaySelf(id, cards) {
+  window.dispatchEvent(new window.MessageEvent('message', { data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload: {
+    gameSettings: { id },
+    gameState: { playerColor: 1, mapState: { tileHexStates: {}, tileCornerStates: {} }, playerStates: { 1: { resourceCards: { cards } } } },
+    playerUserStates: [{ selectedColor: 1, username: 'Me' }],
+  } } } } }));
 }
 
 test('resaveEndgameRecord patches the saved record to the corrected live hands + tally', () => {
@@ -46,6 +55,55 @@ test('resaveEndgameRecord patches the saved record to the corrected live hands +
   assert.equal(rec.tally.Me.gained, 3, 'and the corrected gained tally');
   assert.equal(rec.tally.Me.discards, 2, 'and the corrected discard tally (no stale 0)');
 
+  delete global.chrome;
+});
+
+test('real flow: a late WS frame after the winner line flags + patches the saved record', () => {
+  const store = mockStorage();
+  cst.resetState();
+  cst.createPanel();
+  cst.startNextGame();                            // a clean PLAYING lifecycle so onGameWon runs (not an ENDED re-entry)
+  cst.getPlayer('Me', '#c00');
+  cst.state.gameStartTs = 50000;                  // so the record's date matches for the re-save lookup
+  relaySelf('g1', [1]);                            // board ready; the immediate handler syncs self → 1 lumber
+  assert.equal(cst.getPlayer('Me', '#c00').resources.lumber, 1);
+
+  // winner line: the record is snapshotted here (hand lumber=1) and saved
+  cst.onGameWon('Me');
+  assert.equal(cst.getLifecycle(), cst.LIFE.ENDED, 'the game is now ENDED');
+  cst.resaveEndgameRecord();                       // the first ENDED tick clears the initial dirty flag
+  assert.equal(cst.getEndgameRecordDirty(), false);
+  let rec = store[HISTORY_KEY].find((g) => g.date === 50000);
+  assert.equal(rec.players.find((p) => p.name === 'Me').hand.lumber, 1, 'archived at the winner-line value');
+
+  // a LATE WS frame lands AFTER the winner line — self actually held 3 cards (2 lumber, 1 brick)
+  relaySelf('g1', [1, 1, 2]);
+  assert.equal(cst.getPlayer('Me', '#c00').resources.lumber, 2, 'the immediate handler corrected live state…');
+  assert.equal(cst.getEndgameRecordDirty(), true, '…and flagged the record for re-save (the wiring fix)');
+
+  // the next ENDED tick re-saves the now-behind record
+  cst.resaveEndgameRecord();
+  rec = store[HISTORY_KEY].find((g) => g.date === 50000);
+  assert.equal(rec.players.find((p) => p.name === 'Me').hand.lumber, 2, 'history converged to the corrected hand');
+  assert.equal(rec.players.find((p) => p.name === 'Me').hand.brick, 1);
+  assert.equal(cst.getEndgameRecordDirty(), false, 'and the flag clears once it patched');
+
+  delete global.chrome;
+});
+
+test('resaveEndgameRecord stays dirty (retries) when the initial save has not landed yet', () => {
+  const store = mockStorage();
+  store[HISTORY_KEY] = [];                          // the async saveGameRecord hasn't written yet
+  cst.resetState();
+  cst.createPanel();
+  cst.startNextGame();
+  cst.getPlayer('Me', '#c00');
+  cst.state.gameStartTs = 60000;
+  relaySelf('g2', [1]);
+  cst.onGameWon('Me');
+  store[HISTORY_KEY] = [];                          // simulate the record not yet visible to a racing resave
+  cst.resaveEndgameRecord();
+  assert.equal(cst.getEndgameRecordDirty(), true, 'no record found → stays dirty so a later tick retries');
   delete global.chrome;
 });
 

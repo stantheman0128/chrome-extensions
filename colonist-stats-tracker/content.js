@@ -53,7 +53,14 @@
           let ch = syncFromWS();
           if (syncStatsFromWS()) ch = true;
           if (syncDiceFromWS()) ch = true;
-          if (ch) renderSoon();
+          if (ch) {
+            // A frame after the winner line corrected the ENDED live state — the archived
+            // record (snapshotted at the winner line) is now behind it. Flag it so the next
+            // ENDED tick re-saves: THIS immediate handler consumes the frame, so the tick's
+            // own sync would see no change and would never trigger the re-save on its own.
+            if (lifecycle === LIFE.ENDED) endgameRecordDirty = true;
+            renderSoon();
+          }
         }
       } catch (e) { /* sync is best-effort; the 1s tick retries */ }
     });
@@ -3385,15 +3392,21 @@
         if (wsBoard && __cstBoard.ready(wsBoard)) {
           let ch = syncFromWS();
           if (syncStatsFromWS()) ch = true;
-          // A late WS frame corrected the live hands/tally → patch the archived record too,
-          // so history doesn't keep the stale snapshot taken at the winner line.
-          if (ch) { resaveEndgameRecord(); renderSoon(); }
+          // A late WS frame corrected the live hands/tally → mark the archived record dirty
+          // so it gets re-saved below (this tick's own sync may see no change because the
+          // immediate per-frame handler already consumed the frame).
+          if (ch) { endgameRecordDirty = true; renderSoon(); }
         }
         if (!auditPrinted) { auditPrinted = true; try { console.log(buildAuditReport()); } catch (e) { /* ignore */ } }
         // The Victory table can render a beat after the winner log line, so the
         // capture in buildGameRecord may have been too early. Keep trying until
         // we have colonist's exact ⛔, then refresh the panel + the saved record.
-        if (!state.endgameBlocked && syncEndgameBlocked()) { resaveEndgameRecord(); persistState(); renderSoon(); }
+        if (!state.endgameBlocked && syncEndgameBlocked()) { endgameRecordDirty = true; persistState(); renderSoon(); }
+        // Re-save the history record while it's behind the corrected live state. The flag is
+        // set by a late frame (here or in the immediate handler) or at the winner line;
+        // resaveEndgameRecord clears it ONLY once it actually finds + patches THIS game's
+        // stored record, so it survives the async gap before the initial save lands.
+        if (endgameRecordDirty) resaveEndgameRecord();
       }
     }, 1000);
 
@@ -3452,6 +3465,7 @@
     setGameSig('');
     lastCounts = null;  // don't shower "+N" floats diffing against the old game
     auditPrinted = false;
+    endgameRecordDirty = false;
   }
 
   // ---- persistence of the live game (survives page reloads / reconnects) ----
@@ -3628,6 +3642,7 @@
     lifecycle = LIFE.ENDED;
     state.gameEndTs = Date.now();
     saveGameRecord(buildGameRecord(winnerName || null));
+    endgameRecordDirty = true;   // re-affirm the record once the async save lands / late frames arrive
     autoSetCollapsed(true);
     schedulePersist();
     renderSoon();
@@ -3704,7 +3719,7 @@
       chrome.storage.local.get([HISTORY_KEY], (data) => {
         const list = Array.isArray(data && data[HISTORY_KEY]) ? data[HISTORY_KEY] : [];
         const rec = list.find((g) => g && g.date === state.gameStartTs);   // only THIS game's record
-        if (!rec) return;
+        if (!rec) return;                                    // initial async save not landed yet → stay dirty, retry next tick
         rec.players = [...state.players.values()].map((p) => ({
           name: p.name, color: p.color, hand: { ...p.resources }, unknown: p.unknown,
         }));
@@ -3718,6 +3733,7 @@
           }
         }
         chrome.storage.local.set({ [HISTORY_KEY]: list });
+        endgameRecordDirty = false;                          // patched THIS game's record
       });
     } catch (e) { /* best-effort */ }
   }
@@ -4362,6 +4378,7 @@
   }
 
   let auditPrinted = false;   // the game-end audit prints once per game
+  let endgameRecordDirty = false;  // a late WS frame left the saved Victory record behind live state → re-save needed
 
   // ---- self-audit report (console) ----
   // Lays the same quantity from INDEPENDENT sources side by side per player — WS
@@ -4522,6 +4539,7 @@
       buildGameRecord,
       saveGameRecord,
       resaveEndgameRecord,
+      getEndgameRecordDirty: () => endgameRecordDirty,
       coldestSum,
       chiSquare,
       luckTier,
