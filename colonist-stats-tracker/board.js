@@ -322,12 +322,16 @@
   }
   // A dev-card buy spends 1 wool + 1 grain + 1 ore — colonist logs no event for it
   // (silent −3), so it surfaces as an unexplained loss in the reconcile. Deduct the
-  // exact cost: from a known holding if we have it, else from unknown.
+  // exact cost: from a known holding if we have it, else from unknown. Returns how many
+  // of the 3 it could ACTUALLY remove (0–3) — the projection relies on this so it never
+  // assumes a full −3 it couldn't make (which would leave the total over-counted).
   function reconBuyDevCard(r) {
+    let spent = 0;
     for (const res of [3, 4, 5]) {
-      if (r[res] > 0) r[res] -= 1;
-      else if (r.unknown > 0) r.unknown -= 1;
+      if (r[res] > 0) { r[res] -= 1; spent += 1; }
+      else if (r.unknown > 0) { r.unknown -= 1; spent += 1; }
     }
+    return spent;
   }
   // Project the stored (pure event-accrued) recon onto colonist's authoritative
   // total — NON-mutatingly, at read time. This is the ONLY place the silent moves
@@ -344,8 +348,12 @@
     const diff = total - reconSum(proj);
     if (diff > 0) { proj.unknown += diff; return proj; }   // unaccounted gain → unknown
     let excess = -diff;
-    while (excess >= 3) { reconBuyDevCard(proj); excess -= 3; }  // silent dev-card buys
-    for (; excess > 0; excess -= 1) reconLoseOne(proj);         // honest remainder
+    while (excess >= 3) {
+      const spent = reconBuyDevCard(proj);   // a silent dev-card buy (wool+grain+ore)...
+      if (!spent) break;                     // ...but if the player holds none, stop guessing buys
+      excess -= spent;                       // spent may be 1–3; any residual is reconciled below
+    }
+    for (; excess > 0; excess -= 1) reconLoseOne(proj);   // honest single losses clamp to handCount
     return proj;
   }
 
@@ -459,10 +467,30 @@
   // map-agnostic — it's "a built thing we can't place", not a fixed 19/54 count — so it
   // holds on colonist's variable/alternate maps. A real colonist full state is sent
   // atomically and complete, so phantom stays 0 there and the audit still runs.
+  // Is the captured geometry COMPLETE, not just non-empty? colonist never sends sea
+  // tiles, so an edge corner legitimately touches < 3 land tiles — but a hex centre
+  // that SIX distinct corners all point at is a real tile, so if it isn't in
+  // tileHexStates a tile is missing (a partial frame the phantom check can't see when
+  // the corner still resolves to its OTHER tiles). map-agnostic: derived from the
+  // corner topology, never a fixed 19/54. (A hypothetical variant with a deliberate
+  // six-cornered interior hole would be the lone false positive; no live map has one.)
+  function geomComplete(b) {
+    const refs = {};
+    for (const ci of Object.keys(b.corners)) {
+      const c = b.corners[ci];
+      if (c.x == null) continue;
+      for (const p of tilesOfCorner(c)) refs[p[0] + ',' + p[1]] = (refs[p[0] + ',' + p[1]] || 0) + 1;
+    }
+    for (const k of Object.keys(refs)) {
+      if (refs[k] >= 6 && b.coordToTile[k] == null) return false;   // a fully-surrounded tile is absent
+    }
+    return true;
+  }
   function geomReady(b) {
     return Object.keys(b.tiles).length > 0 && Object.keys(b.corners).length > 0
       && (b.robberTile == null || b.tiles[b.robberTile] != null)
-      && cornerDiag(b).phantom === 0;
+      && cornerDiag(b).phantom === 0
+      && geomComplete(b);
   }
   // A roll arrived: close out the previous roll, then snapshot the prediction for
   // this one (using the robber position at roll time). Only audit a roll when the
@@ -574,6 +602,7 @@
     // where a 0 would silently replace a known differential). `ready` alone only means
     // "a type-4 was applied", which could be an empty shell.
     geomReady,
+    geomComplete,
     // snapshot/restore the live blocked-loss so it survives F5: the board can't
     // replay past robber positions, so the displayed value persists through the board
     // (tagged with the game id, so a different game's restore is dropped).

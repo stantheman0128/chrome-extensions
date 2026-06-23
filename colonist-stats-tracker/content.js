@@ -3223,6 +3223,16 @@
         }
         if (synced) renderSoon();
       } else if (lifecycle === LIFE.ENDED) {
+        // A DOM log row can mount AFTER the last WS frame (e.g. the final production),
+        // double-adding to a hand the WS already had right — and at ENDED no PLAYING
+        // tick re-syncs, so the over-count would linger on the Victory screen. Re-pull
+        // the authoritative WS hands each tick so a late DOM event can't leave an
+        // opponent over-counted (runs before the audit print so it reports the truth).
+        if (wsBoard && __cstBoard.ready(wsBoard)) {
+          let ch = syncFromWS();
+          if (syncStatsFromWS()) ch = true;
+          if (ch) renderSoon();
+        }
         if (!auditPrinted) { auditPrinted = true; try { console.log(buildAuditReport()); } catch (e) { /* ignore */ } }
         // The Victory table can render a beat after the winner log line, so the
         // capture in buildGameRecord may have been too early. Keep trying until
