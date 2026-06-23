@@ -1011,34 +1011,20 @@
     '<circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>';  // more → presets menu
   const ICON_HELP = svgIcon('<circle cx="12" cy="12" r="10"/>' +
     '<path d="M9.1 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>');     // ? → how-to overlay
-  // One row in the how-to legend: a numbered marker + a bold title + a dim body.
-  function helpItem(icon, title, body) {
-    return `<div style="display:flex;gap:9px;margin:9px 0;">` +
-      `<span style="flex:0 0 auto;font-size:15px;line-height:1.35;">${icon}</span>` +
-      `<div><div style="font-weight:700;margin-bottom:1px;">${title}</div>` +
-      `<div style="color:${THEME.textDim};font-size:12px;">${body}</div></div></div>`;
-  }
-
-  // How-to coachmarks (the "?" button): dim the screen and drop a numbered marker on
-  // each interactive element currently on the panel, with a legend explaining them.
-  // Positions are measured live at open time, so it adapts to whatever's on screen
-  // (e.g. the row markers are skipped before a game has players). Clicking the dim
-  // backdrop or the ✕ closes it. The markers are pointer-events:none so a click on one
-  // falls through to the backdrop.
+  // How-to coachmark TOUR (the "?" button): a guided, one-step-at-a-time walkthrough.
+  // Each step spotlights ONE element on the panel (a bright ring + everything else
+  // dimmed) and parks a callout beside it explaining that exact control, with Back /
+  // Next. Positions are measured live at open time, so it adapts to what's on screen
+  // (the row controls are skipped before a game has players). overlay._helpStep(±1)
+  // walks the steps; the click handler routes data-act / data-close.
   function buildHelpCoachmarks(overlay) {
     if (!panel) return;
-    overlay.innerHTML = '';
-    const dim = document.createElement('div');
-    dim.dataset.close = '1';
-    dim.style.cssText = 'position:absolute;inset:0;background:rgba(20,14,4,.5);';
-    overlay.appendChild(dim);
-
     const TARGETS = [
-      { sel: '#cst-resync', title: t('helpReload', 'Reload'), body: t('helpReloadB', 'Re-sync from the game. Back at the lobby it clears a finished game instead. A tag confirms it ran.') },
-      { sel: '.cst-vtab', title: t('helpSwitch', 'Switch & collapse'), body: t('helpSwitchB', 'Click to switch Resources ⇄ Stats. A section header (or R / S / D) folds it; the 🎲 (or C) collapses the whole panel.') },
-      { sel: '[data-pipname]', title: t('helpPips', 'Setup pips'), body: t('helpPipsB', 'Click a player’s name to show their ⚅ pips; click the ⚅ number to switch coverage ⇄ expected cards per roll.') },
-      { sel: '#cst-resources [data-res]', title: t('helpHi', 'Highlight a number'), body: t('helpHiB', 'Click any value cell (or a dice column) to pin a highlight you can follow. Click again to clear.') },
-      { sel: '[data-colhead]', title: t('helpCol', 'A resource column'), body: t('helpColB', 'Click a resource header to highlight that column down opponents and show their total — what a Monopoly would take.') },
+      { sel: '#cst-resync', title: t('helpReload', 'Reload'), body: t('helpReloadB', 'Re-sync from the game. Back at the lobby it clears a finished game instead, and a small tag confirms it ran.') },
+      { sel: '.cst-vtab', title: t('helpSwitch', 'Switch & collapse'), body: t('helpSwitchB', 'Click to switch Resources ⇄ Stats. A section header (or R / S / D) folds it; the 🎲 in the corner (or C) collapses the whole panel.') },
+      { sel: '[data-pipname]', title: t('helpPips', 'Setup pips'), body: t('helpPipsB', 'Click a player’s name to show their ⚅ pips (board strength); click the ⚅ number to switch coverage ⇄ expected cards per roll.') },
+      { sel: '#cst-resources [data-res]', title: t('helpHi', 'Highlight a number'), body: t('helpHiB', 'Click any value cell (or a dice column) to pin a highlight you can follow through the game. Click again to clear.') },
+      { sel: '[data-colhead]', title: t('helpCol', 'A resource column'), body: t('helpColB', 'Click a resource header to highlight that column down every opponent and show their total — what a Monopoly would take.') },
     ];
     const found = [];
     for (const tg of TARGETS) {
@@ -1046,37 +1032,56 @@
       if (!el) continue;
       const r = el.getBoundingClientRect();
       if (!r.width && !r.height) continue;
-      const n = found.length + 1;
-      found.push({ n, title: tg.title, body: tg.body });
+      found.push({ title: tg.title, body: tg.body, r });
+    }
+    const navBtn = `padding:4px 10px;border-radius:7px;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};cursor:pointer;font-size:12px;`;
+    const navPrimary = `padding:4px 12px;border-radius:7px;border:1px solid ${THEME.accent};background:${THEME.accent};color:#fff;cursor:pointer;font-size:12px;font-weight:700;`;
+    const closeX = `<button data-close="1" aria-label="${t('close', 'Close')}" style="background:transparent;border:0;color:${THEME.textDim};font-size:18px;line-height:1;cursor:pointer;">✕</button>`;
+    let idx = 0;
+
+    function renderStep() {
+      overlay.innerHTML = '';
+      if (!found.length) {                                  // empty panel (no game yet)
+        const note = document.createElement('div');
+        note.style.cssText = `position:absolute;left:50%;top:32%;transform:translateX(-50%);width:260px;background:${THEME.bg};color:${THEME.text};border:1px solid ${THEME.border};border-radius:12px;padding:16px;box-shadow:0 0 0 9999px rgba(20,14,4,.5);`;
+        note.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;"><strong style="font-size:14px;color:${THEME.accent};">${t('helpTitle', 'How to use')}</strong>${closeX}</div>` +
+          `<p style="color:${THEME.textDim};font-size:12px;line-height:1.5;margin:.2em 0 0;">${t('helpEmpty', 'Join a game — then the player names, value cells and resource headers each get walked through here.')}</p>`;
+        overlay.appendChild(note);
+        return;
+      }
+      const f = found[idx], r = f.r;
+      // Spotlight: a bright ring on the target, everything else dimmed by the ring's
+      // huge box-shadow (so the highlighted control reads clearly). pointer-events:none
+      // → a click on the spotlight falls through to the overlay (which closes).
       const ring = document.createElement('div');
-      ring.style.cssText = `position:absolute;left:${r.left - 3}px;top:${r.top - 3}px;width:${r.width + 6}px;height:${r.height + 6}px;` +
-        `border:2px solid ${THEME.accent};border-radius:7px;pointer-events:none;box-shadow:0 0 0 2px rgba(255,255,255,.4);`;
+      ring.style.cssText = `position:absolute;left:${r.left - 4}px;top:${r.top - 4}px;width:${r.width + 8}px;height:${r.height + 8}px;` +
+        `border:2px solid ${THEME.accent};border-radius:8px;pointer-events:none;` +
+        `box-shadow:0 0 0 3px rgba(255,255,255,.5), 0 0 0 9999px rgba(20,14,4,.55);`;
       overlay.appendChild(ring);
-      const badge = document.createElement('div');
-      badge.textContent = String(n);
-      badge.style.cssText = `position:absolute;left:${r.left - 11}px;top:${r.top - 11}px;width:19px;height:19px;` +
-        `background:${THEME.accent};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;` +
-        `font-size:11px;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.45);pointer-events:none;`;
-      overlay.appendChild(badge);
+      // Callout beside the target: right if it fits, else left, else below.
+      const cw = 244;
+      let cx = r.right + 14, cy = Math.max(8, r.top - 6);
+      if (cx + cw > window.innerWidth - 8) cx = r.left - cw - 14;
+      if (cx < 8) { cx = Math.max(8, Math.min(r.left, window.innerWidth - cw - 8)); cy = r.bottom + 12; }
+      cy = Math.min(cy, window.innerHeight - 175);
+      const card = document.createElement('div');
+      card.style.cssText = `position:absolute;left:${cx}px;top:${cy}px;width:${cw}px;background:${THEME.bg};color:${THEME.text};` +
+        `border:1px solid ${THEME.border};border-radius:12px;box-shadow:0 12px 40px rgba(30,20,5,.5);padding:14px 16px;`;
+      card.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">` +
+        `<strong style="font-size:14px;color:${THEME.accent};">${f.title}</strong>${closeX}</div>` +
+        `<div style="color:${THEME.textDim};font-size:12px;line-height:1.5;">${f.body}</div>` +
+        `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;">` +
+        `<span style="color:${THEME.textDim};font-size:11px;">${idx + 1} / ${found.length}</span>` +
+        `<span style="display:flex;gap:6px;">` +
+        (idx > 0 ? `<button data-act="prev" style="${navBtn}">‹ ${t('back', 'Back')}</button>` : '') +
+        (idx < found.length - 1 ? `<button data-act="next" style="${navPrimary}">${t('next', 'Next')} ›</button>`
+          : `<button data-close="1" style="${navPrimary}">${t('done', 'Done')}</button>`) +
+        `</span></div>`;
+      overlay.appendChild(card);
     }
 
-    // Legend card: parked beside the panel (right if there's room, else left, else centred).
-    const pr = panel.getBoundingClientRect();
-    const lw = 250;
-    let lx = pr.right + 10;
-    if (lx + lw > window.innerWidth - 8) lx = pr.left - lw - 10;
-    if (lx < 8) lx = Math.max(8, (window.innerWidth - lw) / 2);
-    const numIcon = (n) => `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:${THEME.accent};color:#fff;border-radius:50%;font-size:11px;font-weight:800;">${n}</span>`;
-    const legend = document.createElement('div');
-    legend.style.cssText = `position:absolute;left:${lx}px;top:${Math.max(8, pr.top)}px;width:${lw}px;max-height:84vh;overflow:auto;` +
-      `background:${THEME.bg};color:${THEME.text};border:1px solid ${THEME.border};border-radius:12px;box-shadow:0 12px 40px rgba(30,20,5,.5);padding:14px 16px;`;
-    legend.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">` +
-      `<strong style="font-size:14px;color:${THEME.accent};">${t('helpTitle', 'How to use')}</strong>` +
-      `<button data-close="1" aria-label="${t('close', 'Close')}" style="background:transparent;border:0;color:${THEME.textDim};font-size:18px;line-height:1;cursor:pointer;">✕</button></div>` +
-      (found.length ? found.map((f) => helpItem(numIcon(f.n), f.title, f.body)).join('')
-        : `<p style="color:${THEME.textDim};font-size:12px;">${t('helpEmpty', 'Join a game to see the table actions explained here.')}</p>`) +
-      `<div style="margin-top:10px;text-align:right;color:${THEME.textDim};font-size:11px;">v${extVersion()}</div>`;
-    overlay.appendChild(legend);
+    overlay._helpStep = (dir) => { idx = Math.max(0, Math.min(found.length - 1, idx + dir)); renderStep(); };
+    renderStep();
   }
 
   // The extension version (from the manifest), shown in the ⋮ menu footer so a
@@ -1560,10 +1565,10 @@
         '#colonist-stats-tracker.cst-syncing #cst-resync svg{animation:cst-spin .6s linear infinite;}' +
         '@keyframes cst-spin{to{transform:rotate(360deg);}}' +
         // A thin scrollbar on the roll-order strip (so it reads as scrollable).
-        '#colonist-stats-tracker .cst-roll-scroll{scrollbar-width:thin;scrollbar-color:' + THEME.border + ' transparent;}' +
-        '#colonist-stats-tracker .cst-roll-scroll::-webkit-scrollbar{height:5px;}' +
-        '#colonist-stats-tracker .cst-roll-scroll::-webkit-scrollbar-thumb{background:' + THEME.border + ';border-radius:3px;}' +
-        '#colonist-stats-tracker .cst-roll-scroll::-webkit-scrollbar-track{background:transparent;}';
+        // The roll strip scrolls by drag / wheel — hide the scrollbar entirely.
+        '#colonist-stats-tracker .cst-roll-scroll{scrollbar-width:none;-ms-overflow-style:none;}' +
+        '#colonist-stats-tracker .cst-roll-scroll::-webkit-scrollbar{display:none;}' +
+        '#colonist-stats-tracker .cst-roll-scroll:active{cursor:grabbing;}';
       (document.head || document.documentElement).appendChild(st);
     }
 
@@ -1655,10 +1660,41 @@
     if (helpBtn && helpOverlay) {
       helpBtn.addEventListener('click', (e) => { e.stopPropagation(); buildHelpCoachmarks(helpOverlay); helpOverlay.style.display = 'block'; });
       helpOverlay.addEventListener('click', (e) => {
-        if ((e.target.dataset && e.target.dataset.close) || (e.target.closest && e.target.closest('[data-close]'))) {
+        const act = e.target.closest && e.target.closest('[data-act]');
+        if (act) { if (helpOverlay._helpStep) helpOverlay._helpStep(act.getAttribute('data-act') === 'next' ? 1 : -1); return; }
+        // ✕ / Done, or a click on the dimmed spotlight (the ring is pointer-events:none,
+        // so that click lands on the overlay itself) → close the tour.
+        if (e.target === helpOverlay || (e.target.dataset && e.target.dataset.close) || (e.target.closest && e.target.closest('[data-close]'))) {
           helpOverlay.style.display = 'none'; helpOverlay.innerHTML = '';
         }
       });
+    }
+
+    // Roll strip: drag-to-scroll + wheel-scroll (no scrollbar). Delegated off #cst-dice,
+    // which persists across renders (only its innerHTML is swapped), so the handlers
+    // survive every redraw of the recreated #cst-roll-scroll inside it.
+    const diceHost = host.querySelector('#cst-dice');
+    if (diceHost) {
+      diceHost.addEventListener('wheel', (e) => {
+        const sc = e.target.closest && e.target.closest('#cst-roll-scroll');
+        if (!sc || !e.deltaY) return;
+        sc.scrollLeft += e.deltaY;            // vertical wheel → horizontal scroll
+        e.preventDefault();
+      }, { passive: false });
+      let rollDrag = null;
+      diceHost.addEventListener('mousedown', (e) => {
+        const sc = e.target.closest && e.target.closest('#cst-roll-scroll');
+        if (!sc) return;
+        rollDrag = { sc, x: e.clientX, left: sc.scrollLeft, moved: false };
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', (e) => {
+        if (!rollDrag) return;
+        const dx = e.clientX - rollDrag.x;
+        if (Math.abs(dx) > 2) rollDrag.moved = true;
+        rollDrag.sc.scrollLeft = rollDrag.left - dx;
+      });
+      document.addEventListener('mouseup', () => { rollDrag = null; });
     }
 
     // Hover a resource COLUMN → highlight it with an overlay tinted in THAT
@@ -2275,15 +2311,18 @@
       : recent.map((n, i) => {
         const newest = i === recent.length - 1;
         const seven = n === 7;
-        return `<span style="${CHIP_BASE}` +
+        // margin-left:auto on the OLDEST chip right-aligns the group when it fits
+        // (newest on the right, as before); once it overflows the auto margin
+        // collapses and the row scrolls (drag / wheel) instead.
+        return `<span style="${CHIP_BASE}${i === 0 ? 'margin-left:auto;' : ''}` +
           `background:${seven ? THEME.bad : '#fbf9f4'};color:${seven ? '#fff' : THEME.text};` +
           `border:1px solid ${seven ? THEME.bad : THEME.border};` +
           `${newest ? `box-shadow:0 0 0 2px ${THEME.accent}55;` : 'opacity:.9;'}">${n}</span>`;
       }).join('');
-    const tip = empty ? '' : ` data-tip="${t('tipLastRolls', 'Recent rolls — scroll to see earlier ones; newest on the right')}"`;
+    const tip = empty ? '' : ` data-tip="${t('tipLastRolls', 'Recent rolls — newest on the right; drag or scroll to see earlier ones')}"`;
     return `<div style="display:flex;gap:0.45em;align-items:center;margin:0 0 0.6em;flex:0 0 auto;">` +
       `<span style="flex:0 0 auto;color:${THEME.textDim};font-size:0.7em;white-space:nowrap;${empty ? 'visibility:hidden;' : ''}">${t('rollOrder', 'Roll order')}</span>` +
-      `<div id="cst-roll-scroll" class="cst-roll-scroll"${tip} style="flex:1 1 auto;min-width:0;display:flex;gap:0.25em;align-items:center;overflow-x:auto;overflow-y:hidden;padding:1px 1px 2px;">${chips}</div></div>`;
+      `<div id="cst-roll-scroll" class="cst-roll-scroll"${tip} style="flex:1 1 auto;min-width:0;display:flex;gap:0.25em;align-items:center;overflow-x:auto;overflow-y:hidden;padding:1px 1px 2px;cursor:grab;">${chips}</div></div>`;
   }
 
   // Dice histogram bars (the section header lives in the static skeleton).
