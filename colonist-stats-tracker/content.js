@@ -1002,12 +1002,72 @@
     '<circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>';  // more → presets menu
   const ICON_HELP = svgIcon('<circle cx="12" cy="12" r="10"/>' +
     '<path d="M9.1 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>');     // ? → how-to overlay
-  // One row in the how-to overlay: an emoji marker + a bold title + a dim body.
+  // One row in the how-to legend: a numbered marker + a bold title + a dim body.
   function helpItem(icon, title, body) {
     return `<div style="display:flex;gap:9px;margin:9px 0;">` +
       `<span style="flex:0 0 auto;font-size:15px;line-height:1.35;">${icon}</span>` +
       `<div><div style="font-weight:700;margin-bottom:1px;">${title}</div>` +
       `<div style="color:${THEME.textDim};font-size:12px;">${body}</div></div></div>`;
+  }
+
+  // How-to coachmarks (the "?" button): dim the screen and drop a numbered marker on
+  // each interactive element currently on the panel, with a legend explaining them.
+  // Positions are measured live at open time, so it adapts to whatever's on screen
+  // (e.g. the row markers are skipped before a game has players). Clicking the dim
+  // backdrop or the ✕ closes it. The markers are pointer-events:none so a click on one
+  // falls through to the backdrop.
+  function buildHelpCoachmarks(overlay) {
+    if (!panel) return;
+    overlay.innerHTML = '';
+    const dim = document.createElement('div');
+    dim.dataset.close = '1';
+    dim.style.cssText = 'position:absolute;inset:0;background:rgba(20,14,4,.5);';
+    overlay.appendChild(dim);
+
+    const TARGETS = [
+      { sel: '#cst-resync', title: t('helpReload', 'Reload'), body: t('helpReloadB', 'Re-sync from the game. Back at the lobby it clears a finished game instead. A tag confirms it ran.') },
+      { sel: '.cst-vtab', title: t('helpSwitch', 'Switch & collapse'), body: t('helpSwitchB', 'Click to switch Resources ⇄ Stats. A section header (or R / S / D) folds it; the 🎲 (or C) collapses the whole panel.') },
+      { sel: '[data-pipname]', title: t('helpPips', 'Setup pips'), body: t('helpPipsB', 'Click a player’s name to show their ⚅ pips; click the ⚅ number to switch coverage ⇄ expected cards per roll.') },
+      { sel: '#cst-resources [data-res]', title: t('helpHi', 'Highlight a number'), body: t('helpHiB', 'Click any value cell (or a dice column) to pin a highlight you can follow. Click again to clear.') },
+      { sel: '[data-colhead]', title: t('helpCol', 'A resource column'), body: t('helpColB', 'Click a resource header to highlight that column down opponents and show their total — what a Monopoly would take.') },
+    ];
+    const found = [];
+    for (const tg of TARGETS) {
+      const el = panel.querySelector(tg.sel);
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      if (!r.width && !r.height) continue;
+      const n = found.length + 1;
+      found.push({ n, title: tg.title, body: tg.body });
+      const ring = document.createElement('div');
+      ring.style.cssText = `position:absolute;left:${r.left - 3}px;top:${r.top - 3}px;width:${r.width + 6}px;height:${r.height + 6}px;` +
+        `border:2px solid ${THEME.accent};border-radius:7px;pointer-events:none;box-shadow:0 0 0 2px rgba(255,255,255,.4);`;
+      overlay.appendChild(ring);
+      const badge = document.createElement('div');
+      badge.textContent = String(n);
+      badge.style.cssText = `position:absolute;left:${r.left - 11}px;top:${r.top - 11}px;width:19px;height:19px;` +
+        `background:${THEME.accent};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;` +
+        `font-size:11px;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.45);pointer-events:none;`;
+      overlay.appendChild(badge);
+    }
+
+    // Legend card: parked beside the panel (right if there's room, else left, else centred).
+    const pr = panel.getBoundingClientRect();
+    const lw = 250;
+    let lx = pr.right + 10;
+    if (lx + lw > window.innerWidth - 8) lx = pr.left - lw - 10;
+    if (lx < 8) lx = Math.max(8, (window.innerWidth - lw) / 2);
+    const numIcon = (n) => `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:${THEME.accent};color:#fff;border-radius:50%;font-size:11px;font-weight:800;">${n}</span>`;
+    const legend = document.createElement('div');
+    legend.style.cssText = `position:absolute;left:${lx}px;top:${Math.max(8, pr.top)}px;width:${lw}px;max-height:84vh;overflow:auto;` +
+      `background:${THEME.bg};color:${THEME.text};border:1px solid ${THEME.border};border-radius:12px;box-shadow:0 12px 40px rgba(30,20,5,.5);padding:14px 16px;`;
+    legend.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">` +
+      `<strong style="font-size:14px;color:${THEME.accent};">${t('helpTitle', 'How to use')}</strong>` +
+      `<button data-close="1" aria-label="${t('close', 'Close')}" style="background:transparent;border:0;color:${THEME.textDim};font-size:18px;line-height:1;cursor:pointer;">✕</button></div>` +
+      (found.length ? found.map((f) => helpItem(numIcon(f.n), f.title, f.body)).join('')
+        : `<p style="color:${THEME.textDim};font-size:12px;">${t('helpEmpty', 'Join a game to see the table actions explained here.')}</p>`) +
+      `<div style="margin-top:10px;text-align:right;color:${THEME.textDim};font-size:11px;">v${extVersion()}</div>`;
+    overlay.appendChild(legend);
   }
 
   // The extension version (from the manifest), shown in the ⋮ menu footer so a
@@ -1450,21 +1510,7 @@
           </div>
         </div>
       </div>
-      <div id="cst-help-overlay" style="display:none;position:fixed;inset:0;z-index:2147483646;background:rgba(20,14,4,.45);align-items:center;justify-content:center;">
-        <div style="background:${THEME.bg};color:${THEME.text};max-width:340px;width:86vw;max-height:80vh;overflow:auto;border:1px solid ${THEME.border};border-radius:12px;box-shadow:0 12px 40px rgba(30,20,5,.5);padding:16px 18px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-            <strong style="font-size:15px;color:${THEME.accent};">${t('helpTitle', 'How to use')}</strong>
-            <button id="cst-help-close" aria-label="${t('close', 'Close')}" style="background:transparent;border:0;color:${THEME.textDim};font-size:18px;line-height:1;cursor:pointer;padding:0 2px;">✕</button>
-          </div>
-          <p style="margin:.1em 0 .6em;color:${THEME.textDim};font-size:12px;line-height:1.5;">${t('helpIntro', 'Most things explain themselves on hover. These are the click actions worth knowing:')}</p>
-          ${helpItem('🖱️', t('help1Title', 'Highlight a number'), t('help1Body', 'Click any value cell, or a dice column, to pin a soft highlight you can follow through the game. Click it again to clear.'))}
-          ${helpItem('👤', t('help2Title', 'A player’s setup pips'), t('help2Body', 'Click a player’s name to show their ⚅ pips (board strength) with a per-resource breakdown. Click the ⚅ number to switch coverage ⇄ expected cards per roll. Click the name again to hide.'))}
-          ${helpItem('📊', t('help3Title', 'Opponents’ holding of a resource'), t('help3Body', 'Click a resource icon header to highlight that column down every opponent and show their total of it — what a Monopoly would take. Click again to unpin.'))}
-          ${helpItem('🔀', t('help4Title', 'Switch & collapse'), t('help4Body', 'Click “Resources / Stats” to switch tables. Click a section header (or press R / S / D) to fold it, and the 🎲 in the corner (or press C) to collapse the whole panel.'))}
-          ${helpItem('🔄', t('help5Title', 'Reload'), t('help5Body', 'Re-syncs the panel from the live game. Back at the lobby with a finished game still shown, it clears it instead. A small tag confirms it ran.'))}
-          <div style="margin-top:12px;text-align:right;color:${THEME.textDim};font-size:11px;">v${extVersion()}</div>
-        </div>
-      </div>
+      <div id="cst-help-overlay" style="display:none;position:fixed;inset:0;z-index:2147483646;"></div>
       <div id="cst-body" style="display:flex;flex-direction:column;flex:1 1 auto;min-height:0;
            overflow:auto;padding:12px 14px 13px;">
         <div id="cst-dice-head" data-fold="diceCollapsed" style="${secHead}flex:0 0 auto;margin-bottom:7px;">
@@ -1598,10 +1644,10 @@
     const helpBtn = host.querySelector('#cst-help');
     const helpOverlay = host.querySelector('#cst-help-overlay');
     if (helpBtn && helpOverlay) {
-      helpBtn.addEventListener('click', (e) => { e.stopPropagation(); helpOverlay.style.display = 'flex'; });
+      helpBtn.addEventListener('click', (e) => { e.stopPropagation(); buildHelpCoachmarks(helpOverlay); helpOverlay.style.display = 'block'; });
       helpOverlay.addEventListener('click', (e) => {
-        if (e.target === helpOverlay || (e.target.closest && e.target.closest('#cst-help-close'))) {
-          helpOverlay.style.display = 'none';
+        if ((e.target.dataset && e.target.dataset.close) || (e.target.closest && e.target.closest('[data-close]'))) {
+          helpOverlay.style.display = 'none'; helpOverlay.innerHTML = '';
         }
       });
     }
