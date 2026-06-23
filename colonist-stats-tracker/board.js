@@ -21,7 +21,7 @@
   // geometry and compare to colonist's actual type-47 broadcast. `expect`/`actual`
   // are the in-flight roll (settled on the next roll); trail keeps the recent
   // verdicts as a small evidence log. Conflicts are recorded, not acted on.
-  function freshAudit() { return { confirms: 0, conflicts: 0, trail: [], expect: null, actual: {} }; }
+  function freshAudit() { return { confirms: 0, conflicts: 0, skipped: 0, trail: [], expect: null, actual: {} }; }
 
   function createBoard() {
     return {
@@ -101,8 +101,11 @@
           for (const c of cards) { s.gained += 1; s.gainedRes[c] = (s.gainedRes[c] || 0) + 1; }
           reconApply(b, text.playerColor, cards, +1);
         }
-        // roll production (47, not Year of Plenty 21) feeds the geometry self-audit
-        if (text.type === 47 && fromDiff) auditProduce(b, text.playerColor, text.cardsToBroadcast || []);
+        // roll-yield production (47 with distributionType 1 — NOT setup placement's
+        // distributionType 0, nor Year of Plenty 21) feeds the geometry self-audit.
+        if (text.type === 47 && text.distributionType === 1 && fromDiff) {
+          auditProduce(b, text.playerColor, text.cardsToBroadcast || []);
+        }
       } else if (text.type === 116) {
         // Bank/port trade: this player only. -given +received.
         reconApply(b, text.playerColor, text.givenCardEnums || [], -1);
@@ -203,6 +206,12 @@
     const gid = (payload && payload.gameSettings && payload.gameSettings.id) || null;
     if (gid != null && gid !== b.gameId) resetAccrual(b);
     if (gid != null) b.gameId = gid;
+    // A full state (new game OR a same-id reconnect) interrupts any in-flight audit
+    // round: the live production stream is replaced by the history replay, which does
+    // NOT feed the audit (fromDiff=false). Drop the open prediction so it isn't settled
+    // against an empty `actual` on the next roll — a false conflict. (resetAccrual
+    // already cleared it on a new game; this also covers the reconnect.)
+    if (b.audit) { b.audit.expect = null; b.audit.actual = {}; }
     const gs = (payload && payload.gameState) || {};
     const map = gs.mapState || {};
     b.tiles = {}; b.coordToTile = {};
@@ -402,6 +411,14 @@
     const au = b.audit;
     if (!au || !au.expect) return;
     const pred = au.expect.pred, act = au.actual || {};
+    // nothing predicted AND nothing produced (a 7, or a number no building touches):
+    // no geometric evidence either way — count as skipped, not a confirmation, so the
+    // ✓ tally means "the geometry was actually exercised and held".
+    if (!Object.keys(pred).length && !Object.keys(act).length) {
+      au.skipped += 1;
+      au.expect = null; au.actual = {};
+      return;
+    }
     const ok = productionEqual(pred, act);
     if (ok) au.confirms += 1; else au.conflicts += 1;
     au.trail.push({ roll: au.expect.roll, robber: au.expect.robber, pred, actual: act, ok });

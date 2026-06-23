@@ -34,8 +34,11 @@ let idx = 100;
 function roll(b, sum) {
   B.applyDiff(b, { gameLogState: { [++idx]: { text: { type: 10, firstDice: 1, secondDice: sum - 1 } } } });
 }
-function produce(b, color, cards) {
-  B.applyDiff(b, { gameLogState: { [++idx]: { text: { type: 47, playerColor: color, cardsToBroadcast: cards } } } });
+function produce(b, color, cards) {   // roll-yield production carries distributionType 1
+  B.applyDiff(b, { gameLogState: { [++idx]: { text: { type: 47, playerColor: color, cardsToBroadcast: cards, distributionType: 1 } } } });
+}
+function produceSetup(b, color, cards) {   // initial-placement production: distributionType 0
+  B.applyDiff(b, { gameLogState: { [++idx]: { text: { type: 47, playerColor: color, cardsToBroadcast: cards, distributionType: 0 } } } });
 }
 function moveRobber(b, tile) { B.applyDiff(b, { mechanicRobberState: { locationTileIndex: tile } }); }
 function fresh(id) { const b = B.createBoard(); B.applyFullState(b, fullState(id).payload); return b; }
@@ -63,23 +66,44 @@ test('a roll whose production disagrees with the geometry is a conflict', () => 
   assert.equal(a.trail[0].roll, 8);
 });
 
-test('the robbed tile is predicted to produce nothing — a blocked roll still confirms', () => {
+test('a blocked roll (nothing predicted, nothing produced) is skipped, not a confirm', () => {
   const b = fresh('c');
   moveRobber(b, 7);        // robber on the ore tile
   roll(b, 8);              // server produces nothing (blocked); geometry predicts nothing too
   roll(b, 6);              // settle
   const a = B.auditOf(b);
-  assert.equal(a.confirms, 1, 'empty == empty');
+  assert.equal(a.confirms, 0, 'empty vs empty is no geometric evidence');
+  assert.equal(a.skipped, 1);
   assert.equal(a.conflicts, 0);
   assert.equal(B.blockedLossOf(b, 1), 1, 'and the block was still counted as a loss');
 });
 
-test('a 7 (no production tile) is safe and confirms', () => {
+test('a 7 (no production tile) is safe — skipped, never a conflict', () => {
   const b = fresh('d');
   roll(b, 7);
   roll(b, 8);              // settle the 7
   const a = B.auditOf(b);
   assert.equal(a.conflicts, 0);
+  assert.equal(a.skipped, 1);
+});
+
+test('a setup-placement type-47 (distributionType 0) during an open roll is ignored', () => {
+  const b = fresh('dt');
+  roll(b, 6);               // geometry predicts nothing on 6 (no 6-tile) → would be skipped...
+  produceSetup(b, 1, [5]);  // ...but a stray distributionType-0 ore must NOT pollute the actual
+  roll(b, 8);               // settle the 6: pred {} vs actual {} (the setup 47 was filtered)
+  const a = B.auditOf(b);
+  assert.equal(a.conflicts, 0, 'the setup production is not counted as a roll yield');
+  assert.equal(a.skipped, 1);
+});
+
+test('a same-id reconnect mid-roll drops the in-flight prediction (no false conflict)', () => {
+  const b = fresh('rc');
+  roll(b, 8);                                  // predicts colour 1 gets 1 ore; expect is open
+  B.applyFullState(b, fullState('rc').payload); // SAME id reconnect arrives before the type-47
+  roll(b, 6);                                   // would have settled 8 against empty actual → conflict
+  const a = B.auditOf(b);
+  assert.equal(a.conflicts, 0, 'the interrupted round is dropped, not settled as a conflict');
 });
 
 test('production split into a later diff than the roll still reconciles', () => {

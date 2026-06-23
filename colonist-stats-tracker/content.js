@@ -3379,8 +3379,12 @@
   // history list needs, with no references back into live state.
   function buildGameRecord(winnerName) {
     settleRound();   // the winner line has no "next roll" — settle the final round here
-    if (wsBoard && __cstBoard.auditSettle) __cstBoard.auditSettle(wsBoard);  // settle the final roll's geometry audit
     syncEndgameBlocked();   // snap ⛔ to colonist's exact Victory-table values (if shown)
+    // The geometry audit is NOT force-settled at game end: the final roll's type-47 may
+    // not have relayed before the winner line, and settling a non-empty prediction
+    // against an empty actual would manufacture a false ✗. The record carries the
+    // COMMITTED verdicts (each roll settled by the following one); the last roll is left
+    // uncounted rather than risk a spurious conflict in the archive.
     const au = (wsBoard && __cstBoard.auditOf) ? __cstBoard.auditOf(wsBoard) : null;
     return {
       date: state.gameStartTs || Date.now(),
@@ -3401,7 +3405,7 @@
       }, {}),
       // geometry self-audit summary for this game — evidence the corner→tile geometry
       // (and the blocked-loss it feeds) held up against colonist's actual production.
-      geomAudit: au ? { confirms: au.confirms, conflicts: au.conflicts,
+      geomAudit: au ? { confirms: au.confirms, conflicts: au.conflicts, skipped: au.skipped || 0,
         conflictSamples: (au.trail || []).filter((t) => !t.ok).slice(-5) } : null,
     };
   }
@@ -4060,7 +4064,7 @@
       // the blocked-loss it feeds) is right on this board. ✗ = a real geometry bug.
       const au = __cstBoard.auditOf(wsBoard);
       const lastBad = (au.trail || []).filter((t) => !t.ok).slice(-1)[0];
-      L.push('geometry audit: ' + au.confirms + ' ✓ / ' + au.conflicts + ' ✗'
+      L.push('geometry audit: ' + au.confirms + ' ✓ / ' + au.conflicts + ' ✗ / ' + (au.skipped || 0) + ' – (empty)'
         + (au.conflicts ? '  ⚠️ GEOMETRY MISMATCH' : '')
         + (lastBad ? ' | last✗ roll ' + lastBad.roll + ' pred=' + JSON.stringify(lastBad.pred) + ' got=' + JSON.stringify(lastBad.actual) : ''));
     }

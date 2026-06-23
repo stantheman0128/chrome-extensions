@@ -221,6 +221,37 @@ test('two Blobs in quick succession relay IN ORDER despite the async arrayBuffer
   assert.deepEqual(sink.got.map((m) => m.data.payload.diff.tag), ['A', 'B'], 'relayed in arrival order');
 });
 
+test('adversarial: order holds even when the FIRST frame\'s arrayBuffer resolves LAST', async () => {
+  // The previous test passes by luck — normal Blobs resolve in order. Force the
+  // reorder Codex flagged: make frame A's arrayBuffer() resolve slower than B's. With
+  // the per-socket chain, B's arrayBuffer() isn't called until A has recorded, so the
+  // relay order stays A,B. Without the chain it would be B,A (the bug).
+  const realAB = globalThis.Blob.prototype.arrayBuffer;
+  let call = 0;
+  globalThis.Blob.prototype.arrayBuffer = function () {
+    const delay = (call++ === 0) ? 25 : 0;   // the first arrayBuffer() call (frame A) is the slow one
+    return new Promise((resolve, reject) => setTimeout(() => realAB.call(this).then(resolve, reject), delay));
+  };
+  try {
+    const bytesA = roundTrip({ id: '130', data: { type: 91, payload: { diff: { tag: 'A' } } } });
+    const bytesB = roundTrip({ id: '130', data: { type: 91, payload: { diff: { tag: 'B' } } } });
+
+    const sink = collectRelays();
+    const ws = fakeSocket();
+    inspector.tap(ws);
+    ws.deliver(blobOf(bytesA));   // first to arrive, slowest to decode
+    ws.deliver(blobOf(bytesB));   // second to arrive, decodes immediately
+    await waitFor(sink.got, 2, 80);
+    sink.stop();
+
+    assert.equal(sink.got.length, 2, 'both frames relayed');
+    assert.deepEqual(sink.got.map((m) => m.data.payload.diff.tag), ['A', 'B'],
+      'arrival order preserved despite A resolving after B');
+  } finally {
+    globalThis.Blob.prototype.arrayBuffer = realAB;
+  }
+});
+
 test('non-130 frames (e.g. the id=136 heartbeat) decode but are NOT relayed', async () => {
   // The real captured heartbeat from msgpack.test.js — proves the relay gate is on
   // id, so the 1/sec heartbeat never reaches the board model.

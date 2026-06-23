@@ -79,12 +79,25 @@
   }
 
   function tap(ws) {
+    // Serialize this socket's incoming frames. Each binary frame is decoded after an
+    // async Blob.arrayBuffer(), and two frames fired back-to-back have NO ordering
+    // guarantee on their own — a later frame whose buffer resolves first would relay
+    // first, e.g. a roll's type-47 ahead of its type-10. Chaining every frame through
+    // one promise makes relay order == arrival order: frame N's arrayBuffer() isn't
+    // even started until frame N-1 has been recorded.
+    // Serialize this socket's incoming frames. Each binary frame is decoded after an
+    // async Blob.arrayBuffer(), and two frames fired back-to-back have NO ordering
+    // guarantee on their own — a later frame whose buffer resolves first would relay
+    // first, e.g. a roll's type-47 ahead of its type-10. Chaining every frame through
+    // one promise makes relay order == arrival order: frame N's arrayBuffer() isn't
+    // even started until frame N-1 has been recorded.
+    let chain = Promise.resolve();
     ws.addEventListener('message', (ev) => {
       const d = ev.data;
       if (typeof Blob !== 'undefined' && d instanceof Blob) {
-        d.arrayBuffer().then((ab) => record('in', ab)).catch(() => {});
+        chain = chain.then(() => d.arrayBuffer()).then((ab) => record('in', ab), () => {});
       } else {
-        record('in', d);
+        chain = chain.then(() => record('in', d));
       }
     });
     const send = ws.send;
