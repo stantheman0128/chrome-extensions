@@ -346,18 +346,34 @@
     return false;
   }
 
-  // Single writer for hands: once the WS board is the authoritative source, the DOM
-  // log must NOT also mutate p.resources. Otherwise the same event (a roll's
-  // production, a steal) is applied twice — once by syncFromWS, once by the DOM parser
-  // — and the floating "+N" briefly shows the doubled value (e.g. +4) before the next
-  // sync trims it (−2). The WS path owns the resource counts here; the DOM path still
-  // does yield-learning, the block differential and the Stats tally, just not the hand
-  // totals. It falls back to mutating hands only before the WS board is ready.
-  function wsOwnsHands() { return !!(wsBoard && __cstBoard && __cstBoard.ready(wsBoard)); }
+  // Single writer for hands: once the WS board is the authoritative source for a player,
+  // the DOM log must NOT also mutate that player's p.resources — the same event (a roll's
+  // production, a steal) would be applied twice (syncFromWS once, the DOM parser once) and
+  // the floating "+N" would briefly show the doubled value before the next sync trims it.
+  // Decided PER PLAYER, not globally: a blanket "board is ready" guard would also freeze
+  // the DOM path for a player the board CAN'T supply a count for (no colour mapping, or a
+  // masked hand whose handCount is null) — and since syncFromWS skips those too, that
+  // player would be persistently UNDER-counted. So WS owns a player's hand only when the
+  // board is ready AND maps them to a colour it has an authoritative count for; otherwise
+  // the DOM stays live for them as a fallback. The DOM still does yield-learning, the
+  // block differential and the log-only Stats columns regardless.
+  function wsOwnsHand(p) {
+    if (!p || !wsBoard || !__cstBoard || !__cstBoard.ready(wsBoard)) return false;
+    const color = wsColorOf(p.name);
+    return color != null && __cstBoard.handCountOf(wsBoard, color) != null;
+  }
+  // Same per-player rule for the Stats columns the WS owns (gained / discard): the DOM
+  // tally must not also increment them for a player the board tracks, or onGameWon could
+  // archive a doubled figure before the next WS tick overwrites the live value.
+  function wsOwnsStats(p) {
+    if (!p || !wsBoard || !__cstBoard || !__cstBoard.ready(wsBoard)) return false;
+    const color = wsColorOf(p.name);
+    return color != null && !!(__cstBoard.statsOf && __cstBoard.statsOf(wsBoard, color));
+  }
 
   // Add cards of known type.
   function giveResource(p, type, n = 1) {
-    if (!p || !type || wsOwnsHands()) return;
+    if (!p || !type || wsOwnsHand(p)) return;
     p.resources[type] += n;
   }
 
@@ -365,7 +381,7 @@
   // that type in the known pool, the shortfall comes out of the unknown
   // pool — meaning those stolen cards are retroactively identified.
   function takeResource(p, type, n = 1) {
-    if (!p || !type || wsOwnsHands()) return;
+    if (!p || !type || wsOwnsHand(p)) return;
     const have = p.resources[type];
     if (have >= n) {
       p.resources[type] -= n;
@@ -395,15 +411,20 @@
   }
 
   function transferUnknown(fromP, toP) {
-    if (!fromP || !toP || wsOwnsHands()) return;
-    if (fromP.unknown > 0) {
-      fromP.unknown -= 1;
-    } else {
-      // No unknown card to move — pull from their largest known pile instead, so
-      // the stolen card becomes one of our unknowns (minimises surprise).
-      takeLargestKnown(fromP);
+    if (!fromP || !toP) return;
+    // Per-side ownership: touch only the side the WS board doesn't already own. Skipping
+    // both blindly when the board is ready would make a non-owned side silently lose (or
+    // never gain) its card; applying both to an owned side would double-count it.
+    if (!wsOwnsHand(fromP)) {
+      if (fromP.unknown > 0) {
+        fromP.unknown -= 1;
+      } else {
+        // No unknown card to move — pull from their largest known pile instead, so
+        // the stolen card becomes one of our unknowns (minimises surprise).
+        takeLargestKnown(fromP);
+      }
     }
-    toP.unknown += 1;
+    if (!wsOwnsHand(toP)) toP.unknown += 1;
   }
 
   // =============================================================
@@ -660,9 +681,14 @@
       if (total > 0 && player) {
         for (const r of RESOURCES) giveResource(player, r, counts[r]);
         const ty = tallyOf(player.name);
-        ty.gained += total;
-        for (const r of RESOURCES) {
-          if (counts[r]) ty.gainedRes[r] = (ty.gainedRes[r] || 0) + counts[r];
+        // WS owns the gained column for a tracked player (syncStatsFromWS overwrites it
+        // from the board's type-47/21 accrual); the DOM only feeds it as a fallback, so a
+        // Victory snapshot can't freeze a doubled figure. Yield learning below still runs.
+        if (!wsOwnsStats(player)) {
+          ty.gained += total;
+          for (const r of RESOURCES) {
+            if (counts[r]) ty.gainedRes[r] = (ty.gainedRes[r] || 0) + counts[r];
+          }
         }
         // Learn the yield map ONLY from bare-"got" roll production (not initial
         // "received starting resources", not YoP "took from bank"). Per-resource
@@ -776,7 +802,10 @@
             if (other === player) continue;
             const lostN = other.resources[r];
             if (lostN > 0) {
-              other.resources[r] = 0;
+              // WS owns the victim's hand → let syncFromWS reflect the monopoly rather
+              // than zeroing here (a DOM-first monopoly would otherwise drop the victim
+              // while the gated taker stays put, breaking card conservation transiently).
+              if (!wsOwnsHand(other)) other.resources[r] = 0;
               recordMonopoly(player.name, other.name, r, lostN);
             }
           }
@@ -3609,6 +3638,10 @@
   // A self-contained snapshot of the finished game — everything the popup's
   // history list needs, with no references back into live state.
   function buildGameRecord(winnerName) {
+    // Snapshot from WS-authoritative values: a DOM hand/stat bump not yet overwritten by
+    // the next WS tick must not be frozen into the saved record (live state self-heals
+    // each tick, but the archived record wouldn't). Covers gained / discard / hands.
+    if (wsBoard && __cstBoard.ready(wsBoard)) { syncFromWS(); syncStatsFromWS(); }
     settleRound();   // the winner line has no "next roll" — settle the final round here
     syncEndgameBlocked();   // snap ⛔ to colonist's exact Victory-table values (if shown)
     // The geometry audit is NOT force-settled at game end: the final roll's type-47 may
