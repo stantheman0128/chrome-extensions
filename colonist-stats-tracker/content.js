@@ -1001,6 +1001,12 @@
     'aria-hidden="true" style="display:block;"><circle cx="12" cy="5" r="1.7"/>' +
     '<circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>';  // more → presets menu
 
+  // The extension version (from the manifest), shown in the ⋮ menu footer so a
+  // reload can be confirmed at a glance — the manifest reloads with the extension.
+  function extVersion() {
+    return (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest)
+      ? chrome.runtime.getManifest().version : '';
+  }
   function menuBtn(act, label) {
     return `<button data-act="${act}" class="cst-menu-item" style="display:block;width:100%;` +
       `text-align:left;background:transparent;border:0;color:${THEME.text};border-radius:5px;` +
@@ -1432,6 +1438,7 @@
             <button data-act="font-down" data-tip="${t('tipSmallerText', 'Smaller text')}" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A−</button>
             <button data-act="font-up" data-tip="${t('tipLargerText', 'Larger text')}" style="display:inline-flex;align-items:center;justify-content:center;min-width:2.1em;height:1.8em;padding:0 .45em;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};border-radius:5px;cursor:pointer;font-size:0.85em;line-height:1;white-space:nowrap;transition:background .12s;">A+</button>
           </div>
+          <div style="padding:6px 8px 2px;margin-top:3px;border-top:1px solid ${THEME.border};font-size:0.72em;color:${THEME.textDim};text-align:right;" data-tip="${t('tipVersion', 'Extension version — confirm this updated after reloading the extension')}">v${extVersion()}</div>
         </div>
       </div>
       <div id="cst-body" style="display:flex;flex-direction:column;flex:1 1 auto;min-height:0;
@@ -3570,6 +3577,11 @@
 
   function updateGhost() {
     if (!panel || typeof getComputedStyle !== 'function' || typeof window === 'undefined') return;
+    // A finished game (Victory / end screen) must NOT fade the panel: the board is
+    // gone so the dialog-overlap probe would read the Victory screen as an overlay and
+    // ghost the panel — but this is exactly when the player wants to read the stats
+    // against colonist's own Victory table. Keep it solid and clickable.
+    if (lifecycle === LIFE.ENDED) { applyGhost(''); return; }
     const pr = panel.getBoundingClientRect();
     const moved = !!lastPanelXY &&
       (Math.abs(pr.left - lastPanelXY.x) > 1 || Math.abs(pr.top - lastPanelXY.y) > 1);
@@ -3835,13 +3847,30 @@
   // and dim the body for the operation's duration, with a 450ms floor so the (now
   // instant) WS path still registers as a deliberate reload. The class doubles as
   // the re-entrancy guard, so a second click mid-spin is a no-op.
+  // Wipe a leftover finished game once we're back at the lobby / main screen — a
+  // manual reload there means "I'm done with that game". Mirrors a new-game
+  // transition without waiting for the next game to begin.
+  function clearEndedGame() {
+    resetState();
+    if (wsBoard && __cstBoard.createBoard) Object.assign(wsBoard, __cstBoard.createBoard());
+    blockedSnap = null;
+    setGameSig('');
+    lifecycle = LIFE.LOBBY;
+    lastCounts = null;        // a cleared panel must not shower +N/−N floats on the next render
+    persistState();
+    render();
+  }
   async function runResync() {
     if (!panel || panel.classList.contains('cst-syncing')) return;
     panel.classList.add('cst-syncing');
     if (clearHighlights()) render();   // a manual resync also drops any pinned highlights
     const started = Date.now();
     try {
-      await deepRescrape();
+      // Back at the lobby / main screen with a finished game still on the panel, a
+      // manual reload means "clear it". During a live game (or on the Victory screen,
+      // where you're reading the stats), it stays a deep re-sync as before.
+      if (lifecycle === LIFE.LOBBY) clearEndedGame();
+      else await deepRescrape();
     } finally {
       const elapsed = Date.now() - started;
       if (elapsed < 450) await sleep(450 - elapsed);
@@ -4182,6 +4211,7 @@
       attachObserver,
       logIsContinuation,
       deepRescrape,
+      clearEndedGame,
       onGameWon,
       startNextGame,
       getLifecycle: () => lifecycle,
