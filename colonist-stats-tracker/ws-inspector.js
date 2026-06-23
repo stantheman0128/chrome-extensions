@@ -215,4 +215,9 @@
   // Global alias so a finished game can be cross-checked with a bare __cstAudit().
   window.__cstAudit = function () { window.postMessage({ __cstAuditReq: true }, '*'); return 'audit requested — report prints below'; };
   console.log('%c[CST] WS inspector active — play, then run __cstAudit() or __cstWS.dump()', 'color:#2f6f9f;font-weight:600');
+
+  // Under Node (the test harness) expose the real frame pipeline so a test can
+  // drive a Blob through tap()'s message handler → arrayBuffer → decode → relay.
+  // In the MAIN world `module` is undefined, so this is inert there.
+  if (typeof module !== 'undefined' && module.exports) module.exports = { tap, record, Wrapped };
 })();

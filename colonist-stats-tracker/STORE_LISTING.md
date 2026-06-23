@@ -1,6 +1,6 @@
 # Chrome Web Store — 上架資料與提交清單
 
-> Colonist.io Stats Tracker · v1.91.0 · 能見度建議 **Unlisted（不公開，有連結即可安裝）**
+> Colonist.io Stats Tracker · v1.95.0 · 能見度建議 **Unlisted（不公開，有連結即可安裝）**
 
 這份檔案把 CWS Dashboard 要填的欄位都備好，方便你逐欄複製貼上。
 **只有你能做的事**集中在最後「F. 你要親自做的」。
@@ -9,10 +9,9 @@
 
 ## A. 要上傳的套件（zip）
 
-- 版本：**1.91.0**，zip 內 `manifest.json` 在最上層（CWS 規定），可直接上傳。
-- 取得方式（擇一）：
-  1. push 之後到 GitHub repo 的 **「latest」Release** 下載 `colonist-stats-tracker.zip`（CI 自動產生）。
-  2. 本機現成檔：`tasks/store-assets/colonist-stats-tracker-1.91.0.zip`（已為你打包好）。
+- 版本：**1.95.0**，zip 內 `manifest.json` 在最上層（CWS 規定），可直接上傳。
+- 取得方式：push 之後到 GitHub repo 的 **「latest」Release** 下載 `colonist-stats-tracker.zip`（CI 自動產生、版號跟著 manifest）。
+  （`tasks/store-assets/` 裡的 zip 是早期手動打包的舊版本，別拿來上架。）
 
 ---
 
@@ -105,7 +104,7 @@ https://github.com/stantheman0128/chrome-extensions/blob/master/colonist-stats-t
 - [ ] 註冊 Chrome Web Store 開發者帳號，付一次性 **US$5**
 - [ ] trader/non-trader 申報 → 免費自用選 **non-trader**
 - [ ] 從實際對局**截 1–5 張圖**（1280×800 或 640×400）
-- [ ] 上傳 1.91.0 zip、貼上本檔 B/C 各欄、設 **Unlisted**、貼 PRIVACY URL
+- [ ] 上傳 1.95.0 zip、貼上本檔 B/C 各欄、設 **Unlisted**、貼 PRIVACY URL
 - [ ] 送審（Submit for review）
 
 > 我已完成：套件（含 icon/popup/manifest）、PRIVACY.md、商店文案與歸屬、promo tile、打包 zip、本提交清單。

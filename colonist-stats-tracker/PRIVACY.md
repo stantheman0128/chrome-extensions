@@ -1,6 +1,6 @@
 # Privacy Policy — Colonist.io Stats Tracker
 
-_Last updated: 2026-06-04_
+_Last updated: 2026-06-23_
 
 ## TL;DR
 
@@ -49,7 +49,7 @@ Questions or concerns? Please open an issue:
 
 # 隱私權政策（繁體中文）
 
-_最後更新：2026-06-04_
+_最後更新：2026-06-23_
 
 ## 一句話總結
 
