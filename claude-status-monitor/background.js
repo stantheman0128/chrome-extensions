@@ -5,6 +5,17 @@ const HISTORY_DAYS = 30;
 let cache = null;
 let lastFetch = 0;
 
+// How far an incident's impact reaches on the uptime bars.
+// A "monitoring" incident means a fix is deployed and service is effectively
+// restored, so its impact should stop at monitoring_at — otherwise an incident
+// parked in monitoring (e.g. a standing announcement) paints every day red up
+// to "now". Still-investigating incidents bleed to the present, as they should.
+function impactEnd(inc) {
+  if (inc.resolved_at) return new Date(inc.resolved_at);
+  if (inc.status === "monitoring" && inc.monitoring_at) return new Date(inc.monitoring_at);
+  return new Date();
+}
+
 async function fetchStatusData() {
   const now = Date.now();
   if (cache && now - lastFetch < CACHE_TTL) return cache;
@@ -36,7 +47,7 @@ async function fetchStatusData() {
 
   for (const inc of allIncidents.incidents) {
     const start = new Date(inc.created_at);
-    const end = inc.resolved_at ? new Date(inc.resolved_at) : new Date();
+    const end = impactEnd(inc);
 
     for (const comp of inc.components || []) {
       if (!history[comp.id]) continue;

@@ -2,9 +2,13 @@
   "use strict";
 
   // ── Config ─────────────────────────────────────────────────────────
-  const DAYS = 30;
+  const DAYS = 30; // fallback; the real count comes from data.historyDays
   const POLL_MS = 30_000;
   const TICK_MS = 15_000;
+
+  // Day count actually rendered — synced to background's HISTORY_DAYS via
+  // data.historyDays so the two files can't silently drift apart.
+  let dayCount = DAYS;
 
   const DEFAULTS = {
     badgeX: null,
@@ -217,9 +221,9 @@
   function buildDates() {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const arr = [];
-    for (let i = 0; i < DAYS; i++) {
+    for (let i = 0; i < dayCount; i++) {
       const d = new Date(today);
-      d.setDate(today.getDate() - (DAYS - 1 - i));
+      d.setDate(today.getDate() - (dayCount - 1 - i));
       arr.push(d);
     }
     return arr;
@@ -780,6 +784,7 @@
   let lastData = null;
   let dates = buildDates();
   let badgeResizeState = null;
+  let pollTimer = null, tickTimer = null;
 
   // ── Smart panel positioning ──────────────────────────────────────
   // Centers panel horizontally on badge, opens vertically toward screen center
@@ -1292,6 +1297,7 @@
   function render(data) {
     lastData = data;
     hideTooltip();
+    dayCount = data.historyDays || DAYS;
     dates = buildDates();
 
     const indicator = data.status?.indicator || "unknown";
@@ -1314,9 +1320,9 @@
     for (const comp of comps) {
       const s = COMP_STATUS[comp.status] || { key: null, color: C.gray };
       const label = s.key ? msg(s.key) : comp.status;
-      const hist = history[comp.id] || new Array(DAYS).fill("operational");
+      const hist = history[comp.id] || new Array(dayCount).fill("operational");
       const okDays = hist.filter((d) => d === "operational" || d === "none").length;
-      const pct = ((okDays / DAYS) * 100).toFixed(1);
+      const pct = ((okDays / dayCount) * 100).toFixed(1);
 
       left += `<div class="comp">
         <div class="comp-header">
@@ -1324,7 +1330,7 @@
           <span class="comp-badge" style="color:${s.color};background:${s.color}18">${label}</span>
         </div>
         <div class="bars">`;
-      for (let i = 0; i < DAYS; i++) {
+      for (let i = 0; i < dayCount; i++) {
         const st = hist[i] || "operational";
         left += `<div class="bar" style="background:${BAR_COLOR[st] || C.barEmpty}" data-idx="${i}" data-status="${st}"></div>`;
       }
@@ -1411,18 +1417,34 @@
       updatedAtEl.textContent = msg("updatedPrefix") + timeAgo(lastUpdatedAt);
     }
   }
-  setInterval(updateFooterTime, TICK_MS);
+  tickTimer = setInterval(updateFooterTime, TICK_MS);
 
   // ── Data fetching ──────────────────────────────────────────────────
+  // After the extension reloads/updates, this content script keeps running but
+  // chrome.runtime is torn down: chrome.runtime.id goes undefined and
+  // sendMessage throws synchronously. Guard for it and stop the timers so we
+  // don't spam "Extension context invalidated" every poll.
+  function contextValid() {
+    return !!(chrome.runtime && chrome.runtime.id);
+  }
+  function stopTimers() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+  }
   function requestStatus(force = false) {
-    chrome.runtime.sendMessage({ type: "GET_STATUS", force }, (res) => {
-      if (chrome.runtime.lastError) {
-        renderError(msg("errorBackground"));
-        return;
-      }
-      if (res?.ok) render(res.data);
-      else renderError(res?.error || msg("errorLoad"));
-    });
+    if (!contextValid()) { stopTimers(); return; }
+    try {
+      chrome.runtime.sendMessage({ type: "GET_STATUS", force }, (res) => {
+        if (chrome.runtime.lastError) {
+          renderError(msg("errorBackground"));
+          return;
+        }
+        if (res?.ok) render(res.data);
+        else renderError(res?.error || msg("errorLoad"));
+      });
+    } catch (e) {
+      stopTimers();
+    }
   }
 
   chrome.runtime.onMessage.addListener((m) => {
@@ -1435,5 +1457,5 @@
     refreshUI();
     requestStatus();
   });
-  setInterval(requestStatus, POLL_MS);
+  pollTimer = setInterval(requestStatus, POLL_MS);
 })();
