@@ -52,6 +52,18 @@ test('the newest chip is a filled, pulsing highlight — not the old faint grey 
   assert.notEqual(chips[0].className, 'cst-roll-now', 'older chips do not pulse');
 });
 
+test('the "Roll order" label is a clickable jump-to-latest button', () => {
+  cst.resetState();
+  cst.createPanel();
+  cst.state.rollHistory = [3, 5, 9];
+  cst.render();
+  const label = document.querySelector('[data-act="roll-home"]');
+  assert.ok(label, 'the label carries the roll-home action');
+  assert.match(label.getAttribute('style'), /cursor:pointer/, 'and reads as clickable');
+  assert.match(label.textContent, /Roll order/);
+  assert.doesNotThrow(() => label.click(), 'clicking it scrolls the strip without error');
+});
+
 test('the strip pads its right edge and registers the end-fade + current-roll pulse CSS', () => {
   cst.resetState();
   cst.createPanel();

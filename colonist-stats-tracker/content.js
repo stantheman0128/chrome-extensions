@@ -1019,6 +1019,8 @@
   // walks the steps; the click handler routes data-act / data-close.
   function buildHelpCoachmarks(overlay) {
     if (!panel) return;
+    if (overlay._helpCleanup) overlay._helpCleanup();           // drop any prior reflow listeners
+    overlay.innerHTML = ''; overlay._ring = overlay._card = null; overlay._helpAnimReady = false;
     const TARGETS = [
       { sel: '#cst-resync', title: t('helpReload', 'Reload'), body: t('helpReloadB', 'Re-sync from the game. Back at the lobby it clears a finished game instead, and a small tag confirms it ran.') },
       { sel: '.cst-vtab', title: t('helpSwitch', 'Switch & collapse'), body: t('helpSwitchB', 'Click to switch Resources ⇄ Stats. A section header (or R / S / D) folds it; the 🎲 in the corner (or C) collapses the whole panel.') },
@@ -1026,47 +1028,56 @@
       { sel: '#cst-resources [data-res]', title: t('helpHi', 'Highlight a number'), body: t('helpHiB', 'Click any value cell (or a dice column) to pin a highlight you can follow through the game. Click again to clear.') },
       { sel: '[data-colhead]', title: t('helpCol', 'A resource column'), body: t('helpColB', 'Click a resource header to highlight that column down every opponent and show their total — what a Monopoly would take.') },
     ];
-    const found = [];
-    for (const tg of TARGETS) {
+    // Keep the steps whose element is on the panel right now (row controls are absent
+    // before a game has players). We store the SELECTOR, not a one-shot rect, and
+    // re-measure every render — so the ring and callout track the live element through
+    // window resizes instead of being stranded at a stale coordinate.
+    const found = TARGETS.filter((tg) => {
       const el = panel.querySelector(tg.sel);
-      if (!el) continue;
+      if (!el) return false;
       const r = el.getBoundingClientRect();
-      if (!r.width && !r.height) continue;
-      found.push({ title: tg.title, body: tg.body, r });
-    }
+      return r.width || r.height;
+    });
     const navBtn = `padding:4px 10px;border-radius:7px;border:1px solid ${THEME.border};background:transparent;color:${THEME.text};cursor:pointer;font-size:12px;`;
     const navPrimary = `padding:4px 12px;border-radius:7px;border:1px solid ${THEME.accent};background:${THEME.accent};color:#fff;cursor:pointer;font-size:12px;font-weight:700;`;
     const closeX = `<button data-close="1" aria-label="${t('close', 'Close')}" style="background:transparent;border:0;color:${THEME.textDim};font-size:18px;line-height:1;cursor:pointer;">✕</button>`;
     let idx = 0;
 
+    // The overlay lives inside the panel, whose transform makes IT the containing block
+    // for this position:fixed layer — so the overlay's own top-left, not the viewport's,
+    // is the origin for our absolute children. Subtracting that origin turns each target's
+    // viewport rect (getBoundingClientRect) into correct overlay-local coordinates.
+    function ensureEls() {
+      if (overlay._ring) return;
+      const ring = document.createElement('div');
+      ring.style.cssText = `position:absolute;border:2px solid ${THEME.accent};border-radius:8px;pointer-events:none;` +
+        `box-shadow:0 0 0 3px rgba(255,255,255,.5),0 0 0 9999px rgba(20,14,4,.55);`;
+      const card = document.createElement('div');
+      card.style.cssText = `position:absolute;background:${THEME.bg};color:${THEME.text};border:1px solid ${THEME.border};` +
+        `border-radius:12px;box-shadow:0 12px 40px rgba(30,20,5,.5);padding:14px 16px;`;
+      overlay.appendChild(ring); overlay.appendChild(card);
+      overlay._ring = ring; overlay._card = card;
+    }
+
     function renderStep() {
-      overlay.innerHTML = '';
+      const o = overlay.getBoundingClientRect();
       if (!found.length) {                                  // empty panel (no game yet)
+        overlay.innerHTML = ''; overlay._ring = overlay._card = null;
         const note = document.createElement('div');
-        note.style.cssText = `position:absolute;left:50%;top:32%;transform:translateX(-50%);width:260px;background:${THEME.bg};color:${THEME.text};border:1px solid ${THEME.border};border-radius:12px;padding:16px;box-shadow:0 0 0 9999px rgba(20,14,4,.5);`;
+        note.style.cssText = `position:absolute;left:${window.innerWidth / 2 - o.left}px;top:${window.innerHeight * 0.3 - o.top}px;` +
+          `transform:translateX(-50%);width:260px;background:${THEME.bg};color:${THEME.text};border:1px solid ${THEME.border};` +
+          `border-radius:12px;padding:16px;box-shadow:0 0 0 9999px rgba(20,14,4,.5);`;
         note.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;"><strong style="font-size:14px;color:${THEME.accent};">${t('helpTitle', 'How to use')}</strong>${closeX}</div>` +
           `<p style="color:${THEME.textDim};font-size:12px;line-height:1.5;margin:.2em 0 0;">${t('helpEmpty', 'Join a game — then the player names, value cells and resource headers each get walked through here.')}</p>`;
         overlay.appendChild(note);
         return;
       }
-      const f = found[idx], r = f.r;
-      // Spotlight: a bright ring on the target, everything else dimmed by the ring's
-      // huge box-shadow (so the highlighted control reads clearly). pointer-events:none
-      // → a click on the spotlight falls through to the overlay (which closes).
-      const ring = document.createElement('div');
-      ring.style.cssText = `position:absolute;left:${r.left - 4}px;top:${r.top - 4}px;width:${r.width + 8}px;height:${r.height + 8}px;` +
-        `border:2px solid ${THEME.accent};border-radius:8px;pointer-events:none;` +
-        `box-shadow:0 0 0 3px rgba(255,255,255,.5), 0 0 0 9999px rgba(20,14,4,.55);`;
-      overlay.appendChild(ring);
-      // Callout beside the target: right if it fits, else left, else below.
-      const cw = 244;
-      let cx = r.right + 14, cy = Math.max(8, r.top - 6);
-      if (cx + cw > window.innerWidth - 8) cx = r.left - cw - 14;
-      if (cx < 8) { cx = Math.max(8, Math.min(r.left, window.innerWidth - cw - 8)); cy = r.bottom + 12; }
-      cy = Math.min(cy, window.innerHeight - 175);
-      const card = document.createElement('div');
-      card.style.cssText = `position:absolute;left:${cx}px;top:${cy}px;width:${cw}px;background:${THEME.bg};color:${THEME.text};` +
-        `border:1px solid ${THEME.border};border-radius:12px;box-shadow:0 12px 40px rgba(30,20,5,.5);padding:14px 16px;`;
+      ensureEls();
+      const ring = overlay._ring, card = overlay._card, f = found[idx];
+      const el = panel.querySelector(f.sel);
+      const r = el ? el.getBoundingClientRect() : null;
+      // Fill the callout first so its measured size drives the on-screen clamp.
+      card.style.width = `${Math.min(244, window.innerWidth - 16)}px`;
       card.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">` +
         `<strong style="font-size:14px;color:${THEME.accent};">${f.title}</strong>${closeX}</div>` +
         `<div style="color:${THEME.textDim};font-size:12px;line-height:1.5;">${f.body}</div>` +
@@ -1077,9 +1088,47 @@
         (idx < found.length - 1 ? `<button data-act="next" style="${navPrimary}">${t('next', 'Next')} ›</button>`
           : `<button data-close="1" style="${navPrimary}">${t('done', 'Done')}</button>`) +
         `</span></div>`;
-      overlay.appendChild(card);
+      const cw = card.offsetWidth || 244, ch = card.offsetHeight || 150;
+      if (r && (r.width || r.height)) {
+        ring.style.opacity = '1';
+        ring.style.left = `${r.left - o.left - 4}px`;
+        ring.style.top = `${r.top - o.top - 4}px`;
+        ring.style.width = `${r.width + 8}px`;
+        ring.style.height = `${r.height + 8}px`;
+        // Callout to the right if it fits, else flipped left, then clamped fully into the
+        // viewport on BOTH axes — so shrinking the window can never push it off-screen.
+        let cx = r.right + 14;
+        if (cx + cw > window.innerWidth - 8) cx = r.left - cw - 14;
+        cx = Math.max(8, Math.min(cx, window.innerWidth - cw - 8));
+        const cy = Math.max(8, Math.min(r.top - 6, window.innerHeight - ch - 8));
+        card.style.left = `${cx - o.left}px`;
+        card.style.top = `${cy - o.top}px`;
+      } else {                                              // element gone — centre the card, hide the ring
+        ring.style.opacity = '0';
+        card.style.left = `${(window.innerWidth - cw) / 2 - o.left}px`;
+        card.style.top = `${window.innerHeight * 0.3 - o.top}px`;
+      }
+      // Glide between steps (and on reflow) — but not on the very first paint, which would
+      // fly the ring in from the corner. Enable the transition once the opener has landed.
+      if (!overlay._helpAnimReady) {
+        overlay._helpAnimReady = true;
+        const raf = (typeof requestAnimationFrame === 'function') ? requestAnimationFrame : (fn) => setTimeout(fn, 0);
+        raf(() => {
+          ring.style.transition = 'left .25s ease,top .25s ease,width .25s ease,height .25s ease';
+          card.style.transition = 'left .25s ease,top .25s ease';
+        });
+      }
     }
 
+    // Re-measure + reposition whenever the layout shifts under the open tour.
+    const onReflow = () => { if (overlay.style.display !== 'none') renderStep(); };
+    window.addEventListener('resize', onReflow);
+    window.addEventListener('scroll', onReflow, true);
+    overlay._helpCleanup = () => {
+      window.removeEventListener('resize', onReflow);
+      window.removeEventListener('scroll', onReflow, true);
+      overlay._helpCleanup = null;
+    };
     overlay._helpStep = (dir) => { idx = Math.max(0, Math.min(found.length - 1, idx + dir)); renderStep(); };
     renderStep();
   }
@@ -1576,7 +1625,10 @@
         // The chip that just landed pulses its brightness so the current roll reads at a
         // glance — kept inside the chip box so the strip's overflow clipping never eats it.
         '#colonist-stats-tracker .cst-roll-now{animation:cst-roll-now 1.6s ease-in-out infinite;}' +
-        '@keyframes cst-roll-now{0%,100%{filter:brightness(1);}50%{filter:brightness(1.22);}}';
+        '@keyframes cst-roll-now{0%,100%{filter:brightness(1);}50%{filter:brightness(1.22);}}' +
+        // The "Roll order" label doubles as a button — click it to jump back to the newest.
+        '#colonist-stats-tracker .cst-roll-home{transition:color .12s ease;}' +
+        '#colonist-stats-tracker .cst-roll-home:hover{color:' + THEME.accent + ';text-decoration:underline;}';
       (document.head || document.documentElement).appendChild(st);
     }
 
@@ -1666,14 +1718,17 @@
     const helpBtn = host.querySelector('#cst-help');
     const helpOverlay = host.querySelector('#cst-help-overlay');
     if (helpBtn && helpOverlay) {
-      helpBtn.addEventListener('click', (e) => { e.stopPropagation(); buildHelpCoachmarks(helpOverlay); helpOverlay.style.display = 'block'; });
+      // Show the overlay FIRST, then build — buildHelpCoachmarks measures the overlay's
+      // own rect as its coordinate origin, which is all-zero while it's display:none.
+      helpBtn.addEventListener('click', (e) => { e.stopPropagation(); helpOverlay.style.display = 'block'; buildHelpCoachmarks(helpOverlay); });
       helpOverlay.addEventListener('click', (e) => {
         const act = e.target.closest && e.target.closest('[data-act]');
         if (act) { if (helpOverlay._helpStep) helpOverlay._helpStep(act.getAttribute('data-act') === 'next' ? 1 : -1); return; }
         // ✕ / Done, or a click on the dimmed spotlight (the ring is pointer-events:none,
         // so that click lands on the overlay itself) → close the tour.
         if (e.target === helpOverlay || (e.target.dataset && e.target.dataset.close) || (e.target.closest && e.target.closest('[data-close]'))) {
-          helpOverlay.style.display = 'none'; helpOverlay.innerHTML = '';
+          if (helpOverlay._helpCleanup) helpOverlay._helpCleanup();
+          helpOverlay.style.display = 'none'; helpOverlay.innerHTML = ''; helpOverlay._ring = helpOverlay._card = null;
         }
       });
     }
@@ -1703,6 +1758,15 @@
         rollDrag.sc.scrollLeft = rollDrag.left - dx;
       });
       document.addEventListener('mouseup', () => { rollDrag = null; });
+      // Click the "Roll order" label → smooth-scroll the strip back to the newest roll.
+      diceHost.addEventListener('click', (e) => {
+        const home = e.target.closest && e.target.closest('[data-act="roll-home"]');
+        if (!home) return;
+        const sc = diceHost.querySelector('#cst-roll-scroll');
+        if (!sc) return;
+        if (typeof sc.scrollTo === 'function') sc.scrollTo({ left: sc.scrollWidth, behavior: 'smooth' });
+        else sc.scrollLeft = sc.scrollWidth;
+      });
     }
 
     // Hover a resource COLUMN → highlight it with an overlay tinted in THAT
@@ -2334,7 +2398,7 @@
       }).join('');
     const tip = empty ? '' : ` data-tip="${t('tipLastRolls', 'Recent rolls — newest on the right; drag or scroll to see earlier ones')}"`;
     return `<div style="display:flex;gap:0.45em;align-items:center;margin:0 0 0.6em;flex:0 0 auto;">` +
-      `<span style="flex:0 0 auto;color:${THEME.textDim};font-size:0.7em;white-space:nowrap;${empty ? 'visibility:hidden;' : ''}">${t('rollOrder', 'Roll order')}</span>` +
+      `<span data-act="roll-home" class="cst-roll-home" data-tip="${t('tipRollHome', 'Jump back to the latest roll')}" style="flex:0 0 auto;color:${THEME.textDim};font-size:0.7em;white-space:nowrap;cursor:pointer;${empty ? 'visibility:hidden;' : ''}">${t('rollOrder', 'Roll order')}</span>` +
       `<div id="cst-roll-scroll" class="cst-roll-scroll"${tip} style="flex:1 1 auto;min-width:0;display:flex;gap:0.25em;align-items:center;overflow-x:auto;overflow-y:hidden;padding:1px 14px 2px 1px;cursor:grab;">${chips}</div></div>`;
   }
 
