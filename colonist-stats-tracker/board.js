@@ -430,10 +430,21 @@
     au.expect = null;
     au.actual = {};
   }
+  // Geometry is usable for prediction/blocked-loss once a full state has populated
+  // tiles AND corners, AND the current robber tile is actually loaded.
+  function geomReady(b) {
+    return Object.keys(b.tiles).length > 0 && Object.keys(b.corners).length > 0
+      && (b.robberTile == null || b.tiles[b.robberTile] != null);
+  }
   // A roll arrived: close out the previous roll, then snapshot the prediction for
-  // this one (using the robber position at roll time).
+  // this one (using the robber position at roll time). Only audit a roll when the
+  // geometry is actually loaded — with no full state (board started from diffs, or an
+  // empty shell) predictProduction would return {} for EVERY roll, so a real
+  // production would settle the next roll as a false conflict. No geometry → don't
+  // open the round (it's inconclusive, not evidence).
   function auditRoll(b, n) {
     settleAudit(b);
+    if (!geomReady(b)) { b.audit.expect = null; b.audit.actual = {}; return; }
     b.audit.expect = { roll: n, robber: b.robberTile, pred: predictProduction(b, n) };
     b.audit.actual = {};
   }
@@ -534,8 +545,7 @@
     // doesn't yet contain the robber's hex can't be trusted to read a 0 (vs a shell,
     // where a 0 would silently replace a known differential). `ready` alone only means
     // "a type-4 was applied", which could be an empty shell.
-    geomReady: (b) => Object.keys(b.tiles).length > 0 && Object.keys(b.corners).length > 0
-      && (b.robberTile == null || b.tiles[b.robberTile] != null),
+    geomReady,
     // snapshot/restore the live blocked-loss so it survives F5: the board can't
     // replay past robber positions, so the displayed value persists through the board
     // (tagged with the game id, so a different game's restore is dropped).

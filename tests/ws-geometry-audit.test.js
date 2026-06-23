@@ -97,6 +97,30 @@ test('a setup-placement type-47 (distributionType 0) during an open roll is igno
   assert.equal(a.skipped, 1);
 });
 
+test('with no loaded geometry the audit stays silent (no false conflict) — Codex pass-5', () => {
+  // The board started from diffs (or an empty type-4 shell): tiles/corners are empty,
+  // so predictProduction would return {} for every roll while the server still
+  // produces. Without a geometry gate this settles as a conflict on the next roll.
+  const b = B.createBoard();   // never given a full state
+  B.applyDiff(b, { gameLogState: { 200: { text: { type: 10, firstDice: 4, secondDice: 4 } } } });
+  B.applyDiff(b, { gameLogState: { 201: { text: { type: 47, playerColor: 1, cardsToBroadcast: [5], distributionType: 1 } } } });
+  B.applyDiff(b, { gameLogState: { 202: { text: { type: 10, firstDice: 3, secondDice: 3 } } } }); // settle the first roll
+  const a = B.auditOf(b);
+  assert.equal(a.conflicts, 0, 'no geometry → no audit → no false conflict');
+  assert.equal(a.confirms, 0);
+});
+
+test('an empty type-4 shell does not let the audit run either', () => {
+  const b = B.createBoard();
+  // a type-4 with empty maps: ready=true but geomReady=false
+  B.applyFullState(b, { gameSettings: { id: 'shell' }, gameState: { playerColor: 1, mapState: { tileHexStates: {}, tileCornerStates: {} }, gameLogState: {} }, playerUserStates: [] });
+  B.applyDiff(b, { gameLogState: { 210: { text: { type: 10, firstDice: 4, secondDice: 4 } } } });
+  B.applyDiff(b, { gameLogState: { 211: { text: { type: 47, playerColor: 1, cardsToBroadcast: [5], distributionType: 1 } } } });
+  B.applyDiff(b, { gameLogState: { 212: { text: { type: 10, firstDice: 3, secondDice: 3 } } } });
+  const a = B.auditOf(b);
+  assert.equal(a.conflicts, 0, 'an empty shell is not usable geometry');
+});
+
 test('a same-id reconnect mid-roll drops the in-flight prediction (no false conflict)', () => {
   const b = fresh('rc');
   roll(b, 8);                                  // predicts colour 1 gets 1 ore; expect is open

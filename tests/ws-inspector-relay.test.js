@@ -252,6 +252,52 @@ test('adversarial: order holds even when the FIRST frame\'s arrayBuffer resolves
   }
 });
 
+test('each socket gets its own frame chain — one slow socket does not block another', async () => {
+  const l1 = roundTrip({ id: '130', data: { type: 91, payload: { diff: { tag: 'L1' } } } });
+  const l2 = roundTrip({ id: '130', data: { type: 91, payload: { diff: { tag: 'L2' } } } });
+  const r1 = roundTrip({ id: '130', data: { type: 91, payload: { diff: { tag: 'R1' } } } });
+
+  const sink = collectRelays();
+  const left = fakeSocket();
+  const right = fakeSocket();
+  inspector.tap(left);
+  inspector.tap(right);
+  left.deliver(blobOf(l1));
+  right.deliver(blobOf(r1));
+  left.deliver(blobOf(l2));
+  await waitFor(sink.got, 3, 80);
+  sink.stop();
+
+  const tags = sink.got.map((m) => m.data.payload.diff.tag);
+  assert.equal(tags.length, 3, 'all three relayed');
+  assert.ok(tags.indexOf('L1') < tags.indexOf('L2'), 'the left socket keeps its own order');
+  assert.ok(tags.includes('R1'), 'the right socket relayed independently');
+});
+
+test('a frame whose arrayBuffer rejects does not stall the rest of the chain', async () => {
+  const realAB = globalThis.Blob.prototype.arrayBuffer;
+  let call = 0;
+  globalThis.Blob.prototype.arrayBuffer = function () {
+    if (call++ === 0) return Promise.reject(new Error('decode boom'));   // the first frame fails
+    return realAB.call(this);
+  };
+  try {
+    const good = roundTrip({ id: '130', data: { type: 91, payload: { diff: { tag: 'GOOD' } } } });
+    const sink = collectRelays();
+    const ws = fakeSocket();
+    inspector.tap(ws);
+    ws.deliver(blobOf(new Uint8Array([1, 2, 3])));   // frame 1: arrayBuffer rejects
+    ws.deliver(blobOf(good));                          // frame 2: must still relay
+    await waitFor(sink.got, 1, 80);
+    sink.stop();
+
+    assert.equal(sink.got.length, 1, 'the good frame still relayed');
+    assert.equal(sink.got[0].data.payload.diff.tag, 'GOOD', 'the chain recovered after the rejected frame');
+  } finally {
+    globalThis.Blob.prototype.arrayBuffer = realAB;
+  }
+});
+
 test('non-130 frames (e.g. the id=136 heartbeat) decode but are NOT relayed', async () => {
   // The real captured heartbeat from msgpack.test.js — proves the relay gate is on
   // id, so the 1/sec heartbeat never reaches the board model.
