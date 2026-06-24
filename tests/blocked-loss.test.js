@@ -137,7 +137,10 @@ test('block hover detail matches the differential loss, not the global counter',
   feed(fixtures.roll_2_2, fixtures.got_self_ore, fixtures.got_bot_ore);
   feed(fixtures.roll_2_2, fixtures.got_bot_ore, fixtures.blocked_4_ore);  // Stan blocked, Richia not
   feed(fixtures.roll_2_2);
-  assert.match(cst.blockReportHTML('StanTheMan01'), />4</, 'blocked player hover shows the 4-tile line');
+  const hover = cst.blockReportHTML('StanTheMan01');
+  assert.match(hover, /🎲4/, 'blocked player hover shows the roll-4 line');
+  assert.match(hover, /<b>\d+<\/b>/, 'cards lost lead each line in bold');
+  assert.doesNotMatch(hover, /×\d+\s*=/, 'no misleading "<roll> ×<times> = <cards>" equation');
   assert.equal(cst.blockReportHTML('Richia'), '', 'un-blocked same-number owner has no block detail');
 });
 

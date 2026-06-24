@@ -3045,7 +3045,8 @@
     return total;
   }
 
-  // Hover for the ⛔ cell: one line per "N res ×times = cards", biggest first. Drawn
+  // Hover for the ⛔ cell: one line per resource — cards lost, then the roll (🎲N) that
+  // caused them and how many such rolls — biggest first. Drawn
   // from the SAME geometry as the headline when the board is ready (so the breakdown
   // always sums to the displayed number); falls back to the log differential's
   // breakdown only before the board's geometry is up.
@@ -3082,11 +3083,15 @@
     const sum = rows.reduce((acc, r) => acc + r.cards, 0);
     let body;
     if (rows.length && sum === headline) {
+      // Lead with the CARDS lost (the figure that sums to the headline), then the roll
+      // that caused it (🎲N) and how many such rolls (×T, only when >1). The old
+      // "<roll> ×<times> = <cards>" read like a broken equation (e.g. "4 ×1 = 2").
       body = rows.map((r) =>
         `<span style="white-space:nowrap;display:inline-flex;align-items:center;gap:3px;">` +
-        `${iconImg(r.res, 1.15)} <b>${r.num}</b> ×${r.times} = ${r.cards}</span>`).join('');
+        `${iconImg(r.res, 1.15)} <b>${r.cards}</b>` +
+        `<span style="opacity:.6;">· 🎲${r.num}${r.times > 1 ? ` ×${r.times}` : ''}</span></span>`).join('');
     } else if (headline > 0) {
-      body = `<span style="white-space:nowrap;">= ${headline}</span>`;
+      body = `<span style="white-space:nowrap;"><b>${headline}</b></span>`;
     } else {
       return '';
     }

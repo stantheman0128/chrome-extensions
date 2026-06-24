@@ -149,12 +149,12 @@ test('the hover is drawn from the geometry: never empty when there is a loss, an
   assert.equal(cst.blockLossOf('Stan'), 1);
   const html = cst.blockReportHTML('Stan');
   assert.notEqual(html, '', 'hover is not empty when the geometry knows a loss');
-  assert.match(html, /= 1<\/span>/, 'hover sums to the headline');
+  assert.match(html, /<b>1<\/b>/, 'hover sums to the headline');
 
   // a LATER ordinary settlement elsewhere raising the differential must NOT inflate it
   setDifferential('Stan', 2);                       // differential would say 2; geometry stays 1
   assert.equal(cst.blockLossOf('Stan'), 1, 'headline stays event-time exact');
-  assert.match(cst.blockReportHTML('Stan'), /= 1<\/span>/, 'hover still sums to 1');
+  assert.match(cst.blockReportHTML('Stan'), /<b>1<\/b>/, 'hover still sums to 1');
 });
 
 test('restoreBlocked refuses a legacy id-less snapshot once the board is in a game', () => {

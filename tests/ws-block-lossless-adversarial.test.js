@@ -162,8 +162,10 @@ function storedBoardSnapshot() {
 }
 
 function hoverCards(html) {
+  // The cards-lost figure leads each line as <b>N</b> (the header uses <b style=…> so it
+  // never matches); the Victory-override single total is <b>N</b> too.
   let total = 0;
-  const re = /=\s*(\d+)<\/span>/g;
+  const re = /<b>(\d+)<\/b>/g;
   let match;
   while ((match = re.exec(html))) total += Number(match[1]);
   return total;
