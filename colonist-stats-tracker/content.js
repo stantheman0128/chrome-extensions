@@ -3506,6 +3506,7 @@
         endgameBlocked: state.endgameBlocked,
         endgameBlockedGid: state.endgameBlockedGid,
         wsBlockedBoard: currentBlockedSnap(),   // the WS board's blocked-loss + game id, restored INTO the board on reload
+        accrualBoard: (wsBoard && __cstBoard.accrualSnapshot) ? __cstBoard.accrualSnapshot(wsBoard) : null,
         selfName: state.selfName,
         seenIndices: [...state.seenIndices],
         players: [...state.players.values()].map((p) => ({
@@ -3543,6 +3544,8 @@
     // Tagged with the game id, so applyFullState drops it if a DIFFERENT game loads.
     blockedSnap = (d.wsBlockedBoard && typeof d.wsBlockedBoard === 'object') ? d.wsBlockedBoard : null;
     if (blockedSnap && wsBoard && __cstBoard.restoreBlocked) __cstBoard.restoreBlocked(wsBoard, blockedSnap);
+    const accrualSnap = (d.accrualBoard && typeof d.accrualBoard === 'object') ? d.accrualBoard : null;
+    if (accrualSnap && wsBoard && __cstBoard.restoreAccrual) __cstBoard.restoreAccrual(wsBoard, accrualSnap);
     state.roundGot = {};      // round-internal scratch — restart cleanly on restore
     state.roundBlocks = [];
     state.selfName = d.selfName || null;

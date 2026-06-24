@@ -636,6 +636,38 @@
     // "a type-4 was applied", which could be an empty shell.
     geomReady,
     geomComplete,
+    // Snapshot/restore the event-derived state as one unit. Restoring processedLog
+    // together with every accumulator it guards lets a same-game reconnect skip old
+    // history while retaining the exact live ordering of silent dev-card buys.
+    // blockedLoss is intentionally separate: robber history has its own snapshot.
+    accrualSnapshot: (b) => ({
+      gameId: b.gameId,
+      handRecon: JSON.parse(JSON.stringify(b.handRecon || {})),
+      processedLog: [...b.processedLog],
+      seenLog: b.seenLog,
+      wsStats: JSON.parse(JSON.stringify(b.wsStats || {})),
+      dice: JSON.parse(JSON.stringify(b.dice || { counts: {}, total: 0, rolls: [] })),
+      logTypeCounts: { ...(b.logTypeCounts || {}) },
+      devBought: { ...(b.devBought || {}) },
+      devHeld: { ...(b.devHeld || {}) },
+      devUsed: { ...(b.devUsed || {}) },
+      devApplied: { ...(b.devApplied || {}) },
+    }),
+    restoreAccrual: (b, snap) => {
+      if (!snap) return;
+      if (b.gameId != null && snap.gameId !== b.gameId) return;
+      if (snap.gameId != null) b.gameId = snap.gameId;
+      b.handRecon = snap.handRecon ? JSON.parse(JSON.stringify(snap.handRecon)) : {};
+      b.processedLog = new Set(Array.isArray(snap.processedLog) ? snap.processedLog : []);
+      b.seenLog = Number.isFinite(snap.seenLog) ? snap.seenLog : -1;
+      b.wsStats = snap.wsStats ? JSON.parse(JSON.stringify(snap.wsStats)) : {};
+      b.dice = snap.dice ? JSON.parse(JSON.stringify(snap.dice)) : { counts: {}, total: 0, rolls: [] };
+      b.logTypeCounts = { ...(snap.logTypeCounts || {}) };
+      b.devBought = { ...(snap.devBought || {}) };
+      b.devHeld = { ...(snap.devHeld || {}) };
+      b.devUsed = { ...(snap.devUsed || {}) };
+      b.devApplied = { ...(snap.devApplied || {}) };
+    },
     // snapshot/restore the live blocked-loss so it survives F5: the board can't
     // replay past robber positions, so the displayed value persists through the board
     // (tagged with the game id, so a different game's restore is dropped).
