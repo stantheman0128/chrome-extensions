@@ -562,12 +562,15 @@
     .inc-header { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
     .inc-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
     .inc-name { font-size: .93em; font-weight: 600; line-height: 1.35; }
-    .inc-status-line { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .inc-status-line {
+      display: flex; align-items: center; flex-wrap: wrap;
+      gap: 8px; row-gap: 3px; margin-bottom: 4px;
+    }
     .inc-status-badge {
       font-size: .79em; font-weight: 600; text-transform: uppercase;
-      letter-spacing: .3px;
+      letter-spacing: .3px; white-space: nowrap;
     }
-    .inc-time { font-size: .79em; color: ${C.textMut}; }
+    .inc-time { font-size: .79em; color: ${C.textMut}; white-space: nowrap; }
     .inc-body {
       font-size: .86em; color: ${C.textSec}; line-height: 1.5;
       display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
