@@ -53,14 +53,16 @@
           let ch = syncFromWS();
           if (syncStatsFromWS()) ch = true;
           if (syncDiceFromWS()) ch = true;
-          if (ch) {
-            // A frame after the winner line corrected the ENDED live state — the archived
-            // record (snapshotted at the winner line) is now behind it. Flag it so the next
-            // ENDED tick re-saves: THIS immediate handler consumes the frame, so the tick's
-            // own sync would see no change and would never trigger the re-save on its own.
-            if (lifecycle === LIFE.ENDED) endgameRecordDirty = true;
-            renderSoon();
+          // While ENDED, the archived record may need a re-save for ANY same-game frame —
+          // not only ones the UI sync flags. A late *blocked* roll moves board.blockedLoss
+          // without changing hands/dice (ch stays false), so key the dirty flag on frame
+          // arrival, not on ch. A frame for a DIFFERENT gameId means a new game started
+          // before the DOM reset → the ended record is final, stop flagging it (the gameId
+          // guard in resaveEndgameRecord is the real protection; this just stops early).
+          if (lifecycle === LIFE.ENDED) {
+            endgameRecordDirty = (endgameRecordGameId == null || !wsBoard.gameId || wsBoard.gameId === endgameRecordGameId);
           }
+          if (ch) renderSoon();
         }
       } catch (e) { /* sync is best-effort; the 1s tick retries */ }
     });
@@ -3466,6 +3468,7 @@
     lastCounts = null;  // don't shower "+N" floats diffing against the old game
     auditPrinted = false;
     endgameRecordDirty = false;
+    endgameRecordGameId = null;
   }
 
   // ---- persistence of the live game (survives page reloads / reconnects) ----
@@ -3641,6 +3644,7 @@
     if (lifecycle === LIFE.ENDED) { settleRound(); return; }
     lifecycle = LIFE.ENDED;
     state.gameEndTs = Date.now();
+    endgameRecordGameId = (wsBoard && wsBoard.gameId != null) ? wsBoard.gameId : null;
     saveGameRecord(buildGameRecord(winnerName || null));
     endgameRecordDirty = true;   // re-affirm the record once the async save lands / late frames arrive
     autoSetCollapsed(true);
@@ -3672,6 +3676,7 @@
       duration: (state.gameEndTs && state.gameStartTs)
         ? state.gameEndTs - state.gameStartTs : null,
       winner: winnerName || null,
+      gameId: (wsBoard && wsBoard.gameId != null) ? wsBoard.gameId : null,   // anchors the late re-save to THIS game
       selfName: state.selfName,
       totalRolls: state.totalRolls,
       diceCounts: { ...state.diceCounts },
@@ -3720,6 +3725,11 @@
         const list = Array.isArray(data && data[HISTORY_KEY]) ? data[HISTORY_KEY] : [];
         const rec = list.find((g) => g && g.date === state.gameStartTs);   // only THIS game's record
         if (!rec) return;                                    // initial async save not landed yet → stay dirty, retry next tick
+        // The board moved on to a new game (its gameId changed) before the DOM reset — never
+        // patch the ended game's record with the new game's live state. The record is final.
+        if (rec.gameId != null && wsBoard && wsBoard.gameId != null && wsBoard.gameId !== rec.gameId) {
+          endgameRecordDirty = false; return;
+        }
         rec.players = [...state.players.values()].map((p) => ({
           name: p.name, color: p.color, hand: { ...p.resources }, unknown: p.unknown,
         }));
@@ -4379,6 +4389,7 @@
 
   let auditPrinted = false;   // the game-end audit prints once per game
   let endgameRecordDirty = false;  // a late WS frame left the saved Victory record behind live state → re-save needed
+  let endgameRecordGameId = null;  // the WS gameId the saved Victory record belongs to (a new game must not patch it)
 
   // ---- self-audit report (console) ----
   // Lays the same quantity from INDEPENDENT sources side by side per player — WS

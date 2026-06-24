@@ -107,6 +107,47 @@ test('resaveEndgameRecord stays dirty (retries) when the initial save has not la
   delete global.chrome;
 });
 
+test('a new game (different gameId) never patches the previous game record', () => {
+  const store = mockStorage();
+  cst.resetState();
+  cst.createPanel();
+  cst.startNextGame();
+  cst.getPlayer('Me', '#c00');
+  cst.state.gameStartTs = 70000;
+  relaySelf('g1', [1, 1]);                          // game g1: self holds 2 lumber
+  cst.onGameWon('Me');
+  cst.resaveEndgameRecord();
+  let rec = store[HISTORY_KEY].find((g) => g.date === 70000);
+  assert.equal(rec.players.find((p) => p.name === 'Me').hand.lumber, 2, 'g1 archived at 2 lumber');
+  assert.equal(rec.gameId, 'g1', 'and tagged with its gameId');
+
+  // a NEW game arrives over the WS BEFORE the DOM lifecycle resets — same player name, an
+  // empty hand. Live state flips to the new game, but the OLD record must NOT be patched.
+  relaySelf('g2', []);
+  assert.equal(cst.getEndgameRecordDirty(), false, 'a different-gameId frame stops flagging the ended record');
+  cst.resaveEndgameRecord();                         // a racing re-save before the DOM reset
+  rec = store[HISTORY_KEY].find((g) => g.date === 70000);
+  assert.equal(rec.players.find((p) => p.name === 'Me').hand.lumber, 2, 'the previous game record is left intact');
+});
+
+test('a same-game ENDED frame re-flags the record even when the UI sync sees no change', () => {
+  mockStorage();
+  cst.resetState();
+  cst.createPanel();
+  cst.startNextGame();
+  cst.getPlayer('Me', '#c00');
+  cst.state.gameStartTs = 80000;
+  relaySelf('g3', [1]);
+  cst.onGameWon('Me');
+  cst.resaveEndgameRecord();
+  assert.equal(cst.getEndgameRecordDirty(), false, 'clean after the first re-save');
+  // an identical same-game frame: hands/dice unchanged (ch=false). A late *blocked* roll
+  // would move board.blockedLoss with the same ch=false, so frame arrival alone must re-flag.
+  relaySelf('g3', [1]);
+  assert.equal(cst.getEndgameRecordDirty(), true, 'frame arrival for the ended game re-flags it (covers blocked-only)');
+  delete global.chrome;
+});
+
 test('resaveEndgameRecord only touches THIS game, matched by start date', () => {
   const store = mockStorage();
   store[HISTORY_KEY] = [{ date: 999, players: [{ name: 'Old', color: '#000', hand: { lumber: 7 }, unknown: 0 }], tally: {} }];
