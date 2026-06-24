@@ -1081,10 +1081,11 @@
     const closeX = `<button data-close="1" aria-label="${t('close', 'Close')}" style="background:transparent;border:0;color:${THEME.textDim};font-size:18px;line-height:1;cursor:pointer;">✕</button>`;
     let idx = 0;
 
-    // The overlay lives inside the panel, whose transform makes IT the containing block
-    // for this position:fixed layer — so the overlay's own top-left, not the viewport's,
-    // is the origin for our absolute children. Subtracting that origin turns each target's
-    // viewport rect (getBoundingClientRect) into correct overlay-local coordinates.
+    // The overlay is a top-level <body> layer (NOT inside the overflow:hidden, transformed
+    // panel — which used to clip callouts that fell outside the panel box). It's fixed at
+    // inset:0, so its own top-left is the viewport origin; subtracting overlay.rect (≈0,0)
+    // keeps the math correct even if that ever changes. Callouts now clamp to the whole
+    // viewport, so they follow the element and can't be cut off.
     function ensureEls() {
       if (overlay._ring) return;
       const ring = document.createElement('div');
@@ -1611,7 +1612,6 @@
           </div>
         </div>
       </div>
-      <div id="cst-help-overlay" style="display:none;position:fixed;inset:0;z-index:2147483646;"></div>
       <div id="cst-body" style="display:flex;flex-direction:column;flex:1 1 auto;min-height:0;
            overflow:auto;padding:12px 14px 13px;">
         <div id="cst-dice-head" data-fold="diceCollapsed" style="${secHead}flex:0 0 auto;margin-bottom:7px;">
@@ -1632,6 +1632,18 @@
       </div>`;
     document.body.appendChild(host);
     panel = host;
+    // The how-to overlay lives on <body>, NOT inside the panel: the panel is overflow:hidden
+    // (and transformed), so an in-panel overlay clipped any callout that fell outside the
+    // panel box. As a top-level sibling above the panel it can place callouts anywhere on
+    // screen and clamp them to the viewport. Recreated each time so it never duplicates.
+    {
+      const old = document.getElementById('cst-help-overlay');
+      if (old) old.remove();
+      const ov = document.createElement('div');
+      ov.id = 'cst-help-overlay';
+      ov.style.cssText = 'display:none;position:fixed;inset:0;z-index:2147483647;';
+      document.body.appendChild(ov);
+    }
     bindKeys();
 
     // Inject the :hover rule once (inline styles can't express :hover).
@@ -1754,7 +1766,7 @@
 
     // How-to (?) overlay: open from the header button, close via ✕ or a backdrop click.
     const helpBtn = host.querySelector('#cst-help');
-    const helpOverlay = host.querySelector('#cst-help-overlay');
+    const helpOverlay = document.getElementById('cst-help-overlay');   // now a <body> sibling, not in-panel
     if (helpBtn && helpOverlay) {
       // Show the overlay FIRST, then build — buildHelpCoachmarks measures the overlay's
       // own rect as its coordinate origin, which is all-zero while it's display:none.
