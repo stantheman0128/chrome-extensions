@@ -28,6 +28,7 @@
       tiles: {}, coordToTile: {}, corners: {}, cornersByTile: {},
       robberTile: null, selfColor: null, colorToName: {}, hands: {},
       blockedLoss: {}, blockedDetail: {}, wsStats: {}, handRecon: {}, logTypeCounts: {}, seenLog: -1, _ready: false,
+      devBought: {}, devHeld: {}, devUsed: {},      // dev-card buys per colour (held+used) → deduct the silent buy cost
       processedLog: new Set(),                      // log indices already accrued (dedup; survives empty shells + index gaps)
       gameId: null,                                 // gameSettings.id of the current game (new-game detection)
       dice: { counts: {}, total: 0, rolls: [] },   // histogram from type-10 roll events
@@ -47,6 +48,7 @@
     b.processedLog = new Set();
     b.wsStats = {};
     b.handRecon = {};
+    b.devBought = {}; b.devHeld = {}; b.devUsed = {};
     b.blockedLoss = {};
     b.blockedDetail = {};
     b.logTypeCounts = {};
@@ -197,6 +199,26 @@
     }
   }
 
+  // Dev-card buys per colour from mechanicDevelopmentCardsState: bought = currently held
+  // (developmentCards.cards) + already played (developmentCardsUsed). A buy is SILENT in
+  // the game log (no event), so this authoritative count is how projectRecon deducts the
+  // 1 wool + 1 grain + 1 ore each buy costs — the main source of opponent over-count (which
+  // otherwise surfaces as phantom "?"). Colonist sends the full per-player arrays in both
+  // full states and diffs, so held/used are stored separately and re-summed when either
+  // side updates (a play moves held→used with bought unchanged; a buy bumps held).
+  function applyDevState(b, devState) {
+    if (!devState || !devState.players) return;
+    for (const c of Object.keys(devState.players)) {
+      const p = devState.players[c] || {};
+      const held = (p.developmentCards && Array.isArray(p.developmentCards.cards)) ? p.developmentCards.cards.length : null;
+      const used = Array.isArray(p.developmentCardsUsed) ? p.developmentCardsUsed.length : null;
+      if (held == null && used == null) continue;
+      if (held != null) b.devHeld[c] = held;
+      if (used != null) b.devUsed[c] = used;
+      b.devBought[c] = (b.devHeld[c] || 0) + (b.devUsed[c] || 0);
+    }
+  }
+
   function applyFullState(b, payload) {
     // A fresh game sends a full state with a NEW gameSettings.id (a reconnect reuses
     // it). On a new game, clear the previous game's accruals here — driven by the WS
@@ -235,6 +257,7 @@
       const ps = gs.playerStates[c];
       b.hands[c] = { cards: (ps.resourceCards && ps.resourceCards.cards) || [] };
     }
+    applyDevState(b, gs.mechanicDevelopmentCardsState);
     if (gs.gameLogState) accrueLog(b, gs.gameLogState, false); // reconnect history
     b._ready = true;
   }
@@ -265,6 +288,7 @@
         if (ps.resourceCards && ps.resourceCards.cards) b.hands[c] = { cards: ps.resourceCards.cards };
       }
     }
+    if (diff.mechanicDevelopmentCardsState) applyDevState(b, diff.mechanicDevelopmentCardsState);
   }
 
   function handCountOf(b, color) {
@@ -345,13 +369,19 @@
     const proj = { 1: r[1], 2: r[2], 3: r[3], 4: r[4], 5: r[5], unknown: r.unknown };
     const total = handCountOf(b, color);
     if (total == null) return proj;               // no authoritative count yet
+    // Deduct the EXACT dev-card buys colonist reports (held + used). The buy is silent in
+    // the game log, so this is the main source of opponent over-count; deducting its cost
+    // here (1 wool + 1 grain + 1 ore each) keeps known cards KNOWN instead of trimming them
+    // to phantom "?". reconBuyDevCard pulls from the known pile when held, else unknown.
+    const buys = (b.devBought && b.devBought[color]) || 0;
+    for (let i = 0; i < buys; i++) reconBuyDevCard(proj);
     const diff = total - reconSum(proj);
     if (diff > 0) { proj.unknown += diff; return proj; }   // unaccounted gain → unknown
     let excess = -diff;
-    while (excess >= 3) {
-      const spent = reconBuyDevCard(proj);   // a silent dev-card buy (wool+grain+ore)...
-      if (!spent) break;                     // ...but if the player holds none, stop guessing buys
-      excess -= spent;                       // spent may be 1–3; any residual is reconciled below
+    while (excess >= 3) {                     // a stale dev count (a buy since the last frame) → infer the rest
+      const spent = reconBuyDevCard(proj);
+      if (!spent) break;                      // holds none of wool/grain/ore → stop guessing buys
+      excess -= spent;
     }
     for (; excess > 0; excess -= 1) reconLoseOne(proj);   // honest single losses clamp to handCount
     return proj;
