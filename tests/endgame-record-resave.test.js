@@ -130,6 +130,26 @@ test('a new game (different gameId) never patches the previous game record', () 
   assert.equal(rec.players.find((p) => p.name === 'Me').hand.lumber, 2, 'the previous game record is left intact');
 });
 
+test('F5: the record.gameId guard rejects a cross-game patch even when the module anchor is lost', () => {
+  // After a reload mid-Victory, endgameRecordGameId is null (onGameWon early-returns on
+  // ENDED, so it isn't re-captured), but the stored record still carries its gameId — that
+  // anchor, not the module variable, is what protects the record.
+  const store = mockStorage();
+  cst.resetState();                                 // endgameRecordGameId → null, as after a reload
+  cst.createPanel();
+  cst.getPlayer('Me', '#c00');
+  cst.state.gameStartTs = 90000;
+  cst.saveGameRecord({ date: 90000, gameId: 'g1', winner: 'Me',
+    players: [{ name: 'Me', color: '#c00', hand: { lumber: 2, brick: 0, wool: 0, grain: 0, ore: 0 }, unknown: 0 }],
+    tally: {}, blocked: {}, blockEvents: [], blockLoss: {} });
+  relaySelf('g2', []);                              // the board is now a DIFFERENT game; live self empty
+  cst.resaveEndgameRecord();                        // module anchor is null, but record.gameId === 'g1'
+  const rec = store[HISTORY_KEY].find((g) => g.date === 90000);
+  assert.equal(rec.players.find((p) => p.name === 'Me').hand.lumber, 2, 'cross-game patch rejected by record.gameId');
+  assert.equal(cst.getEndgameRecordDirty(), false, 'and the dirty flag is cleared');
+  delete global.chrome;
+});
+
 test('a same-game ENDED frame re-flags the record even when the UI sync sees no change', () => {
   mockStorage();
   cst.resetState();
