@@ -1,0 +1,196 @@
+{
+  "meta": {
+    "id": "mine143-4p-audit-endstate",
+    "gameId": "mine143",
+    "cstVersion": "1.114.0",
+    "source": "Stan __cstAudit() paste 2026-06-24",
+    "oraclePolicy": "live panel cross-check at game end; block/recon need full map fixture to auto-test",
+    "lifecycle": "ended",
+    "note": "This capture has no end-game map buildings in fullState — blockLoss tests stay manual until a late type-4 export lands."
+  },
+  "logTypeCounts": {
+    "1": 5,
+    "2": 1,
+    "4": 16,
+    "5": 20,
+    "10": 49,
+    "11": 12,
+    "14": 6,
+    "15": 2,
+    "16": 4,
+    "20": 4,
+    "44": 59,
+    "45": 1,
+    "47": 87,
+    "49": 5,
+    "66": 1,
+    "86": 1,
+    "115": 10,
+    "116": 17,
+    "118": 24
+  },
+  "players": {
+    "StanTheMan01": {
+      "color": 1,
+      "hand": {
+        "lumber": 0,
+        "brick": 0,
+        "wool": 0,
+        "grain": 2,
+        "ore": 2,
+        "unknown": 0
+      },
+      "handTotal": 4,
+      "stats": {
+        "gained": 61,
+        "discards": 0,
+        "discardCards": 0,
+        "monoTook": {}
+      },
+      "steal": {
+        "stole": 6,
+        "stoleRes": {
+          "1": 2,
+          "2": 2,
+          "3": 1,
+          "4": 1
+        },
+        "lost": 2,
+        "lostRes": {
+          "4": 2
+        }
+      },
+      "blockLoss": 2,
+      "pips": {
+        "total": 24,
+        "byRes": {
+          "lumber": 0,
+          "brick": 0,
+          "wool": 8,
+          "grain": 9,
+          "ore": 7
+        }
+      }
+    },
+    "Linc": {
+      "color": 2,
+      "hand": {
+        "lumber": 1,
+        "brick": 1,
+        "wool": 0,
+        "grain": 0,
+        "ore": 0,
+        "unknown": 4
+      },
+      "handTotal": 6,
+      "stats": {
+        "gained": 26,
+        "discards": 0,
+        "discardCards": 0,
+        "monoTook": {}
+      },
+      "steal": {
+        "stole": 0,
+        "lost": 2,
+        "lostRes": {
+          "3": 1,
+          "4": 1
+        }
+      },
+      "blockLoss": 1,
+      "pips": {
+        "total": 16,
+        "byRes": {
+          "lumber": 3,
+          "brick": 2,
+          "wool": 6,
+          "grain": 5,
+          "ore": 0
+        }
+      }
+    },
+    "Timi": {
+      "color": 3,
+      "hand": {
+        "lumber": 2,
+        "brick": 0,
+        "wool": 1,
+        "grain": 4,
+        "ore": 1,
+        "unknown": 1
+      },
+      "handTotal": 9,
+      "stats": {
+        "gained": 35,
+        "discards": 0,
+        "discardCards": 0,
+        "monoTook": {
+          "wool": 7
+        }
+      },
+      "steal": {
+        "stole": 1,
+        "stoleRes": {
+          "4": 1
+        },
+        "lost": 0
+      },
+      "blockLoss": 2,
+      "pips": {
+        "total": 22,
+        "byRes": {
+          "lumber": 9,
+          "brick": 0,
+          "wool": 4,
+          "grain": 9,
+          "ore": 0
+        }
+      }
+    },
+    "Ritch": {
+      "color": 4,
+      "hand": {
+        "lumber": 2,
+        "brick": 2,
+        "wool": 0,
+        "grain": 1,
+        "ore": 1,
+        "unknown": 2
+      },
+      "handTotal": 8,
+      "stats": {
+        "gained": 20,
+        "discards": 0,
+        "discardCards": 0,
+        "monoTook": {}
+      },
+      "steal": {
+        "stole": 1,
+        "stoleRes": {
+          "4": 1
+        },
+        "lost": 4,
+        "lostRes": {
+          "1": 2,
+          "2": 2
+        }
+      },
+      "blockLoss": 6,
+      "pips": {
+        "total": 6,
+        "byRes": {
+          "lumber": 3,
+          "brick": 3,
+          "wool": 0,
+          "grain": 0,
+          "ore": 0
+        }
+      }
+    }
+  },
+  "geometryAudit": {
+    "confirms": 37,
+    "conflicts": 0,
+    "skipped": 11
+  }
+}

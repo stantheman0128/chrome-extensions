@@ -1,0 +1,57 @@
+{
+  "meta": {
+    "id": "frame50-hand-recon-replay",
+    "gameId": "frame50",
+    "players": 2,
+    "oraclePolicy": "protocol invariants; synthetic Codex frame-50 dev-buy path",
+    "note": "2-player scenario — projected invariant 2 + teeth; complements 4p deal2630 capture"
+  },
+  "opening": {
+    "kind": "fullState",
+    "payload": {
+      "gameSettings": { "id": "g1" },
+      "gameState": {
+        "mapState": { "tileHexStates": {}, "tileCornerStates": {} },
+        "playerStates": {
+          "1": { "resourceCards": { "cards": [] } },
+          "2": { "resourceCards": { "cards": [] } }
+        }
+      },
+      "playerUserStates": [
+        { "selectedColor": 1, "username": "Me" },
+        { "selectedColor": 2, "username": "Opp" }
+      ]
+    }
+  },
+  "steps": [
+    {
+      "kind": "diff",
+      "diff": {
+        "gameLogState": {
+          "1": { "text": { "type": 10, "playerColor": 2, "firstDice": 2, "secondDice": 2 } },
+          "2": { "text": { "type": 47, "playerColor": 2, "cardsToBroadcast": [3, 3, 3, 4, 4, 4], "distributionType": 1 } }
+        },
+        "playerStates": { "2": { "resourceCards": { "cards": [0, 0, 0, 0, 0, 0] } } }
+      }
+    },
+    {
+      "kind": "diff",
+      "diff": {
+        "playerStates": { "2": { "resourceCards": { "cards": [] } } },
+        "mechanicDevelopmentCardsState": {
+          "players": { "2": { "developmentCards": { "cards": [10, 11, 12] }, "developmentCardsUsed": [] } }
+        }
+      }
+    },
+    {
+      "kind": "diff",
+      "diff": {
+        "gameLogState": {
+          "3": { "text": { "type": 10, "playerColor": 1, "firstDice": 1, "secondDice": 1 } },
+          "4": { "text": { "type": 47, "playerColor": 2, "cardsToBroadcast": [5, 5], "distributionType": 1 } }
+        },
+        "playerStates": { "2": { "resourceCards": { "cards": [0, 0] } } }
+      }
+    }
+  ]
+}

@@ -1,0 +1,5280 @@
+{
+  "meta": {
+    "gameId": "deal2630",
+    "sourceCapture": "cst-ws-frames (7).json",
+    "logEntryCount": 535,
+    "logTypeCounts": {
+      "0": 1,
+      "1": 12,
+      "2": 1,
+      "4": 16,
+      "5": 23,
+      "10": 90,
+      "11": 20,
+      "14": 7,
+      "15": 1,
+      "16": 12,
+      "20": 8,
+      "24": 1,
+      "44": 100,
+      "45": 1,
+      "47": 146,
+      "49": 13,
+      "55": 10,
+      "64": 4,
+      "66": 2,
+      "68": 1,
+      "86": 2,
+      "115": 10,
+      "116": 17,
+      "118": 37
+    },
+    "savedAtFrame": 500
+  },
+  "gameLogState": {
+    "0": {
+      "text": {
+        "type": 2,
+        "isDiscord": false
+      }
+    },
+    "1": {
+      "text": {
+        "type": 44
+      }
+    },
+    "2": {
+      "text": {
+        "type": 4,
+        "playerColor": 4,
+        "pieceEnum": 2
+      },
+      "from": 4
+    },
+    "3": {
+      "text": {
+        "type": 4,
+        "playerColor": 4,
+        "pieceEnum": 0
+      },
+      "from": 4
+    },
+    "4": {
+      "text": {
+        "type": 44
+      }
+    },
+    "5": {
+      "text": {
+        "type": 24,
+        "playerColor": 1,
+        "is10SecondRuleDisabled": true
+      },
+      "from": 1
+    },
+    "6": {
+      "text": {
+        "type": 0,
+        "playerColor": 1
+      },
+      "from": 1
+    },
+    "7": {
+      "text": {
+        "type": 4,
+        "playerColor": 1,
+        "pieceEnum": 2
+      },
+      "from": 1
+    },
+    "8": {
+      "text": {
+        "type": 4,
+        "playerColor": 1,
+        "pieceEnum": 0
+      },
+      "from": 1
+    },
+    "9": {
+      "text": {
+        "type": 44
+      }
+    },
+    "10": {
+      "text": {
+        "type": 4,
+        "playerColor": 2,
+        "pieceEnum": 2
+      },
+      "from": 2
+    },
+    "11": {
+      "text": {
+        "type": 4,
+        "playerColor": 2,
+        "pieceEnum": 0
+      },
+      "from": 2
+    },
+    "12": {
+      "text": {
+        "type": 44
+      }
+    },
+    "13": {
+      "text": {
+        "type": 4,
+        "playerColor": 3,
+        "pieceEnum": 2
+      },
+      "from": 3
+    },
+    "14": {
+      "text": {
+        "type": 4,
+        "playerColor": 3,
+        "pieceEnum": 0
+      },
+      "from": 3
+    },
+    "15": {
+      "text": {
+        "type": 44
+      }
+    },
+    "16": {
+      "text": {
+        "type": 4,
+        "playerColor": 3,
+        "pieceEnum": 2
+      },
+      "from": 3
+    },
+    "17": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          4,
+          2
+        ],
+        "distributionType": 0
+      },
+      "from": 3
+    },
+    "18": {
+      "text": {
+        "type": 4,
+        "playerColor": 3,
+        "pieceEnum": 0
+      },
+      "from": 3
+    },
+    "19": {
+      "text": {
+        "type": 44
+      }
+    },
+    "20": {
+      "text": {
+        "type": 4,
+        "playerColor": 2,
+        "pieceEnum": 2
+      },
+      "from": 2
+    },
+    "21": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          3,
+          3,
+          2
+        ],
+        "distributionType": 0
+      },
+      "from": 2
+    },
+    "22": {
+      "text": {
+        "type": 4,
+        "playerColor": 2,
+        "pieceEnum": 0
+      },
+      "from": 2
+    },
+    "23": {
+      "text": {
+        "type": 44
+      }
+    },
+    "24": {
+      "text": {
+        "type": 4,
+        "playerColor": 1,
+        "pieceEnum": 2
+      },
+      "from": 1
+    },
+    "25": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          5,
+          1,
+          3
+        ],
+        "distributionType": 0
+      },
+      "from": 1
+    },
+    "26": {
+      "text": {
+        "type": 4,
+        "playerColor": 1,
+        "pieceEnum": 0
+      },
+      "from": 1
+    },
+    "27": {
+      "text": {
+        "type": 44
+      }
+    },
+    "28": {
+      "text": {
+        "type": 4,
+        "playerColor": 4,
+        "pieceEnum": 2
+      },
+      "from": 4
+    },
+    "29": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          5,
+          4
+        ],
+        "distributionType": 0
+      },
+      "from": 4
+    },
+    "30": {
+      "text": {
+        "type": 4,
+        "playerColor": 4,
+        "pieceEnum": 0
+      },
+      "from": 4
+    },
+    "31": {
+      "text": {
+        "type": 44
+      }
+    },
+    "32": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 1,
+        "secondDice": 6
+      },
+      "from": 4
+    },
+    "33": {
+      "text": {
+        "type": 11,
+        "playerColor": 4,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      },
+      "from": 4
+    },
+    "36": {
+      "text": {
+        "type": 16,
+        "playerColorThief": 4,
+        "playerColorVictim": 3,
+        "cardBacks": [
+          0
+        ]
+      },
+      "from": 4,
+      "specificRecipients": [
+        1,
+        2
+      ]
+    },
+    "37": {
+      "text": {
+        "type": 118,
+        "playerColor": 4,
+        "wantedCardEnums": [
+          3
+        ],
+        "offeredCardEnums": [
+          4
+        ]
+      },
+      "from": 4
+    },
+    "38": {
+      "text": {
+        "type": 115,
+        "playerColor": 4,
+        "acceptingPlayerColor": 1,
+        "givenCardEnums": [
+          4
+        ],
+        "receivedCardEnums": [
+          3
+        ]
+      },
+      "from": 4
+    },
+    "39": {
+      "text": {
+        "type": 44
+      }
+    },
+    "40": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 1,
+        "secondDice": 6
+      },
+      "from": 1
+    },
+    "41": {
+      "text": {
+        "type": 11,
+        "playerColor": 1,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 5,
+          "diceNumber": 9,
+          "resourceType": 5
+        }
+      },
+      "from": 1
+    },
+    "42": {
+      "text": {
+        "type": 14,
+        "playerColor": 2,
+        "cardEnums": [
+          3
+        ]
+      },
+      "from": 1,
+      "specificRecipients": [
+        1
+      ],
+      "toSpectators": false
+    },
+    "45": {
+      "text": {
+        "type": 44
+      }
+    },
+    "46": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 4,
+        "secondDice": 5
+      },
+      "from": 2
+    },
+    "47": {
+      "text": {
+        "type": 49,
+        "tileInfo": {
+          "tileType": 5,
+          "diceNumber": 9,
+          "resourceType": 5
+        }
+      }
+    },
+    "48": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          2
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "49": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          2
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "50": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          1
+        ],
+        "offeredCardEnums": [
+          3
+        ]
+      },
+      "from": 2
+    },
+    "51": {
+      "text": {
+        "type": 44
+      }
+    },
+    "52": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 5,
+        "secondDice": 1
+      },
+      "from": 3
+    },
+    "53": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "54": {
+      "text": {
+        "type": 44
+      }
+    },
+    "55": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 6,
+        "secondDice": 5
+      },
+      "from": 4
+    },
+    "56": {
+      "text": {
+        "type": 44
+      }
+    },
+    "57": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 4,
+        "secondDice": 3
+      },
+      "from": 1
+    },
+    "58": {
+      "text": {
+        "type": 55,
+        "playerColor": 1,
+        "cardEnums": [
+          3,
+          3,
+          5
+        ],
+        "areResourceCards": true
+      },
+      "from": 1
+    },
+    "59": {
+      "text": {
+        "type": 11,
+        "playerColor": 1,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 1,
+          "diceNumber": 12,
+          "resourceType": 1
+        }
+      },
+      "from": 1
+    },
+    "60": {
+      "text": {
+        "type": 14,
+        "playerColor": 2,
+        "cardEnums": [
+          3
+        ]
+      },
+      "from": 1,
+      "specificRecipients": [
+        1
+      ],
+      "toSpectators": false
+    },
+    "63": {
+      "text": {
+        "type": 5,
+        "playerColor": 1,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 1
+    },
+    "64": {
+      "text": {
+        "type": 44
+      }
+    },
+    "65": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 2,
+        "secondDice": 4
+      },
+      "from": 2
+    },
+    "66": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "67": {
+      "text": {
+        "type": 44
+      }
+    },
+    "68": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 1,
+        "secondDice": 2
+      },
+      "from": 3
+    },
+    "69": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          4,
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "70": {
+      "text": {
+        "type": 44
+      }
+    },
+    "71": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 3,
+        "secondDice": 3
+      },
+      "from": 4
+    },
+    "72": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "73": {
+      "text": {
+        "type": 44
+      }
+    },
+    "74": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 1,
+        "secondDice": 1
+      },
+      "from": 1
+    },
+    "75": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "76": {
+      "text": {
+        "type": 1,
+        "playerColor": 1
+      },
+      "from": 1
+    },
+    "77": {
+      "text": {
+        "type": 44
+      }
+    },
+    "78": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 5,
+        "secondDice": 1
+      },
+      "from": 2
+    },
+    "79": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "80": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          2
+        ]
+      },
+      "from": 2
+    },
+    "81": {
+      "text": {
+        "type": 44
+      }
+    },
+    "82": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 5,
+        "secondDice": 3
+      },
+      "from": 3
+    },
+    "83": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "84": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          2,
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "85": {
+      "text": {
+        "type": 44
+      }
+    },
+    "86": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 4,
+        "secondDice": 3
+      },
+      "from": 4
+    },
+    "87": {
+      "text": {
+        "type": 11,
+        "playerColor": 4,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      },
+      "from": 4
+    },
+    "90": {
+      "text": {
+        "type": 16,
+        "playerColorThief": 4,
+        "playerColorVictim": 3,
+        "cardBacks": [
+          0
+        ]
+      },
+      "from": 4,
+      "specificRecipients": [
+        1,
+        2
+      ]
+    },
+    "91": {
+      "text": {
+        "type": 118,
+        "playerColor": 4,
+        "wantedCardEnums": [
+          1
+        ],
+        "offeredCardEnums": [
+          5
+        ]
+      },
+      "from": 4
+    },
+    "92": {
+      "text": {
+        "type": 44
+      }
+    },
+    "93": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 1,
+        "secondDice": 1
+      },
+      "from": 1
+    },
+    "94": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "95": {
+      "text": {
+        "type": 44
+      }
+    },
+    "96": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 5,
+        "secondDice": 3
+      },
+      "from": 2
+    },
+    "97": {
+      "text": {
+        "type": 49,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      }
+    },
+    "98": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "99": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "100": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          1
+        ],
+        "offeredCardEnums": [
+          3
+        ]
+      },
+      "from": 2
+    },
+    "101": {
+      "text": {
+        "type": 115,
+        "playerColor": 2,
+        "acceptingPlayerColor": 3,
+        "givenCardEnums": [
+          3
+        ],
+        "receivedCardEnums": [
+          1
+        ]
+      },
+      "from": 2
+    },
+    "102": {
+      "text": {
+        "type": 44
+      }
+    },
+    "103": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 1,
+        "secondDice": 2
+      },
+      "from": 3
+    },
+    "104": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          4,
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "105": {
+      "text": {
+        "type": 44
+      }
+    },
+    "106": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 2,
+        "secondDice": 3
+      },
+      "from": 4
+    },
+    "107": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "108": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "109": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "110": {
+      "text": {
+        "type": 1,
+        "playerColor": 4
+      },
+      "from": 4
+    },
+    "111": {
+      "text": {
+        "type": 44
+      }
+    },
+    "112": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 1,
+        "secondDice": 3
+      },
+      "from": 1
+    },
+    "113": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "114": {
+      "text": {
+        "type": 1,
+        "playerColor": 1
+      },
+      "from": 1
+    },
+    "115": {
+      "text": {
+        "type": 44
+      }
+    },
+    "116": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 5,
+        "secondDice": 2
+      },
+      "from": 2
+    },
+    "117": {
+      "text": {
+        "type": 11,
+        "playerColor": 2,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 4,
+          "diceNumber": 10,
+          "resourceType": 4
+        }
+      },
+      "from": 2
+    },
+    "120": {
+      "text": {
+        "type": 16,
+        "playerColorThief": 2,
+        "playerColorVictim": 3,
+        "cardBacks": [
+          0
+        ]
+      },
+      "from": 2,
+      "specificRecipients": [
+        1,
+        4
+      ]
+    },
+    "121": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          2
+        ]
+      },
+      "from": 2
+    },
+    "122": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          1
+        ]
+      },
+      "from": 2
+    },
+    "123": {
+      "text": {
+        "type": 5,
+        "playerColor": 2,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 2
+    },
+    "124": {
+      "text": {
+        "type": 44
+      }
+    },
+    "125": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 2,
+        "secondDice": 3
+      },
+      "from": 3
+    },
+    "126": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "127": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "128": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "129": {
+      "text": {
+        "type": 118,
+        "playerColor": 3,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          1
+        ]
+      },
+      "from": 3
+    },
+    "130": {
+      "text": {
+        "type": 44
+      }
+    },
+    "131": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 2,
+        "secondDice": 1
+      },
+      "from": 4
+    },
+    "132": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          4,
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "133": {
+      "text": {
+        "type": 118,
+        "playerColor": 4,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          1
+        ]
+      },
+      "from": 4
+    },
+    "134": {
+      "text": {
+        "type": 44
+      }
+    },
+    "135": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 1,
+        "secondDice": 4
+      },
+      "from": 1
+    },
+    "136": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "137": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "138": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "139": {
+      "text": {
+        "type": 1,
+        "playerColor": 1
+      },
+      "from": 1
+    },
+    "140": {
+      "text": {
+        "type": 44
+      }
+    },
+    "141": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 2,
+        "secondDice": 1
+      },
+      "from": 2
+    },
+    "142": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          4,
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "143": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          2
+        ]
+      },
+      "from": 2
+    },
+    "144": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          1
+        ]
+      },
+      "from": 2
+    },
+    "145": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          1,
+          1
+        ]
+      },
+      "from": 2
+    },
+    "146": {
+      "text": {
+        "type": 44
+      }
+    },
+    "147": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 4,
+        "secondDice": 1
+      },
+      "from": 3
+    },
+    "148": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "149": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "150": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "151": {
+      "text": {
+        "type": 116,
+        "playerColor": 3,
+        "givenCardEnums": [
+          5,
+          5
+        ],
+        "receivedCardEnums": [
+          2
+        ]
+      },
+      "from": 3
+    },
+    "152": {
+      "text": {
+        "type": 116,
+        "playerColor": 3,
+        "givenCardEnums": [
+          5,
+          5
+        ],
+        "receivedCardEnums": [
+          4
+        ]
+      },
+      "from": 3
+    },
+    "153": {
+      "text": {
+        "type": 44
+      }
+    },
+    "154": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 5,
+        "secondDice": 3
+      },
+      "from": 4
+    },
+    "155": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "156": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          2,
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "157": {
+      "text": {
+        "type": 118,
+        "playerColor": 4,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          1
+        ]
+      },
+      "from": 4
+    },
+    "158": {
+      "text": {
+        "type": 116,
+        "playerColor": 4,
+        "givenCardEnums": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "receivedCardEnums": [
+          4
+        ]
+      },
+      "from": 4
+    },
+    "159": {
+      "text": {
+        "type": 44
+      }
+    },
+    "160": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 6,
+        "secondDice": 5
+      },
+      "from": 1
+    },
+    "161": {
+      "text": {
+        "type": 44
+      }
+    },
+    "162": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 2,
+        "secondDice": 4
+      },
+      "from": 2
+    },
+    "163": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "164": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          2
+        ]
+      },
+      "from": 2
+    },
+    "165": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          1
+        ]
+      },
+      "from": 2
+    },
+    "166": {
+      "text": {
+        "type": 115,
+        "playerColor": 2,
+        "acceptingPlayerColor": 4,
+        "givenCardEnums": [
+          1
+        ],
+        "receivedCardEnums": [
+          4
+        ]
+      },
+      "from": 2
+    },
+    "167": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          5
+        ],
+        "offeredCardEnums": [
+          1
+        ]
+      },
+      "from": 2
+    },
+    "168": {
+      "text": {
+        "type": 44
+      }
+    },
+    "169": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 1,
+        "secondDice": 1
+      },
+      "from": 3
+    },
+    "170": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "171": {
+      "text": {
+        "type": 118,
+        "playerColor": 3,
+        "wantedCardEnums": [
+          5
+        ],
+        "offeredCardEnums": [
+          1
+        ]
+      },
+      "from": 3
+    },
+    "172": {
+      "text": {
+        "type": 44
+      }
+    },
+    "173": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 4,
+        "secondDice": 4
+      },
+      "from": 4
+    },
+    "174": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "175": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          2,
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "176": {
+      "text": {
+        "type": 44
+      }
+    },
+    "177": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 2,
+        "secondDice": 6
+      },
+      "from": 1
+    },
+    "178": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "179": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          2,
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "180": {
+      "text": {
+        "type": 1,
+        "playerColor": 1
+      },
+      "from": 1
+    },
+    "181": {
+      "text": {
+        "type": 116,
+        "playerColor": 1,
+        "givenCardEnums": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "receivedCardEnums": [
+          2
+        ]
+      },
+      "from": 1
+    },
+    "182": {
+      "text": {
+        "type": 5,
+        "playerColor": 1,
+        "pieceEnum": 2,
+        "isVp": true
+      },
+      "from": 1
+    },
+    "183": {
+      "text": {
+        "type": 44
+      }
+    },
+    "184": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 3,
+        "secondDice": 4
+      },
+      "from": 2
+    },
+    "185": {
+      "text": {
+        "type": 64,
+        "playerColor": 2
+      },
+      "from": 2
+    },
+    "186": {
+      "text": {
+        "type": 55,
+        "playerColor": 2,
+        "cardEnums": [
+          3,
+          2,
+          4,
+          3
+        ],
+        "areResourceCards": true
+      },
+      "from": 2
+    },
+    "187": {
+      "text": {
+        "type": 64,
+        "playerColor": 3
+      },
+      "from": 3
+    },
+    "188": {
+      "text": {
+        "type": 55,
+        "playerColor": 3,
+        "cardEnums": [
+          3,
+          4,
+          1,
+          2,
+          1
+        ],
+        "areResourceCards": true
+      },
+      "from": 3
+    },
+    "189": {
+      "text": {
+        "type": 11,
+        "playerColor": 2,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      },
+      "from": 2
+    },
+    "192": {
+      "text": {
+        "type": 16,
+        "playerColorThief": 2,
+        "playerColorVictim": 3,
+        "cardBacks": [
+          0
+        ]
+      },
+      "from": 2,
+      "specificRecipients": [
+        1,
+        4
+      ]
+    },
+    "193": {
+      "text": {
+        "type": 44
+      }
+    },
+    "194": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 2,
+        "secondDice": 4
+      },
+      "from": 3
+    },
+    "195": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3,
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "196": {
+      "text": {
+        "type": 44
+      }
+    },
+    "197": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 6,
+        "secondDice": 6
+      },
+      "from": 4
+    },
+    "198": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "199": {
+      "text": {
+        "type": 44
+      }
+    },
+    "200": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 1,
+        "secondDice": 4
+      },
+      "from": 1
+    },
+    "201": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "202": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "203": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "204": {
+      "text": {
+        "type": 44
+      }
+    },
+    "205": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 5,
+        "secondDice": 5
+      },
+      "from": 2
+    },
+    "206": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "207": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "208": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "209": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          4,
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "210": {
+      "text": {
+        "type": 116,
+        "playerColor": 2,
+        "givenCardEnums": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "receivedCardEnums": [
+          4
+        ]
+      },
+      "from": 2
+    },
+    "211": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          2
+        ]
+      },
+      "from": 2
+    },
+    "212": {
+      "text": {
+        "type": 5,
+        "playerColor": 2,
+        "pieceEnum": 2,
+        "isVp": true
+      },
+      "from": 2
+    },
+    "213": {
+      "text": {
+        "type": 44
+      }
+    },
+    "214": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 2,
+        "secondDice": 4
+      },
+      "from": 3
+    },
+    "215": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3,
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "216": {
+      "text": {
+        "type": 116,
+        "playerColor": 3,
+        "givenCardEnums": [
+          2,
+          2
+        ],
+        "receivedCardEnums": [
+          3
+        ]
+      },
+      "from": 3
+    },
+    "217": {
+      "text": {
+        "type": 118,
+        "playerColor": 3,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          1
+        ]
+      },
+      "from": 3
+    },
+    "218": {
+      "text": {
+        "type": 1,
+        "playerColor": 3
+      },
+      "from": 3
+    },
+    "219": {
+      "text": {
+        "type": 44
+      }
+    },
+    "220": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 6,
+        "secondDice": 5
+      },
+      "from": 4
+    },
+    "221": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "222": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "223": {
+      "text": {
+        "type": 5,
+        "playerColor": 4,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 4
+    },
+    "224": {
+      "text": {
+        "type": 44
+      }
+    },
+    "225": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 5,
+        "secondDice": 6
+      },
+      "from": 1
+    },
+    "226": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "227": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "228": {
+      "text": {
+        "type": 44
+      }
+    },
+    "229": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 1,
+        "secondDice": 4
+      },
+      "from": 2
+    },
+    "230": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "231": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "232": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "233": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          3
+        ],
+        "offeredCardEnums": [
+          4
+        ]
+      },
+      "from": 2
+    },
+    "234": {
+      "text": {
+        "type": 44
+      }
+    },
+    "235": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 5,
+        "secondDice": 3
+      },
+      "from": 3
+    },
+    "236": {
+      "text": {
+        "type": 49,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      }
+    },
+    "237": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "238": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "239": {
+      "text": {
+        "type": 118,
+        "playerColor": 3,
+        "wantedCardEnums": [
+          3
+        ],
+        "offeredCardEnums": [
+          1
+        ]
+      },
+      "from": 3
+    },
+    "240": {
+      "text": {
+        "type": 20,
+        "playerColor": 3,
+        "cardEnum": 13
+      },
+      "from": 3
+    },
+    "241": {
+      "text": {
+        "type": 86,
+        "playerColor": 3,
+        "amountStolen": 8,
+        "cardEnum": 4
+      },
+      "from": 3
+    },
+    "242": {
+      "text": {
+        "type": 116,
+        "playerColor": 3,
+        "givenCardEnums": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "receivedCardEnums": [
+          2
+        ]
+      },
+      "from": 3
+    },
+    "243": {
+      "text": {
+        "type": 118,
+        "playerColor": 3,
+        "wantedCardEnums": [
+          3
+        ],
+        "offeredCardEnums": [
+          5
+        ]
+      },
+      "from": 3
+    },
+    "244": {
+      "text": {
+        "type": 118,
+        "playerColor": 3,
+        "wantedCardEnums": [
+          3
+        ],
+        "offeredCardEnums": [
+          4
+        ]
+      },
+      "from": 3
+    },
+    "245": {
+      "text": {
+        "type": 5,
+        "playerColor": 3,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 3
+    },
+    "246": {
+      "text": {
+        "type": 116,
+        "playerColor": 3,
+        "givenCardEnums": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "receivedCardEnums": [
+          2
+        ]
+      },
+      "from": 3
+    },
+    "247": {
+      "text": {
+        "type": 44
+      }
+    },
+    "248": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 4,
+        "secondDice": 4
+      },
+      "from": 4
+    },
+    "249": {
+      "text": {
+        "type": 49,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      }
+    },
+    "250": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "251": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "252": {
+      "text": {
+        "type": 44
+      }
+    },
+    "253": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 1,
+        "secondDice": 3
+      },
+      "from": 1
+    },
+    "254": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "255": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "256": {
+      "text": {
+        "type": 44
+      }
+    },
+    "257": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 1,
+        "secondDice": 3
+      },
+      "from": 2
+    },
+    "258": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "259": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "260": {
+      "text": {
+        "type": 44
+      }
+    },
+    "261": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 5,
+        "secondDice": 4
+      },
+      "from": 3
+    },
+    "262": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          2
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "263": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          5,
+          2,
+          2
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "264": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "265": {
+      "text": {
+        "type": 118,
+        "playerColor": 3,
+        "wantedCardEnums": [
+          3
+        ],
+        "offeredCardEnums": [
+          1
+        ]
+      },
+      "from": 3
+    },
+    "266": {
+      "text": {
+        "type": 118,
+        "playerColor": 3,
+        "wantedCardEnums": [
+          5
+        ],
+        "offeredCardEnums": [
+          1,
+          1
+        ]
+      },
+      "from": 3
+    },
+    "267": {
+      "text": {
+        "type": 115,
+        "playerColor": 3,
+        "acceptingPlayerColor": 4,
+        "givenCardEnums": [
+          1,
+          1
+        ],
+        "receivedCardEnums": [
+          5
+        ]
+      },
+      "from": 3
+    },
+    "268": {
+      "text": {
+        "type": 44
+      }
+    },
+    "269": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 5,
+        "secondDice": 3
+      },
+      "from": 4
+    },
+    "270": {
+      "text": {
+        "type": 49,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      }
+    },
+    "271": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "272": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "273": {
+      "text": {
+        "type": 116,
+        "playerColor": 4,
+        "givenCardEnums": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "receivedCardEnums": [
+          4
+        ]
+      },
+      "from": 4
+    },
+    "274": {
+      "text": {
+        "type": 118,
+        "playerColor": 4,
+        "wantedCardEnums": [
+          5
+        ],
+        "offeredCardEnums": [
+          3
+        ]
+      },
+      "from": 4
+    },
+    "275": {
+      "text": {
+        "type": 115,
+        "playerColor": 4,
+        "acceptingPlayerColor": 3,
+        "givenCardEnums": [
+          3
+        ],
+        "receivedCardEnums": [
+          5
+        ]
+      },
+      "from": 4
+    },
+    "276": {
+      "text": {
+        "type": 44
+      }
+    },
+    "277": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 1,
+        "secondDice": 4
+      },
+      "from": 1
+    },
+    "278": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "279": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "280": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "281": {
+      "text": {
+        "type": 5,
+        "playerColor": 1,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 1
+    },
+    "282": {
+      "text": {
+        "type": 44
+      }
+    },
+    "283": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 4,
+        "secondDice": 4
+      },
+      "from": 2
+    },
+    "284": {
+      "text": {
+        "type": 49,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      }
+    },
+    "285": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "286": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "287": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          2
+        ]
+      },
+      "from": 2
+    },
+    "288": {
+      "text": {
+        "type": 115,
+        "playerColor": 2,
+        "acceptingPlayerColor": 4,
+        "givenCardEnums": [
+          2
+        ],
+        "receivedCardEnums": [
+          4
+        ]
+      },
+      "from": 2
+    },
+    "289": {
+      "text": {
+        "type": 1,
+        "playerColor": 2
+      },
+      "from": 2
+    },
+    "290": {
+      "text": {
+        "type": 5,
+        "playerColor": 2,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 2
+    },
+    "291": {
+      "text": {
+        "type": 44
+      }
+    },
+    "292": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 5,
+        "secondDice": 3
+      },
+      "from": 3
+    },
+    "293": {
+      "text": {
+        "type": 49,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      }
+    },
+    "294": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "295": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "296": {
+      "text": {
+        "type": 116,
+        "playerColor": 3,
+        "givenCardEnums": [
+          5,
+          5
+        ],
+        "receivedCardEnums": [
+          4
+        ]
+      },
+      "from": 3
+    },
+    "297": {
+      "text": {
+        "type": 118,
+        "playerColor": 3,
+        "wantedCardEnums": [
+          5
+        ],
+        "offeredCardEnums": [
+          1,
+          1
+        ]
+      },
+      "from": 3
+    },
+    "298": {
+      "text": {
+        "type": 115,
+        "playerColor": 3,
+        "acceptingPlayerColor": 4,
+        "givenCardEnums": [
+          1,
+          1
+        ],
+        "receivedCardEnums": [
+          5
+        ]
+      },
+      "from": 3
+    },
+    "299": {
+      "text": {
+        "type": 1,
+        "playerColor": 3
+      },
+      "from": 3
+    },
+    "300": {
+      "text": {
+        "type": 44
+      }
+    },
+    "301": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 2,
+        "secondDice": 3
+      },
+      "from": 4
+    },
+    "302": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "303": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "304": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "305": {
+      "text": {
+        "type": 116,
+        "playerColor": 4,
+        "givenCardEnums": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "receivedCardEnums": [
+          4
+        ]
+      },
+      "from": 4
+    },
+    "306": {
+      "text": {
+        "type": 118,
+        "playerColor": 4,
+        "wantedCardEnums": [
+          1
+        ],
+        "offeredCardEnums": [
+          3
+        ]
+      },
+      "from": 4
+    },
+    "307": {
+      "text": {
+        "type": 115,
+        "playerColor": 4,
+        "acceptingPlayerColor": 3,
+        "givenCardEnums": [
+          3
+        ],
+        "receivedCardEnums": [
+          1
+        ]
+      },
+      "from": 4
+    },
+    "308": {
+      "text": {
+        "type": 5,
+        "playerColor": 4,
+        "pieceEnum": 2,
+        "isVp": true
+      },
+      "from": 4
+    },
+    "309": {
+      "text": {
+        "type": 44
+      }
+    },
+    "310": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 4,
+        "secondDice": 3
+      },
+      "from": 1
+    },
+    "311": {
+      "text": {
+        "type": 55,
+        "playerColor": 1,
+        "cardEnums": [
+          3,
+          3,
+          1
+        ],
+        "areResourceCards": true
+      },
+      "from": 1
+    },
+    "312": {
+      "text": {
+        "type": 11,
+        "playerColor": 1,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 5,
+          "diceNumber": 5,
+          "resourceType": 5
+        }
+      },
+      "from": 1
+    },
+    "313": {
+      "text": {
+        "type": 14,
+        "playerColor": 3,
+        "cardEnums": [
+          2
+        ]
+      },
+      "from": 1,
+      "specificRecipients": [
+        1
+      ],
+      "toSpectators": false
+    },
+    "316": {
+      "text": {
+        "type": 44
+      }
+    },
+    "317": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 1,
+        "secondDice": 5
+      },
+      "from": 2
+    },
+    "318": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3,
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "319": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          1
+        ]
+      },
+      "from": 2
+    },
+    "320": {
+      "text": {
+        "type": 5,
+        "playerColor": 2,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 2
+    },
+    "321": {
+      "text": {
+        "type": 20,
+        "playerColor": 2,
+        "cardEnum": 11
+      },
+      "from": 2
+    },
+    "322": {
+      "text": {
+        "type": 11,
+        "playerColor": 2,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 4,
+          "diceNumber": 10,
+          "resourceType": 4
+        }
+      },
+      "from": 2
+    },
+    "325": {
+      "text": {
+        "type": 16,
+        "playerColorThief": 2,
+        "playerColorVictim": 3,
+        "cardBacks": [
+          0
+        ]
+      },
+      "from": 2,
+      "specificRecipients": [
+        1,
+        4
+      ]
+    },
+    "326": {
+      "text": {
+        "type": 44
+      }
+    },
+    "327": {
+      "text": {
+        "type": 20,
+        "playerColor": 3,
+        "cardEnum": 11
+      },
+      "from": 3
+    },
+    "328": {
+      "text": {
+        "type": 11,
+        "playerColor": 3,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 5,
+          "diceNumber": 9,
+          "resourceType": 5
+        }
+      },
+      "from": 3
+    },
+    "331": {
+      "text": {
+        "type": 16,
+        "playerColorThief": 3,
+        "playerColorVictim": 2,
+        "cardBacks": [
+          0
+        ]
+      },
+      "from": 3,
+      "specificRecipients": [
+        1,
+        4
+      ]
+    },
+    "332": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 2,
+        "secondDice": 2
+      },
+      "from": 3
+    },
+    "333": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "334": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "335": {
+      "text": {
+        "type": 118,
+        "playerColor": 3,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          3
+        ]
+      },
+      "from": 3
+    },
+    "336": {
+      "text": {
+        "type": 44
+      }
+    },
+    "337": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 4,
+        "secondDice": 3
+      },
+      "from": 4
+    },
+    "338": {
+      "text": {
+        "type": 55,
+        "playerColor": 1,
+        "cardEnums": [
+          1,
+          1,
+          3
+        ],
+        "areResourceCards": true
+      },
+      "from": 1
+    },
+    "339": {
+      "text": {
+        "type": 11,
+        "playerColor": 4,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      },
+      "from": 4
+    },
+    "342": {
+      "text": {
+        "type": 16,
+        "playerColorThief": 4,
+        "playerColorVictim": 3,
+        "cardBacks": [
+          0
+        ]
+      },
+      "from": 4,
+      "specificRecipients": [
+        1,
+        2
+      ]
+    },
+    "343": {
+      "text": {
+        "type": 44
+      }
+    },
+    "344": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 1,
+        "secondDice": 6
+      },
+      "from": 1
+    },
+    "345": {
+      "text": {
+        "type": 11,
+        "playerColor": 1,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 5,
+          "diceNumber": 5,
+          "resourceType": 5
+        }
+      },
+      "from": 1
+    },
+    "346": {
+      "text": {
+        "type": 14,
+        "playerColor": 3,
+        "cardEnums": [
+          5
+        ]
+      },
+      "from": 1,
+      "specificRecipients": [
+        1
+      ],
+      "toSpectators": false
+    },
+    "349": {
+      "text": {
+        "type": 5,
+        "playerColor": 1,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 1
+    },
+    "350": {
+      "text": {
+        "type": 44
+      }
+    },
+    "351": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 2,
+        "secondDice": 4
+      },
+      "from": 2
+    },
+    "352": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3,
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "353": {
+      "text": {
+        "type": 44
+      }
+    },
+    "354": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 4,
+        "secondDice": 4
+      },
+      "from": 3
+    },
+    "355": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "356": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          2,
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "357": {
+      "text": {
+        "type": 44
+      }
+    },
+    "358": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 2,
+        "secondDice": 5
+      },
+      "from": 4
+    },
+    "359": {
+      "text": {
+        "type": 55,
+        "playerColor": 1,
+        "cardEnums": [
+          4,
+          3,
+          1
+        ],
+        "areResourceCards": true
+      },
+      "from": 1
+    },
+    "360": {
+      "text": {
+        "type": 11,
+        "playerColor": 4,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      },
+      "from": 4
+    },
+    "363": {
+      "text": {
+        "type": 16,
+        "playerColorThief": 4,
+        "playerColorVictim": 3,
+        "cardBacks": [
+          0
+        ]
+      },
+      "from": 4,
+      "specificRecipients": [
+        1,
+        2
+      ]
+    },
+    "364": {
+      "text": {
+        "type": 44
+      }
+    },
+    "365": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 3,
+        "secondDice": 3
+      },
+      "from": 1
+    },
+    "366": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3,
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "367": {
+      "text": {
+        "type": 44
+      }
+    },
+    "368": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 4,
+        "secondDice": 2
+      },
+      "from": 2
+    },
+    "369": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3,
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "370": {
+      "text": {
+        "type": 44
+      }
+    },
+    "371": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 1,
+        "secondDice": 1
+      },
+      "from": 3
+    },
+    "372": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "373": {
+      "text": {
+        "type": 44
+      }
+    },
+    "374": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 6,
+        "secondDice": 2
+      },
+      "from": 4
+    },
+    "375": {
+      "text": {
+        "type": 49,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      }
+    },
+    "376": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "377": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "378": {
+      "text": {
+        "type": 44
+      }
+    },
+    "379": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 5,
+        "secondDice": 6
+      },
+      "from": 1
+    },
+    "380": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "381": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "382": {
+      "text": {
+        "type": 1,
+        "playerColor": 1
+      },
+      "from": 1
+    },
+    "383": {
+      "text": {
+        "type": 44
+      }
+    },
+    "384": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 2,
+        "secondDice": 6
+      },
+      "from": 2
+    },
+    "385": {
+      "text": {
+        "type": 49,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      }
+    },
+    "386": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "387": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "388": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          1
+        ]
+      },
+      "from": 2
+    },
+    "389": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          2
+        ],
+        "offeredCardEnums": [
+          3,
+          3
+        ]
+      },
+      "from": 2
+    },
+    "390": {
+      "text": {
+        "type": 115,
+        "playerColor": 2,
+        "acceptingPlayerColor": 3,
+        "givenCardEnums": [
+          3,
+          3
+        ],
+        "receivedCardEnums": [
+          2
+        ]
+      },
+      "from": 2
+    },
+    "391": {
+      "text": {
+        "type": 5,
+        "playerColor": 2,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 2
+    },
+    "392": {
+      "text": {
+        "type": 44
+      }
+    },
+    "393": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 6,
+        "secondDice": 2
+      },
+      "from": 3
+    },
+    "394": {
+      "text": {
+        "type": 49,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      }
+    },
+    "395": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "396": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "397": {
+      "text": {
+        "type": 116,
+        "playerColor": 3,
+        "givenCardEnums": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "receivedCardEnums": [
+          4
+        ]
+      },
+      "from": 3
+    },
+    "398": {
+      "text": {
+        "type": 118,
+        "playerColor": 3,
+        "wantedCardEnums": [
+          1
+        ],
+        "offeredCardEnums": [
+          3
+        ]
+      },
+      "from": 3
+    },
+    "399": {
+      "text": {
+        "type": 44
+      }
+    },
+    "400": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 3,
+        "secondDice": 3
+      },
+      "from": 4
+    },
+    "401": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3,
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "402": {
+      "text": {
+        "type": 44
+      }
+    },
+    "403": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 2,
+        "secondDice": 1
+      },
+      "from": 1
+    },
+    "404": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          4,
+          5,
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "405": {
+      "text": {
+        "type": 1,
+        "playerColor": 1
+      },
+      "from": 1
+    },
+    "406": {
+      "text": {
+        "type": 1,
+        "playerColor": 1
+      },
+      "from": 1
+    },
+    "407": {
+      "text": {
+        "type": 44
+      }
+    },
+    "408": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 1,
+        "secondDice": 6
+      },
+      "from": 2
+    },
+    "409": {
+      "text": {
+        "type": 55,
+        "playerColor": 1,
+        "cardEnums": [
+          4,
+          1,
+          1
+        ],
+        "areResourceCards": true
+      },
+      "from": 1
+    },
+    "410": {
+      "text": {
+        "type": 11,
+        "playerColor": 2,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 4,
+          "diceNumber": 10,
+          "resourceType": 4
+        }
+      },
+      "from": 2
+    },
+    "413": {
+      "text": {
+        "type": 16,
+        "playerColorThief": 2,
+        "playerColorVictim": 4,
+        "cardBacks": [
+          0
+        ]
+      },
+      "from": 2,
+      "specificRecipients": [
+        1,
+        3
+      ]
+    },
+    "414": {
+      "text": {
+        "type": 44
+      }
+    },
+    "415": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 6,
+        "secondDice": 1
+      },
+      "from": 3
+    },
+    "416": {
+      "text": {
+        "type": 11,
+        "playerColor": 3,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 5,
+          "diceNumber": 9,
+          "resourceType": 5
+        }
+      },
+      "from": 3
+    },
+    "419": {
+      "text": {
+        "type": 16,
+        "playerColorThief": 3,
+        "playerColorVictim": 2,
+        "cardBacks": [
+          0
+        ]
+      },
+      "from": 3,
+      "specificRecipients": [
+        1,
+        4
+      ]
+    },
+    "420": {
+      "text": {
+        "type": 44
+      }
+    },
+    "421": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 2,
+        "secondDice": 4
+      },
+      "from": 4
+    },
+    "422": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3,
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "423": {
+      "text": {
+        "type": 44
+      }
+    },
+    "424": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 1,
+        "secondDice": 3
+      },
+      "from": 1
+    },
+    "425": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "426": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "427": {
+      "text": {
+        "type": 44
+      }
+    },
+    "428": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 1,
+        "secondDice": 4
+      },
+      "from": 2
+    },
+    "429": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "430": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "431": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "432": {
+      "text": {
+        "type": 44
+      }
+    },
+    "433": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 3,
+        "secondDice": 5
+      },
+      "from": 3
+    },
+    "434": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "435": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          2,
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "436": {
+      "text": {
+        "type": 5,
+        "playerColor": 3,
+        "pieceEnum": 2,
+        "isVp": true
+      },
+      "from": 3
+    },
+    "437": {
+      "text": {
+        "type": 118,
+        "playerColor": 3,
+        "wantedCardEnums": [
+          4
+        ],
+        "offeredCardEnums": [
+          1
+        ]
+      },
+      "from": 3
+    },
+    "438": {
+      "text": {
+        "type": 44
+      }
+    },
+    "439": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 4,
+        "secondDice": 6
+      },
+      "from": 4
+    },
+    "440": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "441": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "442": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "443": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          4,
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "444": {
+      "text": {
+        "type": 116,
+        "playerColor": 4,
+        "givenCardEnums": [
+          3,
+          3
+        ],
+        "receivedCardEnums": [
+          2
+        ]
+      },
+      "from": 4
+    },
+    "445": {
+      "text": {
+        "type": 44
+      }
+    },
+    "446": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 3,
+        "secondDice": 5
+      },
+      "from": 1
+    },
+    "447": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "448": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          2,
+          2,
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "449": {
+      "text": {
+        "type": 20,
+        "playerColor": 1,
+        "cardEnum": 13
+      },
+      "from": 1
+    },
+    "450": {
+      "text": {
+        "type": 86,
+        "playerColor": 1,
+        "amountStolen": 3,
+        "cardEnum": 2
+      },
+      "from": 1
+    },
+    "451": {
+      "text": {
+        "type": 5,
+        "playerColor": 1,
+        "pieceEnum": 2,
+        "isVp": true
+      },
+      "from": 1
+    },
+    "452": {
+      "text": {
+        "type": 5,
+        "playerColor": 1,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 1
+    },
+    "453": {
+      "text": {
+        "type": 5,
+        "playerColor": 1,
+        "pieceEnum": 2,
+        "isVp": true
+      },
+      "from": 1
+    },
+    "454": {
+      "text": {
+        "type": 44
+      }
+    },
+    "455": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 6,
+        "secondDice": 3
+      },
+      "from": 2
+    },
+    "456": {
+      "text": {
+        "type": 49,
+        "tileInfo": {
+          "tileType": 5,
+          "diceNumber": 9,
+          "resourceType": 5
+        }
+      }
+    },
+    "457": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          2
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "458": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          2,
+          2
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "459": {
+      "text": {
+        "type": 5,
+        "playerColor": 2,
+        "pieceEnum": 2,
+        "isVp": true
+      },
+      "from": 2
+    },
+    "460": {
+      "text": {
+        "type": 118,
+        "playerColor": 2,
+        "wantedCardEnums": [
+          1
+        ],
+        "offeredCardEnums": [
+          3
+        ]
+      },
+      "from": 2
+    },
+    "461": {
+      "text": {
+        "type": 115,
+        "playerColor": 2,
+        "acceptingPlayerColor": 3,
+        "givenCardEnums": [
+          3
+        ],
+        "receivedCardEnums": [
+          1
+        ]
+      },
+      "from": 2
+    },
+    "462": {
+      "text": {
+        "type": 5,
+        "playerColor": 2,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 2
+    },
+    "463": {
+      "text": {
+        "type": 66,
+        "playerColor": 2,
+        "achievementEnum": 0
+      },
+      "from": 2
+    },
+    "464": {
+      "text": {
+        "type": 44
+      }
+    },
+    "465": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 4,
+        "secondDice": 6
+      },
+      "from": 3
+    },
+    "466": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "467": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "468": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "469": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          4,
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "470": {
+      "text": {
+        "type": 118,
+        "playerColor": 3,
+        "wantedCardEnums": [
+          2
+        ],
+        "offeredCardEnums": [
+          3
+        ]
+      },
+      "from": 3
+    },
+    "471": {
+      "text": {
+        "type": 1,
+        "playerColor": 3
+      },
+      "from": 3
+    },
+    "472": {
+      "text": {
+        "type": 44
+      }
+    },
+    "473": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 3,
+        "secondDice": 5
+      },
+      "from": 4
+    },
+    "474": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "475": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          2,
+          2,
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "476": {
+      "text": {
+        "type": 116,
+        "playerColor": 4,
+        "givenCardEnums": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "receivedCardEnums": [
+          2
+        ]
+      },
+      "from": 4
+    },
+    "477": {
+      "text": {
+        "type": 5,
+        "playerColor": 4,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 4
+    },
+    "478": {
+      "text": {
+        "type": 44
+      }
+    },
+    "479": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 1,
+        "secondDice": 6
+      },
+      "from": 1
+    },
+    "480": {
+      "text": {
+        "type": 64,
+        "playerColor": 3
+      },
+      "from": 3
+    },
+    "481": {
+      "text": {
+        "type": 55,
+        "playerColor": 3,
+        "cardEnums": [
+          4,
+          2,
+          1
+        ],
+        "areResourceCards": true
+      },
+      "from": 3
+    },
+    "482": {
+      "text": {
+        "type": 11,
+        "playerColor": 1,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 2,
+          "diceNumber": 8,
+          "resourceType": 2
+        }
+      },
+      "from": 1
+    },
+    "483": {
+      "text": {
+        "type": 14,
+        "playerColor": 3,
+        "cardEnums": [
+          2
+        ]
+      },
+      "from": 1,
+      "specificRecipients": [
+        1
+      ],
+      "toSpectators": false
+    },
+    "486": {
+      "text": {
+        "type": 20,
+        "playerColor": 1,
+        "cardEnum": 11
+      },
+      "from": 1
+    },
+    "487": {
+      "text": {
+        "type": 11,
+        "playerColor": 1,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 5,
+          "diceNumber": 5,
+          "resourceType": 5
+        }
+      },
+      "from": 1
+    },
+    "488": {
+      "text": {
+        "type": 14,
+        "playerColor": 3,
+        "cardEnums": [
+          3
+        ]
+      },
+      "from": 1,
+      "specificRecipients": [
+        1
+      ],
+      "toSpectators": false
+    },
+    "491": {
+      "text": {
+        "type": 5,
+        "playerColor": 1,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 1
+    },
+    "492": {
+      "text": {
+        "type": 44
+      }
+    },
+    "493": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 4,
+        "secondDice": 3
+      },
+      "from": 2
+    },
+    "494": {
+      "text": {
+        "type": 11,
+        "playerColor": 2,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 4,
+          "diceNumber": 10,
+          "resourceType": 4
+        }
+      },
+      "from": 2
+    },
+    "497": {
+      "text": {
+        "type": 16,
+        "playerColorThief": 2,
+        "playerColorVictim": 3,
+        "cardBacks": [
+          0
+        ]
+      },
+      "from": 2,
+      "specificRecipients": [
+        1,
+        4
+      ]
+    },
+    "498": {
+      "text": {
+        "type": 44
+      }
+    },
+    "499": {
+      "text": {
+        "type": 20,
+        "playerColor": 3,
+        "cardEnum": 11
+      },
+      "from": 3
+    },
+    "500": {
+      "text": {
+        "type": 11,
+        "playerColor": 3,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 5,
+          "diceNumber": 9,
+          "resourceType": 5
+        }
+      },
+      "from": 3
+    },
+    "503": {
+      "text": {
+        "type": 16,
+        "playerColorThief": 3,
+        "playerColorVictim": 2,
+        "cardBacks": [
+          0
+        ]
+      },
+      "from": 3,
+      "specificRecipients": [
+        1,
+        4
+      ]
+    },
+    "504": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 5,
+        "secondDice": 4
+      },
+      "from": 3
+    },
+    "505": {
+      "text": {
+        "type": 49,
+        "tileInfo": {
+          "tileType": 5,
+          "diceNumber": 9,
+          "resourceType": 5
+        }
+      }
+    },
+    "506": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          2
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "507": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          2,
+          2
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "508": {
+      "text": {
+        "type": 44
+      }
+    },
+    "509": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 1,
+        "secondDice": 5
+      },
+      "from": 4
+    },
+    "510": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3,
+          3,
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "511": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "512": {
+      "text": {
+        "type": 44
+      }
+    },
+    "513": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 5,
+        "secondDice": 3
+      },
+      "from": 1
+    },
+    "514": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "515": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          2,
+          2,
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "516": {
+      "text": {
+        "type": 20,
+        "playerColor": 1,
+        "cardEnum": 11
+      },
+      "from": 1
+    },
+    "517": {
+      "text": {
+        "type": 11,
+        "playerColor": 1,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 5,
+          "diceNumber": 5,
+          "resourceType": 5
+        }
+      },
+      "from": 1
+    },
+    "518": {
+      "text": {
+        "type": 14,
+        "playerColor": 3,
+        "cardEnums": [
+          3
+        ]
+      },
+      "from": 1,
+      "specificRecipients": [
+        1
+      ],
+      "toSpectators": false
+    },
+    "521": {
+      "text": {
+        "type": 5,
+        "playerColor": 1,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 1
+    },
+    "522": {
+      "text": {
+        "type": 116,
+        "playerColor": 1,
+        "givenCardEnums": [
+          3,
+          3,
+          3
+        ],
+        "receivedCardEnums": [
+          1
+        ]
+      },
+      "from": 1
+    },
+    "523": {
+      "text": {
+        "type": 5,
+        "playerColor": 1,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 1
+    },
+    "524": {
+      "text": {
+        "type": 68,
+        "playerColorOld": 2,
+        "playerColorNew": 1,
+        "achievementEnum": 0
+      },
+      "from": 1
+    },
+    "525": {
+      "text": {
+        "type": 44
+      }
+    },
+    "526": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 5,
+        "secondDice": 3
+      },
+      "from": 2
+    },
+    "527": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "528": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          2,
+          2,
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "529": {
+      "text": {
+        "type": 44
+      }
+    },
+    "530": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 6,
+        "secondDice": 5
+      },
+      "from": 3
+    },
+    "531": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "532": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          1,
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "533": {
+      "text": {
+        "type": 116,
+        "playerColor": 3,
+        "givenCardEnums": [
+          2,
+          2
+        ],
+        "receivedCardEnums": [
+          4
+        ]
+      },
+      "from": 3
+    },
+    "534": {
+      "text": {
+        "type": 116,
+        "playerColor": 3,
+        "givenCardEnums": [
+          2,
+          2
+        ],
+        "receivedCardEnums": [
+          4
+        ]
+      },
+      "from": 3
+    },
+    "535": {
+      "text": {
+        "type": 44
+      }
+    },
+    "536": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 4,
+        "secondDice": 3
+      },
+      "from": 4
+    },
+    "537": {
+      "text": {
+        "type": 64,
+        "playerColor": 2
+      },
+      "from": 2
+    },
+    "538": {
+      "text": {
+        "type": 55,
+        "playerColor": 2,
+        "cardEnums": [
+          3,
+          1,
+          4
+        ],
+        "areResourceCards": true
+      },
+      "from": 2
+    },
+    "539": {
+      "text": {
+        "type": 55,
+        "playerColor": 1,
+        "cardEnums": [
+          3,
+          3,
+          4
+        ],
+        "areResourceCards": true
+      },
+      "from": 1
+    },
+    "540": {
+      "text": {
+        "type": 11,
+        "playerColor": 4,
+        "pieceEnum": 5,
+        "tileInfo": {
+          "tileType": 1,
+          "diceNumber": 8,
+          "resourceType": 1
+        }
+      },
+      "from": 4
+    },
+    "542": {
+      "text": {
+        "type": 15,
+        "playerColor": 4,
+        "cardEnums": [
+          4
+        ]
+      },
+      "from": 4,
+      "specificRecipients": [
+        1
+      ],
+      "toSpectators": false
+    },
+    "544": {
+      "text": {
+        "type": 44
+      }
+    },
+    "545": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 2,
+        "secondDice": 3
+      },
+      "from": 1
+    },
+    "546": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "547": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "548": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "549": {
+      "text": {
+        "type": 44
+      }
+    },
+    "550": {
+      "text": {
+        "type": 10,
+        "playerColor": 2,
+        "firstDice": 1,
+        "secondDice": 4
+      },
+      "from": 2
+    },
+    "551": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "552": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "553": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "554": {
+      "text": {
+        "type": 5,
+        "playerColor": 2,
+        "pieceEnum": 0,
+        "isVp": false
+      },
+      "from": 2
+    },
+    "555": {
+      "text": {
+        "type": 44
+      }
+    },
+    "556": {
+      "text": {
+        "type": 10,
+        "playerColor": 3,
+        "firstDice": 4,
+        "secondDice": 1
+      },
+      "from": 3
+    },
+    "557": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "558": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          5
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "559": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          1
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "560": {
+      "text": {
+        "type": 44
+      }
+    },
+    "561": {
+      "text": {
+        "type": 10,
+        "playerColor": 4,
+        "firstDice": 6,
+        "secondDice": 4
+      },
+      "from": 4
+    },
+    "562": {
+      "text": {
+        "type": 47,
+        "playerColor": 1,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 1
+    },
+    "563": {
+      "text": {
+        "type": 47,
+        "playerColor": 2,
+        "cardsToBroadcast": [
+          3
+        ],
+        "distributionType": 1
+      },
+      "from": 2
+    },
+    "564": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "565": {
+      "text": {
+        "type": 47,
+        "playerColor": 4,
+        "cardsToBroadcast": [
+          4,
+          4
+        ],
+        "distributionType": 1
+      },
+      "from": 4
+    },
+    "566": {
+      "text": {
+        "type": 44
+      }
+    },
+    "567": {
+      "text": {
+        "type": 10,
+        "playerColor": 1,
+        "firstDice": 6,
+        "secondDice": 2
+      },
+      "from": 1
+    },
+    "568": {
+      "text": {
+        "type": 49,
+        "tileInfo": {
+          "tileType": 1,
+          "diceNumber": 8,
+          "resourceType": 1
+        }
+      }
+    },
+    "569": {
+      "text": {
+        "type": 47,
+        "playerColor": 3,
+        "cardsToBroadcast": [
+          2,
+          2
+        ],
+        "distributionType": 1
+      },
+      "from": 3
+    },
+    "570": {
+      "text": {
+        "type": 20,
+        "playerColor": 1,
+        "cardEnum": 11
+      },
+      "from": 1
+    },
+    "571": {
+      "text": {
+        "type": 66,
+        "playerColor": 1,
+        "achievementEnum": 1
+      },
+      "from": 1
+    },
+    "572": {
+      "text": {
+        "type": 44
+      }
+    },
+    "573": {
+      "text": {
+        "type": 45,
+        "playerColor": 1
+      },
+      "from": 1
+    },
+    "574": {
+      "text": {
+        "type": 44
+      }
+    }
+  }
+}

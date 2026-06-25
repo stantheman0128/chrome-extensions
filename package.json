@@ -5,7 +5,8 @@
   "description": "Synthetic-log test harness for the Chrome extensions in this repo (parsing logic only). Lives at repo root so it is never packaged into any extension ZIP.",
   "type": "commonjs",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:oracle": "node tools/generate-oracle-fixtures.js && node --test tests/oracle-verification.test.js tests/capture-oracle.test.js tests/hand-recon-oracle.test.js"
   },
   "devDependencies": {
     "jpeg-js": "^0.4.4",

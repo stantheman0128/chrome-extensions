@@ -1,0 +1,116 @@
+{
+  "meta": {
+    "id": "late-production-ordering",
+    "description": "playerStates hand count before gameLog type-47; ore must land on ore not unknown",
+    "oraclePolicy": "explicit expected panel state after each relay step"
+  },
+  "steps": [
+    {
+      "label": "full state",
+      "frame": {
+        "type": 4,
+        "payload": {
+          "gameSettings": {
+            "id": "oracle-order-A"
+          },
+          "gameState": {
+            "playerColor": 1,
+            "mapState": {
+              "tileHexStates": {},
+              "tileCornerStates": {}
+            },
+            "mechanicRobberState": {
+              "locationTileIndex": 0
+            },
+            "playerStates": {
+              "1": {
+                "resourceCards": {
+                  "cards": [
+                    1
+                  ]
+                }
+              },
+              "2": {
+                "resourceCards": {
+                  "cards": []
+                }
+              }
+            },
+            "gameLogState": {}
+          },
+          "playerUserStates": [
+            {
+              "selectedColor": 1,
+              "username": "Stan"
+            },
+            {
+              "selectedColor": 2,
+              "username": "Mosley"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "Mosley": {
+          "ore": 0,
+          "unknown": 0
+        }
+      }
+    },
+    {
+      "label": "hand total only",
+      "frame": {
+        "type": 91,
+        "payload": {
+          "diff": {
+            "playerStates": {
+              "2": {
+                "resourceCards": {
+                  "cards": [
+                    0,
+                    0
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "Mosley": {
+          "ore": 0,
+          "unknown": 2
+        }
+      }
+    },
+    {
+      "label": "production names ore",
+      "frame": {
+        "type": 91,
+        "payload": {
+          "diff": {
+            "gameLogState": {
+              "1": {
+                "text": {
+                  "type": 47,
+                  "playerColor": 2,
+                  "cardsToBroadcast": [
+                    5,
+                    5
+                  ],
+                  "distributionType": 1
+                }
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "Mosley": {
+          "ore": 2,
+          "unknown": 0
+        }
+      }
+    }
+  ]
+}

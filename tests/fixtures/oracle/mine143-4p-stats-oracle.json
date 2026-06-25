@@ -1,0 +1,82 @@
+{
+  "meta": {
+    "id": "ws-mine143-4p-stats-oracle",
+    "gameId": "mine143",
+    "source": "tests/fixtures/ws-mine143-4p-gamelog.json",
+    "generatedAt": "2026-06-24T14:51:41.810Z",
+    "oraclePolicy": "colonist gameLog broadcasts only (type 47/21 gained, 55 discard, 86 monopoly) — no board.js"
+  },
+  "logTypeCounts": {
+    "1": 5,
+    "2": 1,
+    "4": 16,
+    "5": 20,
+    "10": 49,
+    "11": 12,
+    "14": 6,
+    "15": 2,
+    "16": 4,
+    "20": 4,
+    "44": 59,
+    "45": 1,
+    "47": 87,
+    "49": 5,
+    "66": 1,
+    "86": 1,
+    "115": 10,
+    "116": 17,
+    "118": 24
+  },
+  "statsFromLog": {
+    "1": {
+      "gained": 61,
+      "gainedRes": {
+        "3": 13,
+        "4": 30,
+        "5": 18
+      },
+      "discards": 0,
+      "discardCards": 0,
+      "discardRes": {},
+      "monoTook": {}
+    },
+    "2": {
+      "gained": 26,
+      "gainedRes": {
+        "1": 6,
+        "2": 3,
+        "3": 9,
+        "4": 8
+      },
+      "discards": 0,
+      "discardCards": 0,
+      "discardRes": {},
+      "monoTook": {}
+    },
+    "3": {
+      "gained": 35,
+      "gainedRes": {
+        "1": 12,
+        "3": 9,
+        "4": 14
+      },
+      "discards": 0,
+      "discardCards": 0,
+      "discardRes": {},
+      "monoTook": {
+        "3": 7
+      }
+    },
+    "4": {
+      "gained": 20,
+      "gainedRes": {
+        "1": 7,
+        "2": 13
+      },
+      "discards": 0,
+      "discardCards": 0,
+      "discardRes": {},
+      "monoTook": {}
+    }
+  }
+}
