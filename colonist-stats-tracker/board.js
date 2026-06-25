@@ -581,7 +581,7 @@
   // geometry as the headline (one entry per blocked roll, cards = Σ over buildings).
   function accrueBlocked(b, n) {
     const t = b.robberTile != null ? b.tiles[b.robberTile] : null;
-    if (!t || t.number !== n || t.type === 0) return; // robber not on a matching numbered tile
+    if (!t || t.number !== n || t.type < 1 || t.type > 5) return; // robber not on a matching numbered RESOURCE tile (desert/sea/gold yield nothing)
     const byOwner = {};
     for (const ci of b.cornersByTile[b.robberTile] || []) {
       const c = b.corners[ci];

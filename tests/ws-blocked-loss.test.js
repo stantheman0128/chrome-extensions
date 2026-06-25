@@ -185,3 +185,44 @@ test('a Victory value tagged for the current game survives a same-id reconnect',
   relay(fullState('keep'));                     // reconnect (same id), not a new game
   assert.deepEqual(cst.state.endgameBlocked, { Stan: 5 }, 'a same-game reconnect keeps the Victory value');
 });
+
+// A numbered NON-resource tile under the robber (Seafarers sea/gold, type > 5) yields
+// nothing, so a roll of its number costs 0 — accrueBlocked must use the same resource
+// guard as predictProduction/pipsOf, not just an === 0 desert check. Same geometry as
+// above (corner (1,0,z1) touches tile (1,1)), city on it, robber on it, roll its number.
+function nonResourceState(gameId, type, dice) {
+  return { type: 4, payload: {
+    gameSettings: { id: gameId },
+    gameState: {
+      playerColor: 1,
+      mapState: {
+        tileHexStates: { 7: { x: 1, y: 1, type, diceNumber: dice } },
+        tileCornerStates: { 23: { x: 1, y: 0, z: 1, owner: 1, buildingType: 2 } },  // a city on the tile's corner
+      },
+      mechanicRobberState: { locationTileIndex: 7, isActive: true },
+      gameLogState: {},
+    },
+    playerUserStates: [{ selectedColor: 1, username: 'Stan' }],
+  } };
+}
+function rollDiff(b, sum) {
+  B.applyDiff(b, { gameLogState: { 900: { text: { type: 10, firstDice: 1, secondDice: sum - 1 } } } });
+}
+
+test('robber on a numbered sea/gold tile (type > 5) yields 0 blocked-loss, like its production', () => {
+  for (const type of [6, 7]) {                  // 6 = sea, 7 = gold — both score no base resource
+    const b = B.createBoard();
+    B.applyFullState(b, nonResourceState('sea-' + type, type, 8).payload);
+    assert.equal(B.geomReady(b), true, 'geometry is complete so the value reaches the UI');
+    assert.deepEqual(B.predictProduction(b, 8), {}, 'production on a non-resource tile is already 0');
+    rollDiff(b, 8);                             // roll the tile's number with the robber sitting on it
+    assert.equal(B.blockedLossOf(b, 1), 0, `a city on a type-${type} tile loses nothing (not 2)`);
+  }
+});
+
+test('robber on a numbered RESOURCE tile (type 1..5) still accrues the loss', () => {
+  const b = B.createBoard();
+  B.applyFullState(b, nonResourceState('ore', 5, 8).payload);  // type 5 = ore, a real resource
+  rollDiff(b, 8);
+  assert.equal(B.blockedLossOf(b, 1), 2, 'the guard fix must not break the real-resource path (city = 2)');
+});
