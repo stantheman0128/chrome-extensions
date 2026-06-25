@@ -4447,6 +4447,14 @@
         + (au.conflicts ? '  ⚠️ GEOMETRY MISMATCH' : '')
         + (lastBad ? ' | last✗ roll ' + lastBad.roll + ' pred=' + JSON.stringify(lastBad.pred) + ' got=' + JSON.stringify(lastBad.actual) : ''));
     }
+    if (wsReady && __cstBoard.bankOppTotalsOf) {
+      // supply-derived opponent resolution: the conservation gate decides if colonist's
+      // bank is readable (it fails when a host hides bank cards → falls back to recon).
+      const bt = __cstBoard.bankOppTotalsOf(wsBoard);
+      L.push(bt
+        ? 'bank: usable ✓ | opponents hold (combined) ' + RESOURCES.map((r, i) => r[0] + (bt.totals[i + 1] || 0)).join(' ')
+        : 'bank: not usable (hidden supply / non-base / incomplete) → recon projection only');
+    }
     state.players.forEach((p, name) => {
       const color = wsColorOf(name);
       const ty = tallyOf(name);
