@@ -62,6 +62,25 @@ test('C — with no authoritative handCount, settle leaves the raw recon untouch
   assert.equal(JSON.stringify(b.handRecon[3]), before, 'no count → no settle, raw kept for the DOM fallback');
 });
 
+test('E — count-first / type-47-second: a stale debt must not eat a production that arrives a frame later (Codex)', () => {
+  const b = B.createBoard();
+  b.hands['2'] = { cards: new Array(5).fill(0) };          // Clover handCount = 5
+  B.__setRecon(b, 2, { 2: 3, 5: 2, unknown: 2 });          // raw = brick3 ore2 ?2 (sum 7, over by 2)
+
+  // frame A: COUNT ONLY — the +2 grain is already in the count (→7) but the type-47 that
+  // names it hasn't arrived yet. The stale 2-card debt must settle, but the 2 pending gain
+  // cards must NOT be pre-written into unknown.
+  B.applyDiff(b, { playerStates: { 2: { resourceCards: { cards: new Array(7).fill(0) } } } });
+
+  // frame B: the type-47 naming "Clover got Grain Grain" lands a frame later.
+  B.applyDiff(b, { gameLogState: { 500: { text: { type: 47, playerColor: 2, cardsToBroadcast: [4, 4], distributionType: 1 } } } });
+
+  const proj = B.reconBreakdownOf(b, 2);
+  assert.equal(B.handCountOf(b, 2), 7);
+  assert.ok(proj[4] >= 2, `grain survives the split count/log frames, got grain=${proj[4]}`);
+  assert.ok(!(proj[4] === 0 && proj.unknown === 7), 'not collapsed back to all-unknown');
+});
+
 test('D — settling is idempotent and never runs the hand below the authoritative count', () => {
   const b = B.createBoard();
   b.hands['2'] = { cards: new Array(4).fill(0) };          // handCount = 4

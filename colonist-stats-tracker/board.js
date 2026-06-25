@@ -382,9 +382,14 @@
     const total = handCountOf(b, color);
     if (total == null) return false;               // no authoritative count → leave the DOM fallback alone
     const before = reconSum(r);
-    const diff = total - before;
-    if (diff > 0) { r.unknown += diff; return true; }   // an unaccounted past gain → unknown
-    let excess = -diff;
+    // Only settle a raw that OVER-counts — a real silent loss we never saw. A SHORTFALL
+    // (raw < handCount) is a gain not yet credited; banking it into `unknown` here would
+    // pre-claim the slot a type-47 needs ONE frame later (colonist can send the new count
+    // first, the naming log second) — projectRecon would then clamp the freshly-named cards
+    // back to "?". Leave the shortfall to projectRecon's non-mutating display until the next
+    // event claims it. (Codex: stale-debt + count-only frame + later type-47.)
+    let excess = before - total;
+    if (excess <= 0) return false;
     while (excess >= 3) {                           // an uncharged silent buy (DOM-only path) → infer it
       const spent = reconBuyDevCard(r);
       if (!spent) break;
