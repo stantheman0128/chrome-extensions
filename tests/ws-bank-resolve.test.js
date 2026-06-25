@@ -91,3 +91,30 @@ test('3-4p: when two opponents both hold unknowns, the bank cannot split → pro
   assert.equal(sum, 2, 'projection still sums to the authoritative hand count');
   assert.ok(got.unknown > 0, 'left honestly unknown — bank did not guess a split');
 });
+
+test('multi-opponent gate with an un-named opponent does NOT crash (audit: null projectRecon deref)', () => {
+  const b = B.createBoard();
+  b.selfColor = 3;
+  b.hands['3'] = cards([1]);                             // self: 1 lumber (revealed)
+  b.hands['1'] = masked(1);                              // opp 1: 1 card, has a recon
+  b.hands['2'] = masked(1);                              // opp 2: 1 card, NO recon yet (early game)
+  b.bank = { 1: 17, 2: 18, 3: 19, 4: 19, 5: 19 };       // totals {1:1,2:1}=2 == Σ opp counts 2 → gate passes, oppColors=[1,2]
+  B.__setRecon(b, 1, { 1: 1, unknown: 0 });             // opp 1 known; opp 2 left with no handRecon entry
+
+  // The multi-opponent branch used to deref projectRecon(2) === null → throw. Must not.
+  let got;
+  assert.doesNotThrow(() => { got = B.reconBreakdownOf(b, 1); }, 'no null-deref crash');
+  assert.equal(brk(got).reduce((s, n) => s + n, 0), 1, 'falls back to a valid projection summing to handCount');
+});
+
+test('applyFullState reads a top-level playerColor (so self is not mis-counted as an opponent)', () => {
+  const b = B.createBoard();
+  // some colonist full states carry playerColor at the payload top level, not under gameState
+  B.applyFullState(b, {
+    playerColor: 2,
+    gameSettings: { id: 'top' },
+    gameState: { mapState: { tileHexStates: {}, tileCornerStates: {} }, playerStates: {} },
+    playerUserStates: [],
+  });
+  assert.equal(b.selfColor, 2, 'selfColor self-heals from the top-level playerColor');
+});

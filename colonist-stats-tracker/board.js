@@ -260,6 +260,7 @@
     b.bank = { ...((gs.bankState && gs.bankState.resourceCards) || {}) };   // supply counts, wholesale on every full state
     b.robberTile = gs.mechanicRobberState ? gs.mechanicRobberState.locationTileIndex : null;
     if (gs.playerColor != null) b.selfColor = gs.playerColor;
+    else if (payload && payload.playerColor != null) b.selfColor = payload.playerColor; // some full states carry it at the payload top level
     b.colorToName = {};
     for (const u of (payload && payload.playerUserStates) || []) b.colorToName[u.selectedColor] = u.username;
     b.hands = {};
@@ -555,6 +556,7 @@
     const proj = {}; const unknownHolders = [];
     for (const c of oppColors) {
       const pr = projectRecon(b, c);
+      if (!pr) return null;                              // an opponent with no recon yet (un-named early game) → can't compute the leftover, fall back
       proj[c] = pr;
       for (let r = 1; r <= 5; r++) leftover[r] -= (pr[r] || 0);
       if (pr.unknown > 0) unknownHolders.push(c);
