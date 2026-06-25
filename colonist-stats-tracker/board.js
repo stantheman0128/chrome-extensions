@@ -270,6 +270,10 @@
 
   function applyDiff(b, diff) {
     if (!diff) return;
+    // Settle each hand's stale debt against the PRE-diff authoritative count, before
+    // this diff's new log is accrued. Live-diff only — applyFullState's history replay
+    // must not settle (its handCount is already the final, post-replay total).
+    settleAllReconToCurrentHands(b);
     const map = diff.mapState || {};
     if (map.tileCornerStates) {
       let movedPos = false;
@@ -363,6 +367,33 @@
     }
     return spent;
   }
+  // Settle a colour's stored recon against its CURRENT authoritative handCount,
+  // MUTATING it. Run at the start of each live diff (before the new log is accrued)
+  // so a stale over-count debt — a silent loss we never saw — is absorbed into the
+  // hand it actually belonged to, instead of waiting for read-time projectRecon to
+  // clamp it and swallow the next public type-47 production with it. Same arithmetic
+  // as projectRecon's reconcile, but persisted so old uncertainty stops at old state.
+  function settleReconToHandCount(b, color) {
+    const r = b.handRecon[color];
+    if (!r) return false;
+    const total = handCountOf(b, color);
+    if (total == null) return false;               // no authoritative count → leave the DOM fallback alone
+    const before = reconSum(r);
+    const diff = total - before;
+    if (diff > 0) { r.unknown += diff; return true; }   // an unaccounted past gain → unknown
+    let excess = -diff;
+    while (excess >= 3) {                           // an uncharged silent buy (DOM-only path) → infer it
+      const spent = reconBuyDevCard(r);
+      if (!spent) break;
+      excess -= spent;
+    }
+    for (; excess > 0; excess -= 1) reconLoseOne(r); // honest single losses clamp to the live count
+    return reconSum(r) !== before;
+  }
+  function settleAllReconToCurrentHands(b) {
+    for (const color of Object.keys(b.handRecon || {})) settleReconToHandCount(b, color);
+  }
+
   // Project the stored recon (event accrual + the dev-buy costs already charged at buy time
   // by applyDevState) onto colonist's authoritative total — NON-mutatingly, at read time.
   // This settles the still-silent moves (an unaccounted gain → unknown; any odd remainder →
