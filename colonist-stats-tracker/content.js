@@ -21,9 +21,16 @@
   // full state + diffs into an exact model. Used for ⛔ today; the log keeps
   // running as the oracle. Absent under Node (board.js isn't required there).
   const wsBoard = (typeof __cstBoard !== 'undefined') ? __cstBoard.createBoard() : null;
+  function isTrustedCstPageMessage(e) {
+    if (!e || !e.data) return false;
+    if (e.source && e.source !== window) return false;
+    const origin = e.origin || '';
+    if (origin && !/^https?:\/\/([^\/]+\.)?colonist\.io(?::\d+)?$/i.test(origin)) return false;
+    return true;
+  }
   if (wsBoard && typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('message', (e) => {
-      if (!e.data || e.data.__cstWS !== 'state') return;
+      if (!isTrustedCstPageMessage(e) || e.data.__cstWS !== 'state') return;
       const m = e.data.msg;
       if (!m || m.id !== '130' || !m.data) return;
       const d = m.data;
@@ -198,19 +205,28 @@
   // =============================================================
   // Player bookkeeping
   // =============================================================
+  function safeCssColor(color, fallback = '#888') {
+    const s = String(color || '').trim();
+    if (/^#[0-9a-f]{3,8}$/i.test(s)) return s;
+    if (/^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}(?:\s*,\s*(?:0|1|0?\.\d+))?\s*\)$/i.test(s)) return s;
+    if (/^hsla?\(\s*\d+(?:deg)?\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%(?:\s*,\s*(?:0|1|0?\.\d+))?\s*\)$/i.test(s)) return s;
+    return fallback;
+  }
+
   function getPlayer(name, color) {
     if (!name) return null;
+    const safeColor = safeCssColor(color);
     let p = state.players.get(name);
     if (!p) {
       p = {
         name,
-        color: color || '#888',
+        color: safeColor,
         resources: zeroResources(),
         unknown: 0,
       };
       state.players.set(name, p);
     } else if (color && !p.color) {
-      p.color = color;
+      p.color = safeColor;
     }
     return p;
   }
@@ -2795,7 +2811,8 @@
     const bank = bankRemaining();
     const iconCell = (r) => {
       if (r === 'unknown') {
-        return `<span data-res="unknown" data-colhead="1" data-tip="${t('tipUnknownCards', 'Unknown (stolen) cards')}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">${iconImg('unknown', 1.85)}</span>`;
+        const tip = escapeHtml(t('tipUnknownCards', 'Unknown card types. The total is reconciled to Colonist hand count; ? means the exact resource type is not provable yet (hidden steal, silent buy/discard, reconnect gap, or bank ambiguity).'));
+        return `<span data-res="unknown" data-colhead="1" data-tip="${tip}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">${iconImg('unknown', 1.85)}</span>`;
       }
       const low = bank[r] <= 2;
       // Opponents' total known holding of this resource — the number you weigh
@@ -2831,7 +2848,8 @@
         uiState.resOrder.map((r) => {
           const m = cellMark(p.name, r);   // column highlight is a pinned overlay band, not a per-cell bg
           if (r === 'unknown') {
-            return `<span data-res="unknown"${m.a} class="${actCls}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;cursor:pointer;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? '' : 'opacity:.4;'}${m.bg}">${p.unknown}</span>`;
+            const uTip = escapeHtml(t('tipUnknownCards', 'Unknown card types. The total is reconciled to Colonist hand count; ? means the exact resource type is not provable yet (hidden steal, silent buy/discard, reconnect gap, or bank ambiguity).'));
+            return `<span data-res="unknown"${m.a} class="${actCls}" data-tip="${uTip}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;cursor:pointer;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? '' : 'opacity:.4;'}${m.bg}">${p.unknown}</span>`;
           }
           // C(c): per-resource pips tucked into the cell's bottom-right corner.
           const pipV = pm ? pm.byRes[RESOURCES.indexOf(r) + 1] : 0;
@@ -4500,7 +4518,7 @@
   // here — a content-script console.log surfaces in the same DevTools console.
   if (typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('message', (e) => {
-      if (!e.data || !e.data.__cstAuditReq) return;
+      if (!isTrustedCstPageMessage(e) || !e.data.__cstAuditReq) return;
       try { console.log(buildAuditReport()); } catch (err) { /* ignore */ }
     });
   }

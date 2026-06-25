@@ -13,6 +13,12 @@
   const buf = [];
   const now = () => (window.performance && performance.now ? Math.round(performance.now()) : 0);
   const push = (e) => { buf.push(e); if (buf.length > CAP) buf.shift(); };
+  const postToContent = (msg) => {
+    try {
+      const origin = window.location && window.location.origin;
+      window.postMessage(msg, origin && origin !== 'null' ? origin : '*');
+    } catch (e) {}
+  };
 
   // Uncapped, deduped harvest of colonist's structured game log — protocol
   // reverse-engineering groundwork for migrating the Stats tally onto the WS.
@@ -72,7 +78,7 @@
       // Relay game-state frames to the content script (board model); skip the
       // 1/sec heartbeat (id 136) and outgoing pings.
       if (dir === 'in' && obj && obj.id === '130') {
-        try { window.postMessage({ __cstWS: 'state', msg: obj }, '*'); } catch (e2) {}
+        postToContent({ __cstWS: 'state', msg: obj });
         try { harvestLog(obj); } catch (e3) {}
       }
     } catch (e) {
@@ -142,7 +148,7 @@
     clear() { buf.length = 0; return 'cleared'; },
     // Ask the content script to print its self-audit report (WS vs our panel vs
     // colonist) to this console — paste the result to cross-check a finished game.
-    audit() { window.postMessage({ __cstAuditReq: true }, '*'); return 'audit requested — report prints below'; },
+    audit() { postToContent({ __cstAuditReq: true }); return 'audit requested - report prints below'; },
     // Whole-game structured log grouped by text.type, a few samples each — paste
     // this to map the Stats events (steal/trade/discard/achievement) onto the WS.
     logTypes() {
@@ -234,7 +240,7 @@
     },
   };
   // Global alias so a finished game can be cross-checked with a bare __cstAudit().
-  window.__cstAudit = function () { window.postMessage({ __cstAuditReq: true }, '*'); return 'audit requested — report prints below'; };
+  window.__cstAudit = function () { postToContent({ __cstAuditReq: true }); return 'audit requested - report prints below'; };
   console.log('%c[CST] WS inspector active — play, then run __cstAudit() or __cstWS.dump()', 'color:#2f6f9f;font-weight:600');
 
   // Under Node (the test harness) expose the real frame pipeline so a test can

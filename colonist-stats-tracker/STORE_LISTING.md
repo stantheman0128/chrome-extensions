@@ -69,7 +69,7 @@ per-player resource tally) on colonist.io game pages.
   (chrome.storage.local), so the lifetime-stats popup and the in-progress game survive
   a page reload. No sync, no remote storage — the data never leaves the device.
   ```
-- 其他權限：**無**（除上面的 `storage` 外，未宣告其他 `permissions`。popup 的「強制重抓」用 `chrome.tabs.sendMessage` 對「自己注入的 content script」傳訊，這**不需要** `tabs` 權限；無 `<all_urls>`、無 background service worker、無遠端程式碼）。
+- Other permissions: **none** beyond `storage`; no `<all_urls>`, no `tabs`, no background service worker, and no remote code.
 
 **Data usage / 資料用途**：宣告 **完全不蒐集**（does NOT collect or use any user data）。本機儲存（`chrome.storage.local`／`localStorage`）只供使用者自己看，不對外傳輸。
 三個合規勾選（皆可勾）：

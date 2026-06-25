@@ -75,7 +75,7 @@
     "message": "Bank: {n} {res} left"
   },
   "tipUnknownCards": {
-    "message": "Unknown (stolen) cards"
+    "message": "Unknown card types. The total is reconciled to Colonist hand count; ? means the exact resource type is not provable yet (hidden steal, silent buy/discard, reconnect gap, or bank ambiguity)."
   },
   "tipHandTotal": {
     "message": "Total cards in hand"
