@@ -96,3 +96,105 @@ test('D — settling is idempotent and never runs the hand below the authoritati
   const sum = [1, 2, 3, 4, 5].reduce((s, r) => s + b.handRecon[2][r], 0) + b.handRecon[2].unknown;
   assert.equal(sum, 4, 'settled raw matches the authoritative handCount, not below');
 });
+
+// ---- the pending hand-delta buffer: count/log SPLIT frames in BOTH directions ----
+// A count change can arrive a frame before its naming log. The buffer holds the residual
+// so a stale settle never degrades a known card that the very next log will name.
+
+const sum = (o) => [1, 2, 3, 4, 5].reduce((s, r) => s + (o[r] || 0), 0) + (o.unknown || 0);
+
+test('F — loss-split discard: count drops first, the type-55 names the card a frame later', () => {
+  const b = B.createBoard();
+  b.hands['2'] = { cards: new Array(5).fill(0) };          // handCount 5
+  B.__setRecon(b, 2, { 2: 3, 4: 2 });                      // brick3 grain2 (matches, no debt)
+
+  B.applyDiff(b, { playerStates: { 2: { resourceCards: { cards: new Array(4).fill(0) } } } }); // count 5→4, no log
+  B.applyDiff(b, { gameLogState: { 600: { text: { type: 55, playerColor: 2, cardEnums: [2] } } } }); // discard [brick]
+
+  const got = B.reconBreakdownOf(b, 2);
+  assert.deepEqual({ ...got }, { 1: 0, 2: 2, 3: 0, 4: 2, 5: 0, unknown: 0 }, 'brick2 grain2, not brick1 grain1 ?2');
+});
+
+test('G — loss-split build: count drops first, the type-5 road cost is named a frame later', () => {
+  const b = B.createBoard();
+  b.hands['2'] = { cards: new Array(4).fill(0) };          // handCount 4
+  B.__setRecon(b, 2, { 1: 1, 2: 1, 4: 2 });                // lumber1 brick1 grain2
+
+  B.applyDiff(b, { playerStates: { 2: { resourceCards: { cards: new Array(2).fill(0) } } } }); // count 4→2, no log
+  B.applyDiff(b, { gameLogState: { 610: { text: { type: 5, playerColor: 2, pieceEnum: 0 } } } }); // build road (−lumber −brick)
+
+  const got = B.reconBreakdownOf(b, 2);
+  assert.deepEqual({ ...got }, { 1: 0, 2: 0, 3: 0, 4: 2, 5: 0, unknown: 0 }, 'grain2 survives, road cost taken from the right cards');
+});
+
+test('H — loss-split bank trade: count drops first, the type-116 give/get is named a frame later', () => {
+  const b = B.createBoard();
+  b.hands['2'] = { cards: new Array(4).fill(0) };          // handCount 4
+  B.__setRecon(b, 2, { 4: 4 });                            // grain4
+
+  B.applyDiff(b, { playerStates: { 2: { resourceCards: { cards: new Array(1).fill(0) } } } }); // count 4→1, no log
+  B.applyDiff(b, { gameLogState: { 620: { text: { type: 116, playerColor: 2, givenCardEnums: [4, 4, 4, 4], receivedCardEnums: [5] } } } });
+
+  const got = B.reconBreakdownOf(b, 2);
+  assert.deepEqual({ ...got }, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 1, unknown: 0 }, 'ore1 — the 4-grain give and 1-ore get both land');
+});
+
+test('I — a positive count-only move with no naming log times out into unknown', () => {
+  const b = B.createBoard();
+  b.hands['2'] = { cards: [] };                            // handCount 0
+  B.__setRecon(b, 2, {});                                  // empty recon
+
+  B.applyDiff(b, { playerStates: { 2: { resourceCards: { cards: new Array(2).fill(0) } } } }); // count 0→2, no log
+  for (let i = 0; i < 4; i++) B.applyDiff(b, {});          // age the pending past its ttl
+
+  const got = B.reconBreakdownOf(b, 2);
+  assert.equal(got.unknown, 2, 'an unclaimed gain becomes honest unknown');
+  assert.equal(sum(got), 2);
+});
+
+test('J — a negative count-only move with no loss log times out into an honest loss', () => {
+  const b = B.createBoard();
+  b.hands['2'] = { cards: new Array(5).fill(0) };          // handCount 5
+  B.__setRecon(b, 2, { 2: 3, 4: 2 });                      // brick3 grain2 (sum 5)
+
+  B.applyDiff(b, { playerStates: { 2: { resourceCards: { cards: new Array(4).fill(0) } } } }); // count 5→4, no log
+  for (let i = 0; i < 4; i++) B.applyDiff(b, {});          // age the pending past its ttl
+
+  const got = B.reconBreakdownOf(b, 2);
+  assert.equal(sum(got), 4, 'total clamps to the authoritative count');
+  assert.ok(got.unknown >= 1, 'the ambiguous lost card is honestly unknown, never a wrong named card');
+});
+
+test('K — same-diff count + log creates NO pending and matches the plain result', () => {
+  const b = B.createBoard();
+  b.hands['2'] = { cards: new Array(3).fill(0) };          // handCount 3
+  B.__setRecon(b, 2, { 2: 3 });                            // brick3
+
+  // count and the naming type-47 in the SAME diff
+  B.applyDiff(b, {
+    gameLogState: { 630: { text: { type: 47, playerColor: 2, cardsToBroadcast: [4], distributionType: 1 } } },
+    playerStates: { 2: { resourceCards: { cards: new Array(4).fill(0) } } },
+  });
+
+  assert.equal(b.pendingHandDelta['2'], undefined, 'no pending for a same-diff count+log');
+  assert.deepEqual({ ...B.reconBreakdownOf(b, 2) }, { 1: 0, 2: 3, 3: 0, 4: 1, 5: 0, unknown: 0 }, 'brick3 grain1');
+});
+
+test('L — pending survives F5: snapshot → restore → the later log claims it, no double count', () => {
+  const b = B.createBoard();
+  b.gameId = 'g1';
+  b.hands['2'] = { cards: new Array(3).fill(0) };          // handCount 3
+  B.__setRecon(b, 2, { 2: 3 });                            // brick3
+  B.applyDiff(b, { playerStates: { 2: { resourceCards: { cards: new Array(5).fill(0) } } } }); // count 3→5, no log → pending +2
+
+  const snap = B.accrualSnapshot(b);
+  assert.ok(snap.pendingHandDelta && snap.pendingHandDelta['2'], 'pending is snapshotted');
+
+  // F5: a fresh board, restore, the reconnect re-supplies the count, then the type-47 lands
+  const b2 = B.createBoard();
+  B.restoreAccrual(b2, snap);
+  b2.hands['2'] = { cards: new Array(5).fill(0) };          // reconnect count
+  B.applyDiff(b2, { gameLogState: { 640: { text: { type: 47, playerColor: 2, cardsToBroadcast: [4, 4], distributionType: 1 } } } });
+
+  assert.deepEqual({ ...B.reconBreakdownOf(b2, 2) }, { 1: 0, 2: 3, 3: 0, 4: 2, 5: 0, unknown: 0 }, 'brick3 grain2 — claimed once, not doubled');
+});

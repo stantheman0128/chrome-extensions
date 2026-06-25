@@ -34,6 +34,7 @@
       dice: { counts: {}, total: 0, rolls: [] },   // histogram from type-10 roll events
       audit: freshAudit(),                          // geometry-vs-production self-audit
       bank: {},                                     // bankState.resourceCards (cards left in the supply); full state sets it, diffs merge
+      pendingHandDelta: {},                          // per colour {delta,ttl}: a handCount change a naming log hasn't explained YET (count/log split frames)
     };
   }
 
@@ -50,6 +51,7 @@
     b.wsStats = {};
     b.handRecon = {};
     b.devBought = {}; b.devHeld = {}; b.devUsed = {}; b.devApplied = {};
+    b.pendingHandDelta = {};
     b.blockedLoss = {};
     b.blockedDetail = {};
     b.logTypeCounts = {};
@@ -272,10 +274,16 @@
 
   function applyDiff(b, diff) {
     if (!diff) return;
-    // Settle each hand's stale debt against the PRE-diff authoritative count, before
-    // this diff's new log is accrued. Live-diff only — applyFullState's history replay
-    // must not settle (its handCount is already the final, post-replay total).
+    // Bake genuine over-count debt (above handCount BEYOND pending) before the new log, so
+    // stale debt can't eat a fresh production. Live-diff only — applyFullState's history
+    // replay must not settle (its handCount is already the final, post-replay total).
     settleAllReconToCurrentHands(b);
+    // Snapshot pre-diff recon sums + hand counts so reconcilePending can tell how much of
+    // each count change THIS diff's log/dev actually explained — the unexplained remainder
+    // is a count/log split and goes to pending instead of polluting the breakdown now.
+    const reconBefore = {}, countBefore = {};
+    for (const c of Object.keys(b.handRecon)) reconBefore[c] = reconSum(b.handRecon[c]);
+    for (const c of Object.keys(b.hands)) countBefore[c] = handCountOf(b, c);
     const map = diff.mapState || {};
     if (map.tileCornerStates) {
       let movedPos = false;
@@ -302,6 +310,11 @@
     }
     if (diff.mechanicDevelopmentCardsState) applyDevState(b, diff.mechanicDevelopmentCardsState);
     if (diff.bankState && diff.bankState.resourceCards) Object.assign(b.bank, diff.bankState.resourceCards); // partial supply update
+    // Attribute any count change the log/dev didn't explain to pending, then bake whatever
+    // timed out without a claiming log. (applyDevState above is captured by reconBefore, so
+    // a silent dev buy — count −3, recon −3 — nets to zero pending.)
+    reconcilePending(b, reconBefore, countBefore);
+    bakeExpiredPending(b);
   }
 
   function handCountOf(b, color) {
@@ -376,19 +389,21 @@
   // hand it actually belonged to, instead of waiting for read-time projectRecon to
   // clamp it and swallow the next public type-47 production with it. Same arithmetic
   // as projectRecon's reconcile, but persisted so old uncertainty stops at old state.
+  // Bake a colour's GENUINE over-count debt — raw above handCount BEYOND what pending
+  // explains — onto the old cards, at the start of a live diff (before the new log). A
+  // recent count-move sits in pendingHandDelta awaiting its naming log, so we subtract it
+  // here: only the un-pending excess (a real silent loss we never saw) is collapsed. A
+  // shortfall is left for projectRecon's non-mutating display. (Both the count-first/log-
+  // later splits — gain and loss — are handled by the pending buffer, not by this bake.)
+  const PENDING_TTL = 3;
   function settleReconToHandCount(b, color) {
     const r = b.handRecon[color];
     if (!r) return false;
     const total = handCountOf(b, color);
     if (total == null) return false;               // no authoritative count → leave the DOM fallback alone
     const before = reconSum(r);
-    // Only settle a raw that OVER-counts — a real silent loss we never saw. A SHORTFALL
-    // (raw < handCount) is a gain not yet credited; banking it into `unknown` here would
-    // pre-claim the slot a type-47 needs ONE frame later (colonist can send the new count
-    // first, the naming log second) — projectRecon would then clamp the freshly-named cards
-    // back to "?". Leave the shortfall to projectRecon's non-mutating display until the next
-    // event claims it. (Codex: stale-debt + count-only frame + later type-47.)
-    let excess = before - total;
+    const pend = (b.pendingHandDelta[color] && b.pendingHandDelta[color].delta) || 0;
+    let excess = before - total + pend;            // over-count NOT explained by a pending count-move
     if (excess <= 0) return false;
     while (excess >= 3) {                           // an uncharged silent buy (DOM-only path) → infer it
       const spent = reconBuyDevCard(r);
@@ -400,6 +415,48 @@
   }
   function settleAllReconToCurrentHands(b) {
     for (const color of Object.keys(b.handRecon || {})) settleReconToHandCount(b, color);
+  }
+
+  // After a live diff, attribute each colour's handCount change that this diff's log/dev
+  // did NOT explain to pending: `pending += countDelta - logDelta`. Same-diff count+log
+  // cancels (countDelta == logDelta → no pending). A count-only frame leaves a residual
+  // that the naming log claims a frame later (logDelta with no countDelta → pending → 0).
+  // The invariant reconSum(raw) + pending == handCount holds, so the DISPLAY (projectRecon
+  // reconciling raw to handCount) is always right; pending only governs WHEN raw is mutated.
+  function reconcilePending(b, reconBefore, countBefore) {
+    const colors = new Set([
+      ...Object.keys(b.handRecon), ...Object.keys(b.hands), ...Object.keys(b.pendingHandDelta),
+    ]);
+    for (const color of colors) {
+      const total = handCountOf(b, color);
+      if (total == null) continue;                 // no authoritative count → can't track this colour
+      const cBefore = (countBefore[color] != null) ? countBefore[color] : total;  // new colour → 0 delta
+      const countDelta = total - cBefore;
+      const rAfter = b.handRecon[color] ? reconSum(b.handRecon[color]) : 0;
+      const logDelta = rAfter - (reconBefore[color] || 0);
+      const moved = (countDelta - logDelta) !== 0;
+      const p = b.pendingHandDelta[color] || { delta: 0, ttl: 0 };
+      p.delta += countDelta - logDelta;
+      if (p.delta === 0) { delete b.pendingHandDelta[color]; continue; }  // fully claimed
+      if (moved) p.ttl = PENDING_TTL;              // fresh movement → full claim window
+      else if (p.ttl > 0) p.ttl -= 1;              // idle diff → age toward expiry
+      b.pendingHandDelta[color] = p;
+    }
+  }
+
+  // A pending count-move whose naming log never arrived (ttl exhausted) is settled
+  // honestly into the raw recon: a gain → unknown, a loss → reconLoseOne. Only then does
+  // it touch the breakdown — never while a log could still claim it.
+  function bakeExpiredPending(b) {
+    for (const color of Object.keys(b.pendingHandDelta)) {
+      const p = b.pendingHandDelta[color];
+      if (!p || p.delta === 0) { delete b.pendingHandDelta[color]; continue; }
+      if (p.ttl > 0) continue;                     // still inside the claim window
+      const r = ensureRecon(b, color);
+      if (p.delta > 0) r.unknown += p.delta;       // an unclaimed gain → honest unknown
+      else for (let n = -p.delta; n > 0; n -= 1) reconLoseOne(r);  // an unclaimed loss
+      delete b.pendingHandDelta[color];
+    }
   }
 
   // Project the stored recon (event accrual + the dev-buy costs already charged at buy time
@@ -766,6 +823,7 @@
       devHeld: { ...(b.devHeld || {}) },
       devUsed: { ...(b.devUsed || {}) },
       devApplied: { ...(b.devApplied || {}) },
+      pendingHandDelta: JSON.parse(JSON.stringify(b.pendingHandDelta || {})),  // mid-split F5 must not re-pollute
     }),
     restoreAccrual: (b, snap) => {
       if (!snap) return;
@@ -781,6 +839,7 @@
       b.devHeld = { ...(snap.devHeld || {}) };
       b.devUsed = { ...(snap.devUsed || {}) };
       b.devApplied = { ...(snap.devApplied || {}) };
+      b.pendingHandDelta = snap.pendingHandDelta ? JSON.parse(JSON.stringify(snap.pendingHandDelta)) : {};
     },
     // snapshot/restore the live blocked-loss so it survives F5: the board can't
     // replay past robber positions, so the displayed value persists through the board
