@@ -180,6 +180,58 @@ test('K — same-diff count + log creates NO pending and matches the plain resul
   assert.deepEqual({ ...B.reconBreakdownOf(b, 2) }, { 1: 0, 2: 3, 3: 0, 4: 1, 5: 0, unknown: 0 }, 'brick3 grain1');
 });
 
+// a minimal same-game full state (reconnect) carrying a gap log + the final hand count
+function fullState(gameId, color, handCount, gapLog) {
+  return {
+    gameSettings: { id: gameId },
+    gameState: {
+      playerColor: 1,
+      mapState: { tileHexStates: {}, tileCornerStates: {} },
+      playerStates: { [color]: { resourceCards: { cards: new Array(handCount).fill(0) } } },
+      gameLogState: gapLog,
+    },
+    playerUserStates: [],
+  };
+}
+
+test('N — F5 + same-game full-state replay CLAIMS a restored GAIN pending (Codex)', () => {
+  const b = B.createBoard();
+  b.gameId = 'g1';
+  b.hands['2'] = { cards: new Array(3).fill(0) };          // handCount 3
+  B.__setRecon(b, 2, { 2: 3 });                            // brick3
+  B.applyDiff(b, { playerStates: { 2: { resourceCards: { cards: new Array(5).fill(0) } } } }); // count 3→5, no log → pending +2
+
+  const snap = B.accrualSnapshot(b);
+  const b2 = B.createBoard();
+  B.restoreAccrual(b2, snap);                              // raw brick3 + pending +2
+
+  // the reconnect full-state replays the gap: the type-47 that names the +2 grain
+  B.applyFullState(b2, fullState('g1', 2, 5, { 700: { text: { type: 47, playerColor: 2, cardsToBroadcast: [4, 4], distributionType: 1 } } }));
+  assert.equal(b2.pendingHandDelta['2'], undefined, 'the replayed gain log claimed the restored pending');
+
+  B.applyDiff(b2, {});                                     // the next live diff must NOT re-degrade
+  assert.deepEqual({ ...B.reconBreakdownOf(b2, 2) }, { 1: 0, 2: 3, 3: 0, 4: 2, 5: 0, unknown: 0 }, 'brick3 grain2 holds after F5');
+});
+
+test('O — F5 + same-game full-state replay CLAIMS a restored LOSS pending (Codex)', () => {
+  const b = B.createBoard();
+  b.gameId = 'g1';
+  b.hands['2'] = { cards: new Array(5).fill(0) };          // handCount 5
+  B.__setRecon(b, 2, { 2: 3, 4: 2 });                      // brick3 grain2
+  B.applyDiff(b, { playerStates: { 2: { resourceCards: { cards: new Array(4).fill(0) } } } }); // count 5→4, no log → pending −1
+
+  const snap = B.accrualSnapshot(b);
+  const b2 = B.createBoard();
+  B.restoreAccrual(b2, snap);                              // raw brick3 grain2 + pending −1
+
+  // the reconnect full-state replays the gap: the type-55 discard that names the lost brick
+  B.applyFullState(b2, fullState('g1', 2, 4, { 710: { text: { type: 55, playerColor: 2, cardEnums: [2] } } }));
+  assert.equal(b2.pendingHandDelta['2'], undefined, 'the replayed loss log claimed the restored pending');
+
+  B.applyDiff(b2, {});
+  assert.deepEqual({ ...B.reconBreakdownOf(b2, 2) }, { 1: 0, 2: 2, 3: 0, 4: 2, 5: 0, unknown: 0 }, 'brick2 grain2 holds after F5');
+});
+
 test('L — pending survives F5: snapshot → restore → the later log claims it, no double count', () => {
   const b = B.createBoard();
   b.gameId = 'g1';

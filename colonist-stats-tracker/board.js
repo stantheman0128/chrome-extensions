@@ -269,6 +269,20 @@
     }
     if (gs.gameLogState) accrueLog(b, gs.gameLogState, false); // reconnect history
     applyDevState(b, gs.mechanicDevelopmentCardsState);        // AFTER accrueLog: charge buys against the built hand
+    // Let a same-game reconnect's gap-log replay CLAIM any RESTORED pending: a count-only
+    // frame parked a residual before F5, and its naming log arrives in this full state's
+    // history. Re-pin each existing pending to the invariant (pending = handCount − reconSum)
+    // now that raw has the gap events — otherwise the stale pending would make the next live
+    // diff's settle treat it as fresh debt and re-degrade the just-replayed cards. Only
+    // touches pending that already exists; a new game cleared it in resetAccrual.
+    for (const color of Object.keys(b.pendingHandDelta)) {
+      const total = handCountOf(b, color);
+      if (total == null) continue;
+      const r = b.handRecon[color];
+      const delta = total - (r ? reconSum(r) : 0);
+      if (delta === 0) delete b.pendingHandDelta[color];
+      else b.pendingHandDelta[color].delta = delta;          // keep ttl; a still-unclaimed residual ages on
+    }
     b._ready = true;
   }
 
