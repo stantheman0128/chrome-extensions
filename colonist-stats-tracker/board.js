@@ -33,6 +33,7 @@
       gameId: null,                                 // gameSettings.id of the current game (new-game detection)
       dice: { counts: {}, total: 0, rolls: [] },   // histogram from type-10 roll events
       audit: freshAudit(),                          // geometry-vs-production self-audit
+      bank: {},                                     // bankState.resourceCards (cards left in the supply); full state sets it, diffs merge
     };
   }
 
@@ -254,6 +255,7 @@
       b.corners[i] = { x: c.x, y: c.y, z: c.z, owner: c.owner, buildingType: c.buildingType };
     }
     recomputeCornersByTile(b);
+    b.bank = { ...((gs.bankState && gs.bankState.resourceCards) || {}) };   // supply counts, wholesale on every full state
     b.robberTile = gs.mechanicRobberState ? gs.mechanicRobberState.locationTileIndex : null;
     if (gs.playerColor != null) b.selfColor = gs.playerColor;
     b.colorToName = {};
@@ -299,6 +301,7 @@
       }
     }
     if (diff.mechanicDevelopmentCardsState) applyDevState(b, diff.mechanicDevelopmentCardsState);
+    if (diff.bankState && diff.bankState.resourceCards) Object.assign(b.bank, diff.bankState.resourceCards); // partial supply update
   }
 
   function handCountOf(b, color) {
@@ -419,6 +422,81 @@
     }
     for (; excess > 0; excess -= 1) reconLoseOne(proj);   // honest single losses clamp to handCount
     return proj;
+  }
+
+  // ---- bank-derived opponent resolution -----------------------------------
+  // colonist broadcasts the supply (bankState.resourceCards). Each base resource has
+  // 19 cards, so `19 - bank[res] - self[res]` is the EXACT total of that resource held
+  // across ALL opponents combined. One conservation gate decides whether to trust it:
+  // the derived combined total must equal the sum of the opponents' real hand counts.
+  // That single check rejects a masked bank (hidden → zeros blow the sum up), a non-base
+  // supply (expansion → a negative or mismatched total), or any missing data — so when
+  // it passes the numbers are real, and we never need to know what the host's "hide bank
+  // cards" setting does to the payload: the math self-detects.
+  const BANK_TOTAL = 19;
+  function bankOppTotals(b) {
+    const bank = b.bank;
+    if (!bank) return null;
+    const selfColor = b.selfColor;
+    const self = selfColor != null ? handBreakdownOf(b, selfColor) : null;
+    // self's hand must be readable to net it out; a spectator with 0 cards is fine, but
+    // a masked self hand (cards present, types hidden) we can't subtract → bail.
+    if (selfColor != null && !self && (handCountOf(b, selfColor) || 0) > 0) return null;
+    const selfBy = self || {};
+    const totals = {}; let sum = 0;
+    for (let r = 1; r <= 5; r++) {
+      if (bank[r] == null) return null;                 // supply incomplete → not usable
+      const v = BANK_TOTAL - bank[r] - (selfBy[r] || 0);
+      if (v < 0) return null;                            // base-19 assumption broken (expansion / masked)
+      totals[r] = v; sum += v;
+    }
+    let handSum = 0; const oppColors = [];
+    for (const c of Object.keys(b.hands)) {
+      const cc = parseInt(c, 10);
+      if (cc === selfColor) continue;
+      const hc = handCountOf(b, cc);
+      if (hc == null) return null;                       // an opponent with no authoritative count → can't gate
+      handSum += hc; oppColors.push(cc);
+    }
+    if (!oppColors.length || sum !== handSum) return null;   // THE conservation gate
+    return { totals, oppColors };
+  }
+
+  // Resolve ONE opponent's breakdown from the bank, or null if it can't pin them down
+  // (gate failed, or several opponents share the leftover uncertainty). A single
+  // opponent is exact; with more, an opponent is exact only when it is the SOLE holder
+  // of unknowns — everyone else fully known means the leftover is entirely theirs.
+  function bankResolveFor(b, color) {
+    if (color === b.selfColor) return null;             // self is read directly, never reconstructed
+    const bt = bankOppTotals(b);
+    if (!bt) return null;
+    const { totals, oppColors } = bt;
+    if (!oppColors.includes(color)) return null;
+    if (oppColors.length === 1) {                       // 1v1 → this opponent IS the combined total, exact
+      return { 1: totals[1], 2: totals[2], 3: totals[3], 4: totals[4], 5: totals[5], unknown: 0 };
+    }
+    const leftover = { 1: totals[1], 2: totals[2], 3: totals[3], 4: totals[4], 5: totals[5] };
+    const proj = {}; const unknownHolders = [];
+    for (const c of oppColors) {
+      const pr = projectRecon(b, c);
+      proj[c] = pr;
+      for (let r = 1; r <= 5; r++) leftover[r] -= (pr[r] || 0);
+      if (pr.unknown > 0) unknownHolders.push(c);
+    }
+    for (let r = 1; r <= 5; r++) if (leftover[r] < 0) return null;  // recon over-claimed a resource → can't cleanly split
+    if (unknownHolders.length === 1 && unknownHolders[0] === color) {
+      const pr = proj[color];
+      const out = { 1: pr[1], 2: pr[2], 3: pr[3], 4: pr[4], 5: pr[5], unknown: 0 };
+      for (let r = 1; r <= 5; r++) out[r] += leftover[r];          // the sole holder owns all the leftover
+      return out;
+    }
+    return null;                                          // can't resolve this one via bank → projection handles it
+  }
+
+  // The display breakdown: prefer the authoritative bank resolution, fall back to the
+  // log-recon projection. Self never reaches here (handBreakdownOf serves it directly).
+  function displayBreakdown(b, color) {
+    return bankResolveFor(b, color) || projectRecon(b, color);
   }
 
   // On a roll of n with the robber on a number-n tile, each adjacent building loses
@@ -740,7 +818,9 @@
       }
       return out;
     },
-    reconBreakdownOf: projectRecon,                              // total-projected (display) breakdown
+    reconBreakdownOf: displayBreakdown,                          // bank-resolved if usable, else projected (display) breakdown
+    bankOppTotalsOf: bankOppTotals,                              // {totals, oppColors} of all-opponents-combined per resource, or null
+    reconProjectOf: projectRecon,                                // the raw log-recon projection (no bank), for audit/compat
     reconSumOf: (b, color) => { const p = projectRecon(b, color); return p ? reconSum(p) : 0; },
     // test-only helper (feed mode): seed the stored pure-accrual recon
     __setRecon: (b, color, o) => Object.assign(ensureRecon(b, color), o),
