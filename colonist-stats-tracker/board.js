@@ -546,9 +546,11 @@
     if (!bank) return null;
     const selfColor = b.selfColor;
     const self = selfColor != null ? handBreakdownOf(b, selfColor) : null;
+    const selfCount = selfColor != null ? handCountOf(b, selfColor) : null;
     // self's hand must be readable to net it out; a spectator with 0 cards is fine, but
     // a masked self hand (cards present, types hidden) we can't subtract → bail.
-    if (selfColor != null && !self && (handCountOf(b, selfColor) || 0) > 0) return null;
+    if (selfColor != null && selfCount == null) return null;
+    if (selfColor != null && !self && selfCount > 0) return null;
     const selfBy = self || {};
     const totals = {}; let sum = 0;
     for (let r = 1; r <= 5; r++) {

@@ -15,6 +15,31 @@ const B = require('../colonist-stats-tracker/board.js');
 function cards(ids) { return { cards: ids.slice() }; }
 function masked(n) { return { cards: new Array(n).fill(0) }; }
 function brk(o) { return [1, 2, 3, 4, 5].map((r) => o[r] || 0).concat(o.unknown || 0); }
+function cardList(by) {
+  const out = [];
+  for (let r = 1; r <= 5; r++) for (let i = 0; i < (by[r] || 0); i++) out.push(r);
+  return out;
+}
+function syntheticBankBoard(deck, selfBy, oppBys) {
+  const b = B.createBoard();
+  b.selfColor = 1;
+  b.hands['1'] = cards(cardList(selfBy));
+  const totals = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  oppBys.forEach((by, idx) => {
+    const color = String(idx + 2);
+    let n = 0;
+    for (let r = 1; r <= 5; r++) {
+      const v = by[r] || 0;
+      totals[r] += v;
+      n += v;
+    }
+    b.hands[color] = masked(n);
+    B.__setRecon(b, idx + 2, { unknown: n });
+  });
+  b.bank = {};
+  for (let r = 1; r <= 5; r++) b.bank[r] = deck - (selfBy[r] || 0) - totals[r];
+  return { b, totals };
+}
 
 test('1v1: the opponent hand is resolved EXACTLY from the bank, overriding a clueless recon', () => {
   const b = B.createBoard();
@@ -27,6 +52,63 @@ test('1v1: the opponent hand is resolved EXACTLY from the bank, overriding a clu
 
   const got = B.reconBreakdownOf(b, 2);
   assert.deepEqual(brk(got), brk({ 1: 1, 2: 1, 3: 2, unknown: 0 }), 'bank gives the exact split, 0 unknown');
+});
+
+test('candidate deck search only validates the real supported deck across representative complete supplies', () => {
+  for (const deck of [19, 20, 24, 25, 29, 30]) {
+    for (let seed = 0; seed < 40; seed++) {
+      const selfBy = {}, opp2 = {}, opp3 = {}, opp4 = {};
+      for (let r = 1; r <= 5; r++) {
+        const self = (seed * (r + 3) + r) % Math.min(7, deck + 1);
+        const afterSelf = deck - self;
+        const a = (seed * (r + 5) + 2 * r) % Math.min(7, afterSelf + 1);
+        const afterA = afterSelf - a;
+        const c = (seed * (r + 7) + 3 * r) % Math.min(7, afterA + 1);
+        const afterC = afterA - c;
+        const d = (seed * (r + 11) + 4 * r) % Math.min(7, afterC + 1);
+        selfBy[r] = self; opp2[r] = a; opp3[r] = c; opp4[r] = d;
+      }
+      const { b, totals } = syntheticBankBoard(deck, selfBy, [opp2, opp3, opp4]);
+      const got = B.bankOppTotalsOf(b);
+      if ([19, 24, 29].includes(deck)) {
+        assert.ok(got, `supported ${deck}-deck should pass the conservation gate`);
+        assert.deepEqual(got.totals, totals, `supported ${deck}-deck should resolve the true combined opponent totals`);
+      } else {
+        assert.equal(got, null, `unsupported ${deck}-deck must not be mistaken for 19/24/29`);
+      }
+    }
+  }
+});
+
+test('5-6 player: deck=24 still resolves the sole unknown holder in a multi-opponent table', () => {
+  const { b } = syntheticBankBoard(
+    24,
+    {},
+    [
+      { 1: 1 },          // colour 2: lumber known
+      { 3: 1, 5: 1 },    // colour 3: two unknowns, should be resolved by bank leftover
+      { 4: 1 },          // colour 4: grain known
+    ],
+  );
+  B.__setRecon(b, 2, { 1: 1, unknown: 0 });
+  B.__setRecon(b, 3, { unknown: 2 });
+  B.__setRecon(b, 4, { 4: 1, unknown: 0 });
+
+  const got = B.reconBreakdownOf(b, 3);
+  assert.deepEqual(brk(got), brk({ 3: 1, 5: 1, unknown: 0 }), '24-deck leftover belongs to the sole unknown holder');
+});
+
+test('a known selfColor with no self hand data makes bank resolution bail instead of validating a smaller deck', () => {
+  const b = B.createBoard();
+  b.selfColor = 1;
+  b.hands['2'] = masked(4);
+  // True 24-deck state: self secretly has 5 of every resource, opponent has lumber1 brick1 wool2.
+  // If self is omitted, candidate 19 appears to conserve by coincidence: 24 - 19 = 5 per resource.
+  b.bank = { 1: 18, 2: 18, 3: 17, 4: 19, 5: 19 };
+  B.__setRecon(b, 2, { unknown: 4 });
+
+  assert.equal(B.bankOppTotalsOf(b), null, 'missing self hand data is incomplete, so the bank gate must decline');
+  assert.deepEqual(brk(B.reconBreakdownOf(b, 2)), brk({ unknown: 4 }), 'display falls back to projection instead of a false 19-deck split');
 });
 
 test('a masked bank fails the conservation gate → falls back to the recon projection', () => {
