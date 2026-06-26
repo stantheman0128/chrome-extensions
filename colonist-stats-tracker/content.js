@@ -4569,6 +4569,8 @@
       splitTradeResources,
       countResources,
       diceSum,
+      isTrustedCstPageMessage,
+      safeCssColor,
       getPlayer,
       giveResource,
       takeResource,

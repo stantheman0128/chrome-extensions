@@ -118,3 +118,21 @@ test('applyFullState reads a top-level playerColor (so self is not mis-counted a
   });
   assert.equal(b.selfColor, 2, 'selfColor self-heals from the top-level playerColor');
 });
+
+test('an opponent carrying a negative-unknown debt (1.126 masked steal) makes the bank bail to projection, never a hard split', () => {
+  const b = B.createBoard();
+  b.selfColor = 1;
+  b.hands['1'] = cards([]);                              // self holds nothing
+  b.hands['2'] = masked(1);                              // opp 2: 1 card
+  b.hands['3'] = masked(1);                              // opp 3: 1 card
+  b.bank = { 1: 18, 2: 18, 3: 19, 4: 19, 5: 19 };       // totals {1:1,2:1}=2 == Σ opp counts → gate passes
+  B.__setRecon(b, 2, { 1: 2, unknown: -1 });            // reconStealOne left a negative-unknown debt (sum 1 = handCount)
+  B.__setRecon(b, 3, { 2: 1 });
+
+  assert.ok(B.bankOppTotalsOf(b), 'the conservation gate still passes');
+  let got;
+  assert.doesNotThrow(() => { got = B.reconBreakdownOf(b, 2); }, 'no crash on a negative-unknown opponent');
+  // the combined guard `if (!pr || pr.unknown < 0) return null` bails → the projection stands,
+  // keeping the victim's known breakdown rather than letting the bank invent a hard split
+  assert.deepEqual({ ...got }, { 1: 2, 2: 0, 3: 0, 4: 0, 5: 0, unknown: -1 }, 'projection kept; bank did not hard-split');
+});
