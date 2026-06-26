@@ -2455,17 +2455,18 @@
         const bg = newest ? (seven ? THEME.bad : THEME.accent) : (seven ? THEME.bad : '#fbf9f4');
         const fg = (newest || seven) ? '#fff' : THEME.text;
         const bd = newest ? (seven ? THEME.bad : THEME.accent) : (seven ? THEME.bad : THEME.border);
-        // margin-left:auto on the OLDEST chip right-aligns the group when it fits
-        // (newest on the right, as before); once it overflows the auto margin
-        // collapses and the row scrolls (drag / wheel) instead.
-        return `<span${newest ? ' class="cst-roll-now"' : ''} style="${CHIP_BASE}${i === 0 ? 'margin-left:auto;' : ''}` +
+        return `<span${newest ? ' class="cst-roll-now"' : ''} style="${CHIP_BASE}` +
           `background:${bg};color:${fg};border:1px solid ${bd};` +
           `${newest ? `box-shadow:inset 0 0 0 1px rgba(255,255,255,.5),0 0 0 1px ${THEME.accent};` : 'opacity:.9;'}">${n}</span>`;
       }).join('');
     const tip = empty ? '' : ` data-tip="${t('tipLastRolls', 'Recent rolls — newest on the right; drag or scroll to see earlier ones')}"`;
     return `<div style="display:flex;gap:0.45em;align-items:center;margin:0 0 0.6em;flex:0 0 auto;">` +
       `<span data-act="roll-home" class="cst-roll-home" data-tip="${t('tipRollHome', 'Jump back to the latest roll')}" style="flex:0 0 auto;color:${THEME.textDim};font-size:0.7em;white-space:nowrap;cursor:pointer;${empty ? 'visibility:hidden;' : ''}">${t('rollOrder', 'Roll order')}</span>` +
-      `<div id="cst-roll-scroll" class="cst-roll-scroll"${tip} style="flex:1 1 auto;min-width:0;display:flex;gap:0.25em;align-items:center;overflow-x:auto;overflow-y:hidden;padding:1px 14px 2px 1px;cursor:grab;">${chips}</div></div>`;
+      `<div id="cst-roll-scroll" class="cst-roll-scroll"${tip} style="flex:1 1 auto;min-width:0;display:flex;gap:0.25em;align-items:center;overflow-x:auto;overflow-y:hidden;padding:1px 14px 2px 1px;cursor:grab;">` +
+      // a leading flex spacer right-aligns the chips when they fit, but collapses to 0
+      // once they overflow — so (unlike the old margin-left:auto on the first chip, which
+      // strands the leftmost out of the scroll range) you can drag all the way to the oldest.
+      `<div style="flex:1 1 0;min-width:0;align-self:stretch;"></div>${chips}</div></div>`;
   }
 
   // Dice histogram bars (the section header lives in the static skeleton).
@@ -2496,7 +2497,7 @@
         <div data-die="${n}"
              style="flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;gap:0.6em;min-width:0;border-radius:6px;cursor:pointer;${hl}">
           <div data-dietip="${n}" style="display:flex;flex-direction:column;align-items:center;gap:0.6em;width:100%;flex:0 0 auto;cursor:default;">
-            <span style="font-size:0.96em;font-weight:700;font-variant-numeric:tabular-nums;color:${THEME.text};">${c}</span>
+            <span style="display:inline-block;min-width:1.4em;text-align:center;font-size:0.96em;font-weight:700;font-variant-numeric:tabular-nums;color:${THEME.text};">${c}</span>
             <div style="width:100%;height:3.9em;display:flex;align-items:flex-end;justify-content:center;">
               <div style="width:74%;height:${barH}%;min-height:2px;background:${barColor};border-radius:3px 3px 0 0;transition:height .2s;"></div>
             </div>
@@ -2755,13 +2756,16 @@
     const handTip = risk
       ? t('tipHandRisk', 'Over the {n}-card discard limit — a 7 would discard half', { n: discardCap })
       : t('tipHandTotal', 'Total cards in hand');
-    const sel = uiState.pipPlayers.includes(p.name);   // pips show only for clicked names
+    // pips default to ALL players (so you see everyone's at once); clicking a name FILTERS
+    // to the selected subset (and gives them the highlight). Empty selection = show all.
+    const showPips = uiState.pipPlayers.length === 0 || uiState.pipPlayers.includes(p.name);
+    const sel = uiState.pipPlayers.includes(p.name);   // the highlight marks an EXPLICIT pick
     return `<span data-pipname="${escapeAttr(p.name)}" style="display:flex;align-items:center;gap:4px;min-width:0;color:${escapeAttr(p.color)};font-weight:700;cursor:pointer;${sel ? 'background:rgba(47,111,159,.15);border-radius:5px;' : ''}" ` +
-      `data-tip="${escapeHtml(p.name)}${active ? ' — ' + t('currentTurn', 'current turn') : ''} · ${t('tipClickPips', 'click for Setup pips')}">${avatar}` +
+      `data-tip="${escapeHtml(p.name)}${active ? ' — ' + t('currentTurn', 'current turn') : ''} · ${t('tipClickPips', 'click to focus pips on this player')}">${avatar}` +
       `<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span>` +
-      (sel ? pipBadge(pipMap && pipMap[wsColorOf(p.name)]) : '') +
+      (showPips ? pipBadge(pipMap && pipMap[wsColorOf(p.name)]) : '') +
       `<span data-tip="${escapeHtml(handTip)}" ` +
-      `style="flex:0 0 auto;margin-right:7px;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
+      `style="flex:0 0 auto;margin-right:7px;min-width:1.6em;text-align:center;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
       `color:${risk ? '#fff' : THEME.text};background:${risk ? THEME.bad : '#fbf9f4'};` +
       `border:1px solid ${risk ? THEME.bad : THEME.border};border-radius:0.6em;padding:0 0.4em;">${total}</span></span>`;
   }
@@ -2843,7 +2847,7 @@
     return head + players.map((p) => {
       const active = p.name === state.currentTurn;
       const actCls = active ? 'cst-active-cell' : '';
-      const pm = (uiState.pipPlayers.includes(p.name) && pipMap) ? pipMap[wsColorOf(p.name)] : null;   // pips only for selected names
+      const pm = ((uiState.pipPlayers.length === 0 || uiState.pipPlayers.includes(p.name)) && pipMap) ? pipMap[wsColorOf(p.name)] : null;   // default all, else the selected subset
       const cells = nameCell(p, prof, active, pipMap) +
         uiState.resOrder.map((r) => {
           const m = cellMark(p.name, r);   // column highlight is a pinned overlay band, not a per-cell bg
@@ -4029,6 +4033,11 @@
     if (lifecycle !== LIFE.PLAYING) { boardHiddenPrev = false; collapsedForBoard = false; return; }
     // Settings has its own (DOM-shell) posture — don't double-handle it.
     if (isSettingsOpen) return;
+    // The how-to overlay is a full-screen dim layer over the canvas: boardHidden() would
+    // read it as the board being covered and wrongly collapse the panel. It's transient
+    // (closes back to the same board), so skip posture entirely while it's open.
+    const helpOv = document.getElementById('cst-help-overlay');
+    if (helpOv && helpOv.style.display === 'block') return;
     const hidden = boardHidden();
     const action = boardPostureAction({
       hidden, prevHidden: boardHiddenPrev,

@@ -36,28 +36,27 @@ function relayBoardWithSettlement() {
   }));
 }
 
-test('pips are hidden until a player name is clicked, then the badge shows', () => {
+test('pips show for ALL players by default (no click); the name toggle still filters', () => {
   cst.resetState();
   cst.createPanel();
   cst.getPlayer('StanTheMan01', '#CF4449');
   relayBoardWithSettlement();
   cst.render();
-  // Scope to the table where the badge actually renders — static UI elsewhere (e.g.
-  // the how-to overlay) may legitimately mention the ⚅ glyph in its text.
-  assert.doesNotMatch(document.querySelector('#cst-resources').innerHTML, /⚅/, 'no pip badge before selecting');
+  // Default (empty selection) now shows everyone's pips — no clicking required.
+  assert.match(document.querySelector('#cst-resources').innerHTML, /⚅7/, 'default: pip badge shows without selecting (grain 4 + wool 3, brick robbed)');
+  // Clicking a name still records the explicit selection (the filter path).
   cst.selectPipPlayer('StanTheMan01');
-  const html = document.querySelector('#cst-resources').innerHTML;
-  assert.match(html, /⚅7/, 'after selecting: pip badge = grain 4 + wool 3 (brick robbed → excluded)');
+  assert.deepEqual(cst.getUiState().pipPlayers, ['StanTheMan01'], 'the name toggles into the explicit selection');
+  assert.match(document.querySelector('#cst-resources').innerHTML, /⚅7/, 'the selected player still shows pips');
 });
 
-test('the selected player\'s cells carry per-resource pip corners (item C-c)', () => {
+test('per-resource pip corners show by default for all players (item C-c)', () => {
   cst.resetState();
   cst.createPanel();
   cst.getPlayer('StanTheMan01', '#CF4449');
   relayBoardWithSettlement();   // self: grain pip 4, wool pip 3, brick robbed → none
   cst.render();
-  assert.equal(document.querySelectorAll('[data-pip]').length, 0, 'no corners before selecting');
-  cst.selectPipPlayer('StanTheMan01');
+  // Default (no selection): the corners are shown for everyone.
   const corners = [...document.querySelectorAll('[data-pip]')].map((el) => el.getAttribute('data-pip')).sort();
-  assert.deepEqual(corners, ['3', '4'], 'grain 4 and wool 3 corners; no brick corner (robbed)');
+  assert.deepEqual(corners, ['3', '4'], 'grain 4 and wool 3 corners shown by default; no brick corner (robbed)');
 });
