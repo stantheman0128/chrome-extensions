@@ -41,6 +41,9 @@ function produceSetup(b, color, cards) {   // initial-placement production: dist
   B.applyDiff(b, { gameLogState: { [++idx]: { text: { type: 47, playerColor: color, cardsToBroadcast: cards, distributionType: 0 } } } });
 }
 function moveRobber(b, tile) { B.applyDiff(b, { mechanicRobberState: { locationTileIndex: tile } }); }
+function shortage(b, cardEnum, count, bankCount) {   // type-48: colonist couldn't fully pay a resource this roll
+  B.applyDiff(b, { gameLogState: { [++idx]: { text: { type: 48, cardEnum, count, bankCount } } } });
+}
 function fresh(id) { const b = B.createBoard(); B.applyFullState(b, fullState(id).payload); return b; }
 
 test('a roll whose production matches the geometry prediction is confirmed', () => {
@@ -82,6 +85,45 @@ test('bank-limited production from cst-ws-frames (11) is skipped, not flagged as
   assert.equal(a.conflicts, 0, 'bank shortage is inconclusive, not a geometry bug');
   assert.equal(a.confirms, 0, 'partial bank payout is not a clean geometry confirmation');
   assert.equal(a.skipped, 1);
+});
+
+test('a type-48 shortage whose owed count MATCHES the geometry is a confirm, not a skip', () => {
+  // colonist broadcasts a type-48 {cardEnum, count, bankCount} when the supply can't
+  // fully pay a roll: count is the AUTHORITATIVE amount the geometry should have
+  // produced. When count == our prediction, the geometry is validated even though the
+  // payout was capped — so it's a real confirmation, not an inconclusive skip.
+  const b = fresh('short-confirm');
+  b.corners[23].buildingType = 2;   // city → geometry predicts colour 1 gets 2 ore on 8
+  b.bank = { 5: 1 };                 // supply only has one ore
+
+  roll(b, 8);
+  shortage(b, 5, 2, 1);             // colonist: 2 ore were owed, only 1 in the bank
+  produce(b, 1, [5]);               // …so it dealt the one it had
+  roll(b, 6);
+
+  const a = B.auditOf(b);
+  assert.equal(a.confirms, 1, "colonist's owed count equals the prediction → geometry confirmed");
+  assert.equal(a.conflicts, 0);
+  assert.equal(a.skipped, 0);
+});
+
+test('a type-48 shortage whose owed count DISAGREES with the geometry is a conflict (closes the masking gap)', () => {
+  // The masking risk of bank-amount inference: a geometry that OVER-predicts a
+  // resource, on a roll where the bank also happens to be short, would be silently
+  // excused. colonist's authoritative `count` exposes it — here the geometry predicts
+  // 2 ore but colonist says only 1 was ever owed, so the geometry is wrong.
+  const b = fresh('short-conflict');
+  b.corners[23].buildingType = 2;   // geometry (wrongly) predicts colour 1 gets 2 ore on 8
+  b.bank = { 5: 0 };                 // bank is empty…
+
+  roll(b, 8);
+  shortage(b, 5, 1, 0);             // …but colonist says only ONE ore was actually owed
+  roll(b, 6);                       // nothing produced (bank 0)
+
+  const a = B.auditOf(b);
+  assert.equal(a.conflicts, 1, 'owed count (1) ≠ prediction (2) → a real geometry mismatch, not excused');
+  assert.equal(a.confirms, 0);
+  assert.equal(a.skipped, 0);
 });
 
 test('a blocked roll (nothing predicted, nothing produced) is skipped, not a confirm', () => {

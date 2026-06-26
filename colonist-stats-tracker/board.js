@@ -21,7 +21,7 @@
   // geometry and compare to colonist's actual type-47 broadcast. `expect`/`actual`
   // are the in-flight roll (settled on the next roll); trail keeps the recent
   // verdicts as a small evidence log. Conflicts are recorded, not acted on.
-  function freshAudit() { return { confirms: 0, conflicts: 0, skipped: 0, trail: [], expect: null, actual: {} }; }
+  function freshAudit() { return { confirms: 0, conflicts: 0, skipped: 0, trail: [], expect: null, actual: {}, shortage: {} }; }
 
   function createBoard() {
     return {
@@ -111,6 +111,11 @@
         if (text.type === 47 && text.distributionType === 1 && fromDiff) {
           auditProduce(b, text.playerColor, text.cardsToBroadcast || []);
         }
+      } else if (text.type === 48) {
+        // Supply shortage: colonist couldn't fully pay `cardEnum` this roll. Feeds the
+        // geometry audit the authoritative owed `count` so a bank-capped payout is judged
+        // against what SHOULD have been produced, not the throttled amount.
+        if (fromDiff) auditShortage(b, text.cardEnum, text.count);
       } else if (text.type === 116) {
         // Bank/port trade: this player only. -given +received.
         reconApply(b, text.playerColor, text.givenCardEnums || [], -1);
@@ -244,7 +249,7 @@
     // NOT feed the audit (fromDiff=false). Drop the open prediction so it isn't settled
     // against an empty `actual` on the next roll — a false conflict. (resetAccrual
     // already cleared it on a new game; this also covers the reconnect.)
-    if (b.audit) { b.audit.expect = null; b.audit.actual = {}; }
+    if (b.audit) { b.audit.expect = null; b.audit.actual = {}; b.audit.shortage = {}; }
     const gs = (payload && payload.gameState) || {};
     const map = gs.mapState || {};
     b.tiles = {}; b.coordToTile = {};
@@ -670,51 +675,66 @@
     }
     return out;
   }
-  function bankShortageExplainsMismatch(pred, act, bank) {
-    if (!bank) return false;
-    const predTotals = productionTotalsByRes(pred);
-    const actTotals = productionTotalsByRes(act);
-    const limited = new Set();
-    for (const r of Object.keys(predTotals)) {
-      const have = Number(bank[r]);
-      if (!Number.isFinite(have) || have >= predTotals[r]) continue;
-      const actual = actTotals[r] || 0;
-      if (actual > predTotals[r] || actual > have) return false;
-      limited.add(String(r));
+  // Decide a settled roll: 'ok' (geometry confirmed), 'conflict' (a real geometry bug),
+  // or 'skip' (inconclusive — the bank capped the payout and we can't tell either way).
+  // When the bank runs short on a resource colonist pays out less than the full geometric
+  // amount (a single owed player gets the remainder; with several owed and not enough,
+  // nobody gets any), so a raw pred-vs-actual compare would mis-flag a correct geometry.
+  // colonist's own type-48 carries the AUTHORITATIVE owed total (`count`, keyed by resId):
+  //   - count == our predicted total  → geometry validated (confirm) despite the cap;
+  //   - count != our predicted total  → a genuine geometry mismatch a bank-amount guess
+  //     would have masked (conflict).
+  // Only when NO type-48 arrived for a resource our own bank snapshot couldn't cover do we
+  // fall back to the amount guess — and that path stays inconclusive (skip), never a
+  // silent confirm. Resources the bank could cover are compared per-colour as usual.
+  function auditVerdict(pred, act, shortage, bank) {
+    const predTot = productionTotalsByRes(pred);
+    const actTot = productionTotalsByRes(act);
+    const limited = new Set();      // resources excluded from the per-colour clean compare
+    let inconclusive = false;       // a bank-capped resource with no authoritative count
+    for (const r of new Set([...Object.keys(predTot), ...Object.keys(shortage || {})])) {
+      if (shortage && shortage[r] != null) {
+        if ((shortage[r] || 0) !== (predTot[r] || 0)) return 'conflict';   // owed total ≠ geometry
+        limited.add(String(r));
+      } else if (bank && Number.isFinite(Number(bank[r])) && Number(bank[r]) < (predTot[r] || 0)) {
+        const a = actTot[r] || 0;
+        if (a > (predTot[r] || 0) || a > Number(bank[r])) return 'conflict';   // can't be a pure shortage
+        limited.add(String(r));
+        inconclusive = true;
+      }
     }
-    return limited.size > 0 && productionEqual(withoutResources(pred, limited), withoutResources(act, limited));
+    if (!productionEqual(withoutResources(pred, limited), withoutResources(act, limited))) return 'conflict';
+    return inconclusive ? 'skip' : 'ok';
   }
   // Settle the in-flight roll: compare what the geometry predicted to what colonist
-  // actually broadcast, record the verdict (and warn on a conflict — a geometry bug
-  // on this board). A match on the un-robbed tiles is the evidence that the SAME
-  // geometry feeding blocked-loss on the robbed tile is correct too.
+  // actually broadcast (plus any type-48 shortage), record the verdict (and warn on a
+  // conflict — a geometry bug on this board). A match on the un-robbed tiles is the
+  // evidence that the SAME geometry feeding blocked-loss on the robbed tile is correct too.
   function settleAudit(b) {
     const au = b.audit;
     if (!au || !au.expect) return;
-    const pred = au.expect.pred, act = au.actual || {};
-    // nothing predicted AND nothing produced (a 7, or a number no building touches):
-    // no geometric evidence either way — count as skipped, not a confirmation, so the
-    // ✓ tally means "the geometry was actually exercised and held".
-    if (!Object.keys(pred).length && !Object.keys(act).length) {
+    const pred = au.expect.pred, act = au.actual || {}, short = au.shortage || {};
+    // nothing predicted, nothing produced, no shortage reported (a 7, or a number no
+    // building touches): no geometric evidence either way — count as skipped, not a
+    // confirmation, so the ✓ tally means "the geometry was actually exercised and held".
+    if (!Object.keys(pred).length && !Object.keys(act).length && !Object.keys(short).length) {
       au.skipped += 1;
-      au.expect = null; au.actual = {};
+      au.expect = null; au.actual = {}; au.shortage = {};
       return;
     }
-    if (bankShortageExplainsMismatch(pred, act, au.expect.bank)) {
-      au.skipped += 1;
-      au.expect = null; au.actual = {};
-      return;
-    }
-    const ok = productionEqual(pred, act);
-    if (ok) au.confirms += 1; else au.conflicts += 1;
-    au.trail.push({ roll: au.expect.roll, robber: au.expect.robber, pred, actual: act, ok });
+    const verdict = auditVerdict(pred, act, short, au.expect.bank);
+    if (verdict === 'ok') au.confirms += 1;
+    else if (verdict === 'skip') au.skipped += 1;
+    else au.conflicts += 1;
+    au.trail.push({ roll: au.expect.roll, robber: au.expect.robber, pred, actual: act, shortage: short, ok: verdict === 'ok' });
     if (au.trail.length > 64) au.trail.shift();
-    if (!ok && typeof console !== 'undefined' && console.warn) {
+    if (verdict === 'conflict' && typeof console !== 'undefined' && console.warn) {
       console.warn('[CST] geometry audit conflict on roll ' + au.expect.roll +
         ' — predicted ' + JSON.stringify(pred) + ' but server produced ' + JSON.stringify(act));
     }
     au.expect = null;
     au.actual = {};
+    au.shortage = {};
   }
   // Is the corner geometry complete? total stored corners, how many carry a position
   // (x set), how many are built, and how many of those built ones resolve to NO tiles
@@ -778,9 +798,10 @@
   // open the round (it's inconclusive, not evidence).
   function auditRoll(b, n) {
     settleAudit(b);
-    if (!geomReady(b)) { b.audit.expect = null; b.audit.actual = {}; return; }
+    if (!geomReady(b)) { b.audit.expect = null; b.audit.actual = {}; b.audit.shortage = {}; return; }
     b.audit.expect = { roll: n, robber: b.robberTile, pred: predictProduction(b, n), bank: { ...(b.bank || {}) } };
     b.audit.actual = {};
+    b.audit.shortage = {};
   }
   // A type-47 production broadcast: accumulate the real cards into the in-flight
   // roll's actual tally (only between a roll and the next — setup placement 47s
@@ -790,6 +811,14 @@
     if (!au || !au.expect || color == null || !cards || !cards.length) return;
     const o = au.actual[color] || (au.actual[color] = {});
     for (const c of cards) if (c >= 1 && c <= 5) o[c] = (o[c] || 0) + 1;
+  }
+  // A type-48 supply-shortage broadcast: colonist couldn't fully pay `cardEnum` this
+  // roll. `count` is the AUTHORITATIVE amount that was owed (before the bank capped it),
+  // which the geometry's predicted total is validated against in settleAudit.
+  function auditShortage(b, cardEnum, count) {
+    const au = b.audit;
+    if (!au || !au.expect || cardEnum == null || count == null) return;
+    if (cardEnum >= 1 && cardEnum <= 5) au.shortage[cardEnum] = count;
   }
 
   function tilesOfCornerIdx(b, idx) {
