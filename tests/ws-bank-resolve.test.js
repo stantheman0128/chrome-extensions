@@ -136,3 +136,31 @@ test('an opponent carrying a negative-unknown debt (1.126 masked steal) makes th
   // keeping the victim's known breakdown rather than letting the bank invent a hard split
   assert.deepEqual({ ...got }, { 1: 2, 2: 0, 3: 0, 4: 0, 5: 0, unknown: -1 }, 'projection kept; bank did not hard-split');
 });
+
+test('5-6 player: a 24-card deck still resolves — the gate self-validates the deck size', () => {
+  // The 5-6 player extension uses 24 of each resource, not 19. We do not detect the mode:
+  // the conservation gate passes ONLY when the assumed deck equals the real one, so trying
+  // 24 alongside 19 enables this game without any risk of a wrong constant slipping through.
+  const b = B.createBoard();
+  b.selfColor = 1;
+  b.hands['1'] = cards([5, 5, 5, 4, 4]);                 // self: ore3 grain2 (revealed)
+  b.hands['2'] = masked(4);                              // opponent: 4 cards, types hidden
+  // opponent truly holds lumber1 brick1 wool2 → bank = 24 - held - self
+  b.bank = { 1: 23, 2: 23, 3: 22, 4: 22, 5: 21 };
+  B.__setRecon(b, 2, { unknown: 4 });                    // recon knows nothing — pure unknown
+
+  const got = B.reconBreakdownOf(b, 2);
+  assert.deepEqual(brk(got), brk({ 1: 1, 2: 1, 3: 2, unknown: 0 }), 'the 24-deck supply gives the exact split');
+});
+
+test('a deck size matching no candidate (e.g. 25) fails every gate → safe fallback to projection', () => {
+  const b = B.createBoard();
+  b.selfColor = 1;
+  b.hands['1'] = cards([]);                              // self holds nothing
+  b.hands['2'] = masked(4);                              // opponent: 4 cards (lumber1 brick1 wool2)
+  b.bank = { 1: 24, 2: 24, 3: 23, 4: 25, 5: 25 };       // a 25-of-each supply — not 19/24/29
+  B.__setRecon(b, 2, { unknown: 4 });
+
+  assert.equal(B.bankOppTotalsOf(b), null, 'no candidate deck conserves → gate declines');
+  assert.deepEqual(brk(B.reconBreakdownOf(b, 2)), brk({ unknown: 4 }), 'falls back to the projection, no wrong split');
+});

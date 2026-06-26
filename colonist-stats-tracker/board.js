@@ -533,8 +533,15 @@
   // supply (expansion → a negative or mismatched total), or any missing data — so when
   // it passes the numbers are real, and we never need to know what the host's "hide bank
   // cards" setting does to the payload: the math self-detects.
-  const BANK_TOTAL = 19;
-  function bankOppTotals(b) {
+  // Resource-card supply per resource. Base / ≤4-player uses 19; the 5-6 player extension
+  // uses 24, 7-8 uses 29. We do NOT need to detect the mode: all resource cards are conserved
+  // between the bank and the hands, so the conservation gate below passes for a candidate deck
+  // ONLY when that candidate equals the real deck (Σ(deck−bank−self) == Σ opp counts ⟺
+  // deck == realDeck). So we try the candidates and use whichever the gate validates — a
+  // wrong constant can't slip through (it fails the gate), and a masked / unsupported supply
+  // matches none → null (safe fallback to the log projection, exactly as the 19-only code did).
+  const DECK_CANDIDATES = [19, 24, 29];
+  function bankOppTotalsFor(b, deck) {
     const bank = b.bank;
     if (!bank) return null;
     const selfColor = b.selfColor;
@@ -546,8 +553,8 @@
     const totals = {}; let sum = 0;
     for (let r = 1; r <= 5; r++) {
       if (bank[r] == null) return null;                 // supply incomplete → not usable
-      const v = BANK_TOTAL - bank[r] - (selfBy[r] || 0);
-      if (v < 0) return null;                            // base-19 assumption broken (expansion / masked)
+      const v = deck - bank[r] - (selfBy[r] || 0);
+      if (v < 0) return null;                            // this deck candidate is too small for the supply
       totals[r] = v; sum += v;
     }
     let handSum = 0; const oppColors = [];
@@ -558,8 +565,15 @@
       if (hc == null) return null;                       // an opponent with no authoritative count → can't gate
       handSum += hc; oppColors.push(cc);
     }
-    if (!oppColors.length || sum !== handSum) return null;   // THE conservation gate
+    if (!oppColors.length || sum !== handSum) return null;   // THE conservation gate (validates this deck)
     return { totals, oppColors };
+  }
+  function bankOppTotals(b) {
+    for (const deck of DECK_CANDIDATES) {
+      const r = bankOppTotalsFor(b, deck);
+      if (r) return r;                                   // first deck the gate validates wins (only the real one can)
+    }
+    return null;
   }
 
   // Resolve ONE opponent's breakdown from the bank, or null if it can't pin them down
