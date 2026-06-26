@@ -675,6 +675,14 @@
     }
     return out;
   }
+  function limitedActualFitsPrediction(pred, act, limited) {
+    for (const r of limited) {
+      for (const col of Object.keys(act || {})) {
+        if (((act[col] || {})[r] || 0) > (((pred[col] || {})[r]) || 0)) return false;
+      }
+    }
+    return true;
+  }
   // Decide a settled roll: 'ok' (geometry confirmed), 'conflict' (a real geometry bug),
   // or 'skip' (inconclusive — the bank capped the payout and we can't tell either way).
   // When the bank runs short on a resource colonist pays out less than the full geometric
@@ -703,6 +711,7 @@
         inconclusive = true;
       }
     }
+    if (!limitedActualFitsPrediction(pred, act, limited)) return 'conflict';
     if (!productionEqual(withoutResources(pred, limited), withoutResources(act, limited))) return 'conflict';
     return inconclusive ? 'skip' : 'ok';
   }

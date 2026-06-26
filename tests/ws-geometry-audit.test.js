@@ -126,6 +126,39 @@ test('a type-48 shortage whose owed count DISAGREES with the geometry is a confl
   assert.equal(a.skipped, 0);
 });
 
+test('a type-48 total match still conflicts when the capped payout goes to an impossible player', () => {
+  // type-48 validates the cross-player resource TOTAL, but a partial payout still
+  // carries some per-player information. If geometry says colour 1 is the only ore
+  // producer, a capped ore card broadcast to colour 2 contradicts the geometry even
+  // when the type-48 total count matches.
+  const b = fresh('short-wrong-player');
+  b.corners[23].buildingType = 2;   // geometry predicts colour 1 gets 2 ore on 8
+  b.bank = { 5: 1 };
+
+  roll(b, 8);
+  shortage(b, 5, 2, 1);             // total owed matches geometry
+  produce(b, 2, [5]);               // but the one paid card went to a player with no predicted ore
+  roll(b, 6);
+
+  const a = B.auditOf(b);
+  assert.equal(a.conflicts, 1, 'actual limited-resource payout contradicts the per-player geometry');
+  assert.equal(a.confirms, 0);
+  assert.equal(a.skipped, 0);
+});
+
+test('a type-48 shortage on a resource the geometry never predicted is a conflict (geometry under-counted)', () => {
+  // colonist owed a resource our geometry predicted nothing for → the geometry missed a
+  // producer this roll. The shortage signal must NOT let that gap pass as a skip.
+  const b = fresh('short-underpredict');
+  roll(b, 6);                       // no tile is numbered 6 → geometry predicts nothing
+  shortage(b, 5, 2, 0);             // but colonist says 2 ore were owed this roll
+  roll(b, 8);                       // settle the 6
+  const a = B.auditOf(b);
+  assert.equal(a.conflicts, 1, 'owed production the geometry never predicted is a real mismatch');
+  assert.equal(a.confirms, 0);
+  assert.equal(a.skipped, 0);
+});
+
 test('a blocked roll (nothing predicted, nothing produced) is skipped, not a confirm', () => {
   const b = fresh('c');
   moveRobber(b, 7);        // robber on the ore tile
