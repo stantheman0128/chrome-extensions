@@ -119,16 +119,46 @@ test('self steal (14) and being robbed (15) move the known card in handRecon', (
 
 // ---- Task 7: reconcile wired in + reload-proof + invariant ----
 
-test('type-16 opp steal: thief gains 1 unknown, victim loses 1 honestly (no guess)', () => {
+test('type-16 opp steal: thief +1 unknown; a fully-known multi-resource victim keeps the breakdown with a negative unknown (upper bound)', () => {
   const b = board.createBoard();
   board.__setRecon(b, 2, { 1: 2 });            // thief: 2 lumber
-  board.__setRecon(b, 4, { 1: 1, 5: 1 });      // victim: 1 lumber + 1 ore — which was taken is ambiguous
+  board.__setRecon(b, 4, { 1: 1, 5: 1 });      // victim: 1 lumber + 1 ore, fully known — which was taken is unknowable
   board.applyDiff(b, {
     playerStates: { 2: { resourceCards: { cards: [0, 0, 0] } }, 4: { resourceCards: { cards: [0] } } }, // totals 3, 1
     gameLogState: { '7': { text: { type: 16, playerColorThief: 2, playerColorVictim: 4, cardBacks: [0] } } },
   });
   assert.deepEqual(board.reconBreakdownOf(b, 2), { 1: 2, 2: 0, 3: 0, 4: 0, 5: 0, unknown: 1 }, 'thief +1 unknown');
-  assert.deepEqual(board.reconBreakdownOf(b, 4), { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, unknown: 1 }, 'victim: the remaining card is unknown (was lumber-or-ore), not a guess');
+  assert.deepEqual(board.reconBreakdownOf(b, 4), { 1: 1, 2: 0, 3: 0, 4: 0, 5: 1, unknown: -1 }, 'victim keeps lumber+ore; one is secretly gone → unknown -1, the row reads as an upper bound');
+});
+
+test('type-16 opp steal: a victim WITH unknowns spends an unknown, keeping the known breakdown (the reported bug)', () => {
+  const b = board.createBoard();
+  b.hands[4] = { cards: [0, 0, 0, 0, 0, 0] };           // 6 cards tracked before the steal
+  board.__setRecon(b, 4, { 4: 2, 5: 1, unknown: 3 });   // grain2 ore1 + 3 unknown (6): the captured case
+  board.applyDiff(b, {
+    playerStates: { 4: { resourceCards: { cards: [0, 0, 0, 0, 0] } } },   // robbed → 5
+    gameLogState: { '8': { text: { type: 16, playerColorThief: 3, playerColorVictim: 4, cardBacks: [0] } } },
+  });
+  assert.deepEqual(board.reconBreakdownOf(b, 4), { 1: 0, 2: 0, 3: 0, 4: 2, 5: 1, unknown: 2 },
+    'spends an unknown; grain/ore breakdown preserved (used to collapse to grain1 ore0 ?4)');
+});
+
+test('type-16 negative unknown survives a later production and keeps reconSum == hand count', () => {
+  const b = board.createBoard();
+  b.hands[4] = { cards: [0, 0, 0] };                     // 3 cards tracked before the steal
+  board.__setRecon(b, 4, { 4: 2, 5: 1 });               // grain2 ore1, fully known (3)
+  board.applyDiff(b, {
+    playerStates: { 4: { resourceCards: { cards: [0, 0] } } },           // robbed → 2
+    gameLogState: { '9': { text: { type: 16, playerColorThief: 3, playerColorVictim: 4, cardBacks: [0] } } },
+  });
+  assert.deepEqual(board.reconBreakdownOf(b, 4), { 1: 0, 2: 0, 3: 0, 4: 2, 5: 1, unknown: -1 }, 'debt of 1 after the steal');
+  board.applyDiff(b, {
+    playerStates: { 4: { resourceCards: { cards: [0, 0, 0] } } },        // produces 1 grain → 3
+    gameLogState: { '12': { text: { type: 47, playerColor: 4, cardsToBroadcast: [4] } } },
+  });
+  const r = board.reconBreakdownOf(b, 4);
+  assert.deepEqual(r, { 1: 0, 2: 0, 3: 0, 4: 3, 5: 1, unknown: -1 }, 'production adds grain; the -1 debt persists');
+  assert.equal(r[4] + r[5] + r.unknown, 3, 'reconSum still equals the WS hand count');
 });
 
 test('a single-resource victim of a type-16 steal stays exact (no over-blur)', () => {

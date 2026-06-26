@@ -75,3 +75,19 @@ test('UI renders the full panel: dice bars + %, merged resources/bank, player ro
   // The manual new-game button moved to the popup; it's gone from the panel.
   assert.equal(panel.querySelector('#cst-newgame'), null, 'new-game button removed from panel');
 });
+
+test('a negative unknown (steal debt) renders in parentheses as an upper-bound marker', () => {
+  cst.resetState();
+  const stan = cst.getPlayer('StanTheMan01', '#CF4449');
+  cst.giveResource(stan, 'grain', 2);
+  cst.giveResource(stan, 'ore', 1);
+  stan.unknown = -1; // robbed while fully known → one of the known cards is secretly gone
+
+  cst.createPanel();
+  cst.render();
+
+  const panel = document.querySelector('#colonist-stats-tracker');
+  const cells = [...panel.querySelectorAll('span[data-res="unknown"]')].filter((el) => !el.hasAttribute('data-colhead'));
+  assert.equal(cells.length, 1, 'one per-player unknown cell (header excluded)');
+  assert.equal(cells[0].textContent.trim(), '(-1)', 'negative unknown shows in parens, not a bare -1');
+});

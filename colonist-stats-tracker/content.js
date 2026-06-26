@@ -2849,7 +2849,10 @@
           const m = cellMark(p.name, r);   // column highlight is a pinned overlay band, not a per-cell bg
           if (r === 'unknown') {
             const uTip = escapeHtml(t('tipUnknownCards', 'Unknown card types. The total is reconciled to Colonist hand count; ? means the exact resource type is not provable yet (hidden steal, silent buy/discard, reconnect gap, or bank ambiguity).'));
-            return `<span data-res="unknown"${m.a} class="${actCls}" data-tip="${uTip}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;cursor:pointer;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? '' : 'opacity:.4;'}${m.bg}">${p.unknown}</span>`;
+            // A NEGATIVE unknown is a steal debt: a known card was secretly taken but we
+            // can't say which, so the row above reads as an upper bound. Show it in parens.
+            const uVal = p.unknown < 0 ? `(${p.unknown})` : `${p.unknown}`;
+            return `<span data-res="unknown"${m.a} class="${actCls}" data-tip="${uTip}" style="text-align:center;border-radius:5px;font-variant-numeric:tabular-nums;cursor:pointer;color:${p.unknown ? THEME.accent : THEME.textDim};${p.unknown ? '' : 'opacity:.4;'}${m.bg}">${uVal}</span>`;
           }
           // C(c): per-resource pips tucked into the cell's bottom-right corner.
           const pipV = pm ? pm.byRes[RESOURCES.indexOf(r) + 1] : 0;

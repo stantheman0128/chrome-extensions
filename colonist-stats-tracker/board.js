@@ -174,10 +174,12 @@
         }
       } else if (text.type === 16) {
         // Opponent-vs-opponent knight steal: the card is masked from us (cardBacks).
-        // Honest — thief gains 1 unknown; victim loses 1 card of unknown type (no
-        // guess). This is the only genuinely-unknowable hand move.
+        // Thief gains 1 unknown; victim loses exactly 1 card to it — reconStealOne keeps the
+        // victim's known breakdown (spends an unknown, or deducts an unambiguous single
+        // resource, or marks a negative-unknown debt) instead of collapsing it, so the row
+        // stays readable as an upper bound. This is the only genuinely-unknowable hand move.
         if (text.playerColorThief != null) ensureRecon(b, text.playerColorThief).unknown += 1;
-        if (text.playerColorVictim != null) reconLoseOne(ensureRecon(b, text.playerColorVictim));
+        if (text.playerColorVictim != null) reconStealOne(ensureRecon(b, text.playerColorVictim));
       } else if (text.type === 10) {
         const sum = (text.firstDice || 0) + (text.secondDice || 0);
         if (sum >= 2 && sum <= 12) {
@@ -385,6 +387,22 @@
     for (let i = 1; i <= 5; i++) { r[i] = Math.max(0, r[i] - 1); kept += r[i]; }
     r.unknown = Math.max(0, total - 1 - kept);
   }
+  // A masked player-to-player steal (type 16) removes exactly ONE card to a known thief,
+  // type hidden. Unlike reconLoseOne's conservative collapse (which is for UNEXPLAINED
+  // drift), here we trust the prior breakdown and just mark one card gone: spend an existing
+  // unknown first; if the hand is a single known resource the stolen card is unambiguous so
+  // deduct it exactly; otherwise keep the breakdown and let `unknown` go NEGATIVE — a debt
+  // meaning "one of these known cards left, type unknown", so the row reads as an UPPER
+  // bound. reconSum drops by exactly 1 either way, so reconSum == handCount is preserved.
+  function reconStealOne(r) {
+    const total = reconSum(r);
+    if (total <= 0) return;                       // nothing to take (or already in debt) → leave it for reconcile
+    if (r.unknown > 0) { r.unknown -= 1; return; }
+    let types = 0, only = 0;
+    for (let i = 1; i <= 5; i++) if (r[i] > 0) { types += 1; only = i; }
+    if (types === 1) { r[only] -= 1; return; }    // single known resource → the stolen card must be that one
+    r.unknown -= 1;                               // multi-resource, fully known → debt (unknown goes negative)
+  }
   // A dev-card buy spends 1 wool + 1 grain + 1 ore — colonist logs no event for it
   // (silent −3), so it surfaces as an unexplained loss in the reconcile. Deduct the
   // exact cost: from a known holding if we have it, else from unknown. Returns how many
@@ -556,7 +574,10 @@
     const proj = {}; const unknownHolders = [];
     for (const c of oppColors) {
       const pr = projectRecon(b, c);
-      if (!pr) return null;                              // an opponent with no recon yet (un-named early game) → can't compute the leftover, fall back
+      // No recon yet (un-named early game) OR a negative-unknown debt holder (its known
+      // counts are an UPPER bound, so the leftover subtraction below would be unsound) →
+      // bail and let projectRecon display it (the debt shows as a negative unknown).
+      if (!pr || pr.unknown < 0) return null;
       proj[c] = pr;
       for (let r = 1; r <= 5; r++) leftover[r] -= (pr[r] || 0);
       if (pr.unknown > 0) unknownHolders.push(c);
