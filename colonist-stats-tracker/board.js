@@ -652,6 +652,38 @@
     }
     return true;
   }
+  function productionTotalsByRes(x) {
+    const out = {};
+    for (const col of Object.keys(x || {})) {
+      for (const r of Object.keys(x[col] || {})) out[r] = (out[r] || 0) + (x[col][r] || 0);
+    }
+    return out;
+  }
+  function withoutResources(x, skip) {
+    const out = {};
+    for (const col of Object.keys(x || {})) {
+      for (const r of Object.keys(x[col] || {})) {
+        if (skip.has(String(r))) continue;
+        const n = x[col][r] || 0;
+        if (n) (out[col] || (out[col] = {}))[r] = n;
+      }
+    }
+    return out;
+  }
+  function bankShortageExplainsMismatch(pred, act, bank) {
+    if (!bank) return false;
+    const predTotals = productionTotalsByRes(pred);
+    const actTotals = productionTotalsByRes(act);
+    const limited = new Set();
+    for (const r of Object.keys(predTotals)) {
+      const have = Number(bank[r]);
+      if (!Number.isFinite(have) || have >= predTotals[r]) continue;
+      const actual = actTotals[r] || 0;
+      if (actual > predTotals[r] || actual > have) return false;
+      limited.add(String(r));
+    }
+    return limited.size > 0 && productionEqual(withoutResources(pred, limited), withoutResources(act, limited));
+  }
   // Settle the in-flight roll: compare what the geometry predicted to what colonist
   // actually broadcast, record the verdict (and warn on a conflict — a geometry bug
   // on this board). A match on the un-robbed tiles is the evidence that the SAME
@@ -664,6 +696,11 @@
     // no geometric evidence either way — count as skipped, not a confirmation, so the
     // ✓ tally means "the geometry was actually exercised and held".
     if (!Object.keys(pred).length && !Object.keys(act).length) {
+      au.skipped += 1;
+      au.expect = null; au.actual = {};
+      return;
+    }
+    if (bankShortageExplainsMismatch(pred, act, au.expect.bank)) {
       au.skipped += 1;
       au.expect = null; au.actual = {};
       return;
@@ -742,7 +779,7 @@
   function auditRoll(b, n) {
     settleAudit(b);
     if (!geomReady(b)) { b.audit.expect = null; b.audit.actual = {}; return; }
-    b.audit.expect = { roll: n, robber: b.robberTile, pred: predictProduction(b, n) };
+    b.audit.expect = { roll: n, robber: b.robberTile, pred: predictProduction(b, n), bank: { ...(b.bank || {}) } };
     b.audit.actual = {};
   }
   // A type-47 production broadcast: accumulate the real cards into the in-flight

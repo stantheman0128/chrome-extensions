@@ -66,6 +66,24 @@ test('a roll whose production disagrees with the geometry is a conflict', () => 
   assert.equal(a.trail[0].roll, 8);
 });
 
+test('bank-limited production from cst-ws-frames (11) is skipped, not flagged as a geometry conflict', () => {
+  // Minimal reduction of the 4p #blue3084 capture: the geometry can predict more
+  // of a resource than the bank still holds. colonist then broadcasts only the
+  // partial payout (or none), which is not a clean corner→tile oracle.
+  const b = fresh('bank-shortage');
+  b.corners[23].buildingType = 2; // geometry predicts colour 1 gets 2 ore on 8
+  b.bank = { 5: 1 };              // but the supply only has one ore left
+
+  roll(b, 8);
+  produce(b, 1, [5]);             // server can only broadcast the one available ore
+  roll(b, 6);
+
+  const a = B.auditOf(b);
+  assert.equal(a.conflicts, 0, 'bank shortage is inconclusive, not a geometry bug');
+  assert.equal(a.confirms, 0, 'partial bank payout is not a clean geometry confirmation');
+  assert.equal(a.skipped, 1);
+});
+
 test('a blocked roll (nothing predicted, nothing produced) is skipped, not a confirm', () => {
   const b = fresh('c');
   moveRobber(b, 7);        // robber on the ore tile
