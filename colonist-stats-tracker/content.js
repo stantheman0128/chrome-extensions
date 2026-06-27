@@ -2636,12 +2636,6 @@
     { key: 's-stolen', svg: statIcon(sRobber, '+'),         tip: t('statStolen', 'Cards stolen (Knights) — hover for from whom') },
   ];
 
-  // A stat header icon — fully self-drawn now (the colonist-asset harvest/bundle
-  // path was retired in favour of the unified self-drawn icon set above).
-  function statIconHTML(c) {
-    return c.svg;
-  }
-
   // Canonical column orders (the drag-reorder baseline). RES order includes the
   // unknown/stolen-card column so it reorders like any other.
   const RES_ORDER_DEF = ['lumber', 'brick', 'wool', 'grain', 'ore', 'unknown'];
@@ -3208,7 +3202,7 @@
     const head = tableHead(uiState.statOrder.map((key) => {
       const c = COL_BY_KEY[key];
       return `<span data-res="${c.key}" data-colhead="1" data-tip="${c.tip}" style="${HEAD_SLOT}border-radius:5px;cursor:grab;">` +
-        `<span style="font-size:2.15em;line-height:1;display:inline-flex;align-items:center;">${statIconHTML(c)}</span></span>`;
+        `<span style="font-size:2.15em;line-height:1;display:inline-flex;align-items:center;">${c.svg}</span></span>`;
     }).join(''), TABLE_GRID, HEAD_PAD_TOP);
     if (state.players.size === 0) return head + EMPTY_ROW();
     const { players, prof } = panelOrderedPlayers();
@@ -4375,16 +4369,8 @@
       const dr = {};
       for (const r of Object.keys(s.discardRes)) dr[RESOURCES[parseInt(r, 10) - 1]] = s.discardRes[r];
       if (JSON.stringify(ty.discardRes || {}) !== JSON.stringify(dr)) { ty.discardRes = dr; changed = true; }
-      // Gained: WS total + per-resource (board keys by resId, tally by name). The
-      // log derives gained from got/received/took-from-bank; if WS comes in LOWER
-      // a source is unaccounted for (e.g. setup) — flag it as an oracle while we
-      // confirm distributionType coverage in the wild.
-      if (ty.gained !== s.gained) {
-        if (s.gained < (ty.gained || 0)) {
-          try { console.debug('[CST] 📥 gain oracle: WS', s.gained, '< prior', ty.gained, 'for', name); } catch (e) {}
-        }
-        ty.gained = s.gained; changed = true;
-      }
+      // Gained: WS total + per-resource (board keys by resId, tally by name).
+      if (ty.gained !== s.gained) { ty.gained = s.gained; changed = true; }
       const gr = {};
       for (const r of Object.keys(s.gainedRes)) gr[RESOURCES[parseInt(r, 10) - 1]] = s.gainedRes[r];
       if (JSON.stringify(ty.gainedRes || {}) !== JSON.stringify(gr)) { ty.gainedRes = gr; changed = true; }
