@@ -14,7 +14,7 @@ A lightweight collection of Chrome extensions built on Manifest V3.
 | # | Extension | Version | Download |
 |---|---------|------|------|
 | 1 | [Claude Status Monitor](#ext-claude-status-monitor) | `1.2.1` | [![Download claude-status-monitor](https://img.shields.io/badge/Download-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
-| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.137.0` | [![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
+| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.138.0` | [![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
 | 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | `1.0` | [![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
 | 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | `1.0` | [![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
 | 5 | [YouTube Precise Time](#ext-youtube-video-upload-time) | `9.10` | [![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
@@ -70,7 +70,7 @@ Real-time Claude service status widget on Claude.ai (including Claude Code web),
 
 **Folder:** `colonist-stats-tracker/`
 
-**Version:** `1.137.0`
+**Version:** `1.138.0`
 
 A floating in-game overlay for [colonist.io](https://colonist.io/) that tracks dice-roll distribution, per-player resources, and game stats in real time. It reads the game's own WebSocket messages (the board, dice, and hand state colonist already sends to your browser), so most numbers are exact and survive a page reload.
 
