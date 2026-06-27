@@ -434,6 +434,14 @@
   // shortfall is left for projectRecon's non-mutating display. (Both the count-first/log-
   // later splits — gain and loss — are handled by the pending buffer, not by this bake.)
   const PENDING_TTL = 3;
+  function collapseOvercount(rec, excess) {
+    while (excess >= 3) {
+      const spent = reconBuyDevCard(rec);
+      if (!spent) break;
+      excess -= spent;
+    }
+    for (; excess > 0; excess -= 1) reconLoseOne(rec);
+  }
   function settleReconToHandCount(b, color) {
     const r = b.handRecon[color];
     if (!r) return false;
@@ -443,12 +451,7 @@
     const pend = (b.pendingHandDelta[color] && b.pendingHandDelta[color].delta) || 0;
     let excess = before - total + pend;            // over-count NOT explained by a pending count-move
     if (excess <= 0) return false;
-    while (excess >= 3) {                           // an uncharged silent buy (DOM-only path) → infer it
-      const spent = reconBuyDevCard(r);
-      if (!spent) break;
-      excess -= spent;
-    }
-    for (; excess > 0; excess -= 1) reconLoseOne(r); // honest single losses clamp to the live count
+    collapseOvercount(r, excess);
     return reconSum(r) !== before;
   }
   function settleAllReconToCurrentHands(b) {
@@ -515,12 +518,7 @@
     const diff = total - reconSum(proj);
     if (diff > 0) { proj.unknown += diff; return proj; }   // unaccounted gain → unknown
     let excess = -diff;
-    while (excess >= 3) {                     // a buy NOT yet charged (no dev state, e.g. DOM-only) → infer it
-      const spent = reconBuyDevCard(proj);
-      if (!spent) break;                      // holds none of wool/grain/ore → stop guessing buys
-      excess -= spent;
-    }
-    for (; excess > 0; excess -= 1) reconLoseOne(proj);   // honest single losses clamp to handCount
+    collapseOvercount(proj, excess);
     return proj;
   }
 
