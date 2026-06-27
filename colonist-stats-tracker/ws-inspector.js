@@ -27,7 +27,6 @@
   // shifting early steals/trades out. `meta` keeps the opening colour↔name map so
   // each event's playerColor can be attributed.
   const logEntries = {};
-  const robberProbe = { diffKeys: {}, samples: [] };  // ⛔ blocked-loss investigation
   let meta = null;
   let lastFull = null;   // the most recent type-4 frame, kept so a late save() is still replayable
   function harvestLog(obj) {
@@ -40,13 +39,6 @@
         playerColor: gs.playerColor,
         players: (d.payload.playerUserStates || []).map((u) => ({ color: u.selectedColor, name: u.username, bot: u.isBot })),
       };
-    }
-    if (d.type === 91 && d.payload && d.payload.diff) {
-      const diff = d.payload.diff;
-      for (const key of Object.keys(diff)) robberProbe.diffKeys[key] = (robberProbe.diffKeys[key] || 0) + 1;
-      if (robberProbe.samples.length < 6) {
-        try { if (JSON.stringify(diff).toLowerCase().indexOf('robber') >= 0) robberProbe.samples.push(diff); } catch (e) {}
-      }
     }
     const gl = (d.payload && d.payload.gameState && d.payload.gameState.gameLogState)
             || (d.payload && d.payload.diff && d.payload.diff.gameLogState);
@@ -87,12 +79,6 @@
   }
 
   function tap(ws) {
-    // Serialize this socket's incoming frames. Each binary frame is decoded after an
-    // async Blob.arrayBuffer(), and two frames fired back-to-back have NO ordering
-    // guarantee on their own — a later frame whose buffer resolves first would relay
-    // first, e.g. a roll's type-47 ahead of its type-10. Chaining every frame through
-    // one promise makes relay order == arrival order: frame N's arrayBuffer() isn't
-    // even started until frame N-1 has been recorded.
     // Serialize this socket's incoming frames. Each binary frame is decoded after an
     // async Blob.arrayBuffer(), and two frames fired back-to-back have NO ordering
     // guarantee on their own — a later frame whose buffer resolves first would relay
@@ -169,14 +155,6 @@
       return dump;
     },
     allLog() { return logEntries; },
-    // Robber-tracking probe for the ⛔ fix: which diff top-level keys appear (is
-    // mechanicRobberState even present?) + the first few diffs mentioning a robber.
-    // Move the robber a few times, then paste this.
-    robber() {
-      const out = { diffKeys: robberProbe.diffKeys, robberSamples: robberProbe.samples };
-      console.log(JSON.stringify(out, bigintReplacer, 2));
-      return out;
-    },
     // Corner-geometry probe — the heart of the "pips missing until F5" mystery.
     // Answers two protocol questions we've only ever ASSUMED: (1) does the full
     // state (type 4) carry every corner's x/y/z, or only built corners? (2) do

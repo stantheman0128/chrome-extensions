@@ -4424,8 +4424,9 @@
   // Mirror the WS board's dice histogram into state. The board accrues every
   // type-10 roll from the structured log (history + live), so this is the
   // authoritative count — it can't drop a roll the way late-mounting chat rows
-  // could. The DOM roll handler stops accruing counts once the board is ready
-  // (it still owns turn timing, which the protocol doesn't carry).
+  // could. The DOM roll handler keeps accruing too, but this OVERWRITES (assigns,
+  // not adds) every WS frame, so any transient DOM count is corrected on the next
+  // frame; the DOM count only stands alone before the board is ready.
   function syncDiceFromWS() {
     if (!wsBoard || !__cstBoard.ready(wsBoard)) return false;
     const d = __cstBoard.diceOf(wsBoard);

@@ -1012,7 +1012,6 @@
     },
     reconBreakdownOf: displayBreakdown,                          // bank-resolved if usable, else projected (display) breakdown
     bankOppTotalsOf: bankOppTotals,                              // {totals, oppColors} of all-opponents-combined per resource, or null
-    reconProjectOf: projectRecon,                                // the raw log-recon projection (no bank), for audit/compat
     reconSumOf: (b, color) => { const p = projectRecon(b, color); return p ? reconSum(p) : 0; },
     // colonist's RAW supply (bankState.resourceCards) — the exact cards left per resId,
     // deck-size agnostic (base 19 / 5-6p 24 / 7-8p 29) and immune to unknown steals. Null
