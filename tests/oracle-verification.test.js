@@ -132,15 +132,22 @@ test('scenario oracle: late production ordering converges on ore (content.js)', 
 });
 
 test('regenerating oracle matches committed file (detect drift)', () => {
-  const { execSync } = require('node:child_process');
-  const stripTime = (raw) => {
-    const o = JSON.parse(raw);
-    delete o.meta.generatedAt;
-    return JSON.stringify(o, null, 2) + '\n';
-  };
-  execSync('node tools/generate-oracle-fixtures.js', { cwd: path.join(__dirname, '..'), stdio: 'pipe' });
-  const before = stripTime(fs.readFileSync(ORACLE_FILE, 'utf8'));
-  execSync('node tools/generate-oracle-fixtures.js', { cwd: path.join(__dirname, '..'), stdio: 'pipe' });
-  const after = stripTime(fs.readFileSync(ORACLE_FILE, 'utf8'));
-  assert.equal(before, after, 'oracle file must be deterministic (ignoring generatedAt)');
+  const os = require('node:os');
+  const { generateOracleFixtures, stripGeneratedAt } = require('../tools/generate-oracle-fixtures.js');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cst-oracle-drift-'));
+
+  try {
+    const { oracleFile, scenarioFile } = generateOracleFixtures({ outDir: tmpDir });
+    const committedOracle = stripGeneratedAt(fs.readFileSync(ORACLE_FILE, 'utf8'));
+    const regeneratedOracle = stripGeneratedAt(fs.readFileSync(oracleFile, 'utf8'));
+    assert.equal(regeneratedOracle, committedOracle,
+      'regenerated oracle must match committed fixture (ignoring generatedAt)');
+
+    const committedScenario = JSON.stringify(JSON.parse(fs.readFileSync(SCENARIO_FILE, 'utf8')), null, 2) + '\n';
+    const regeneratedScenario = JSON.stringify(JSON.parse(fs.readFileSync(scenarioFile, 'utf8')), null, 2) + '\n';
+    assert.equal(regeneratedScenario, committedScenario,
+      'regenerated scenario must match committed fixture');
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });

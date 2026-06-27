@@ -10,6 +10,7 @@
 // Usage:
 //   node tools/generate-oracle-fixtures.js [path/to/fullstate.json] [outputDir]
 //
+// Output directory: argv[3], or env OUT_DIR, or tests/fixtures/oracle (committed fixtures).
 // Default input: tests/fixtures/ws-fullstate-2p.json
 
 const fs = require('node:fs');
@@ -218,6 +219,21 @@ function buildOracle(payload, sourceRel) {
   };
 }
 
+function stripGeneratedAt(raw) {
+  const o = JSON.parse(raw);
+  if (o.meta) delete o.meta.generatedAt;
+  return JSON.stringify(o, null, 2) + '\n';
+}
+
+function writeJsonIfChanged(filePath, obj) {
+  const next = JSON.stringify(obj, null, 2) + '\n';
+  if (fs.existsSync(filePath) && stripGeneratedAt(fs.readFileSync(filePath, 'utf8')) === stripGeneratedAt(next)) {
+    return false;
+  }
+  fs.writeFileSync(filePath, next);
+  return true;
+}
+
 function writeScenarioOrdering(outDir) {
   // Minimal replay sequence: hand total arrives before type-47 names the resource.
   // Expected values are stated explicitly (verification agent), not from board.js.
@@ -260,38 +276,66 @@ function writeScenarioOrdering(outDir) {
       },
     ],
   };
-  fs.writeFileSync(
-    path.join(outDir, 'scenario-late-production-ordering.json'),
-    JSON.stringify(scenario, null, 2) + '\n'
-  );
+  const scenarioPath = path.join(outDir, 'scenario-late-production-ordering.json');
+  writeJsonIfChanged(scenarioPath, scenario);
 }
 
-function main() {
-  const inputPath = path.resolve(process.argv[2] || DEFAULT_IN);
-  const outDir = path.resolve(process.argv[3] || DEFAULT_OUT);
-  fs.mkdirSync(outDir, { recursive: true });
+function generateOracleFixtures({ inputPath = DEFAULT_IN, outDir = DEFAULT_OUT } = {}) {
+  const resolvedIn = path.resolve(inputPath);
+  const resolvedOut = path.resolve(outDir);
+  fs.mkdirSync(resolvedOut, { recursive: true });
 
-  const payload = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
-  const sourceRel = path.relative(ROOT, inputPath).replace(/\\/g, '/');
+  const payload = JSON.parse(fs.readFileSync(resolvedIn, 'utf8'));
+  const sourceRel = path.relative(ROOT, resolvedIn).replace(/\\/g, '/');
   const oracle = buildOracle(payload, sourceRel);
 
   const mismRolls = oracle.productionRolls.filter((r) => !r.productionMatch);
   if (mismRolls.length) {
-    console.error('Oracle self-check FAILED:', mismRolls.length, 'production mismatches');
-    for (const r of mismRolls.slice(0, 3)) {
-      console.error('  roll', r.roll, 'logKey', r.logKey, 'actual', r.actual, 'predicted', r.predicted);
-    }
-    process.exit(1);
+    const err = new Error(`Oracle self-check FAILED: ${mismRolls.length} production mismatches`);
+    err.mismRolls = mismRolls;
+    throw err;
   }
 
-  const outFile = path.join(outDir, `${path.basename(inputPath, '.json')}-oracle.json`);
-  fs.writeFileSync(outFile, JSON.stringify(oracle, null, 2) + '\n');
-  writeScenarioOrdering(outDir);
+  const outFile = path.join(resolvedOut, `${path.basename(resolvedIn, '.json')}-oracle.json`);
+  const wroteOracle = writeJsonIfChanged(outFile, oracle);
+  writeScenarioOrdering(resolvedOut);
 
-  console.log('Wrote', path.relative(ROOT, outFile));
-  console.log('  production rolls (post-settlement):', oracle.productionRolls.length);
-  console.log('  stats players:', Object.keys(oracle.statsFromLog).length);
-  console.log('Wrote scenario-late-production-ordering.json');
+  return {
+    outDir: resolvedOut,
+    oracleFile: outFile,
+    scenarioFile: path.join(resolvedOut, 'scenario-late-production-ordering.json'),
+    oracle,
+    wroteOracle,
+  };
 }
 
-main();
+function main() {
+  const inputPath = process.argv[2] || DEFAULT_IN;
+  const outDir = process.argv[3] || process.env.OUT_DIR || DEFAULT_OUT;
+  try {
+    const result = generateOracleFixtures({ inputPath, outDir });
+    if (result.wroteOracle) {
+      console.log('Wrote', path.relative(ROOT, result.oracleFile));
+    } else {
+      console.log('Unchanged', path.relative(ROOT, result.oracleFile), '(ignoring generatedAt)');
+    }
+    console.log('  production rolls (post-settlement):', result.oracle.productionRolls.length);
+    console.log('  stats players:', Object.keys(result.oracle.statsFromLog).length);
+    console.log('Wrote scenario-late-production-ordering.json');
+  } catch (e) {
+    if (e.mismRolls) {
+      console.error(e.message);
+      for (const r of e.mismRolls.slice(0, 3)) {
+        console.error('  roll', r.roll, 'logKey', r.logKey, 'actual', r.actual, 'predicted', r.predicted);
+      }
+      process.exit(1);
+    }
+    throw e;
+  }
+}
+
+if (require.main === module) {
+  main();
+}
+
+module.exports = { generateOracleFixtures, stripGeneratedAt, buildOracle };
