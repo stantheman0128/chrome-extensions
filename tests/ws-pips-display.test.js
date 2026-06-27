@@ -50,6 +50,28 @@ test('pips show for ALL players by default (no click); the name toggle still fil
   assert.match(document.querySelector('#cst-resources').innerHTML, /⚅7/, 'the selected player still shows pips');
 });
 
+test('the bank badge reads colonist actual supply (5-6p deck=24), not the hardcoded-19 upper bound', () => {
+  cst.resetState();
+  cst.createPanel();
+  cst.getPlayer('StanTheMan01', '#CF4449');
+  // relay a full state whose supply is a 24-card (5-6 player) deck, nobody holding cards:
+  // the 19-minus-held fallback would show 19, the real supply is 24.
+  window.dispatchEvent(new window.MessageEvent('message', {
+    data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload: {
+      gameState: {
+        playerColor: 1,
+        bankState: { resourceCards: { 1: 24, 2: 24, 3: 24, 4: 24, 5: 24 } },
+        mapState: { tileHexStates: {}, tileCornerStates: {} },
+      },
+      playerUserStates: [{ selectedColor: 1, username: 'StanTheMan01' }],
+    } } } },
+  }));
+  cst.render();
+  const html = document.querySelector('#cst-resources').innerHTML;
+  assert.match(html, /Bank: 24 /, 'the badge tooltip reads the WS supply (24), not the 19-derived fallback');
+  assert.doesNotMatch(html, /Bank: 19 /, 'no longer shows the hardcoded-19 upper bound when the real deck is 24');
+});
+
 test('per-resource pip corners show by default for all players (item C-c)', () => {
   cst.resetState();
   cst.createPanel();

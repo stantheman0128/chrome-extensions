@@ -1014,6 +1014,15 @@
     bankOppTotalsOf: bankOppTotals,                              // {totals, oppColors} of all-opponents-combined per resource, or null
     reconProjectOf: projectRecon,                                // the raw log-recon projection (no bank), for audit/compat
     reconSumOf: (b, color) => { const p = projectRecon(b, color); return p ? reconSum(p) : 0; },
+    // colonist's RAW supply (bankState.resourceCards) — the exact cards left per resId,
+    // deck-size agnostic (base 19 / 5-6p 24 / 7-8p 29) and immune to unknown steals. Null
+    // when incomplete/absent so the UI can fall back to its 19-minus-known upper bound.
+    bankOf: (b) => {
+      const bk = b.bank;
+      if (!bk) return null;
+      for (let r = 1; r <= 5; r++) if (typeof bk[r] !== 'number' || bk[r] < 0) return null;
+      return { 1: bk[1], 2: bk[2], 3: bk[3], 4: bk[4], 5: bk[5] };
+    },
     // test-only helper (feed mode): seed the stored pure-accrual recon
     __setRecon: (b, color, o) => Object.assign(ensureRecon(b, color), o),
   };

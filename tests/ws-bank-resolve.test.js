@@ -111,6 +111,15 @@ test('a known selfColor with no self hand data makes bank resolution bail instea
   assert.deepEqual(brk(B.reconBreakdownOf(b, 2)), brk({ unknown: 4 }), 'display falls back to projection instead of a false 19-deck split');
 });
 
+test('bankOf exposes colonist raw supply (deck-agnostic), or null when incomplete', () => {
+  const b = B.createBoard();
+  assert.equal(B.bankOf(b), null, 'no supply yet → null (UI falls back to the 19-derived bound)');
+  b.bank = { 1: 24, 2: 23, 3: 22, 4: 24, 5: 21 };       // a 5-6p (24-deck) supply mid-game
+  assert.deepEqual(B.bankOf(b), { 1: 24, 2: 23, 3: 22, 4: 24, 5: 21 }, 'returns the exact remaining supply, not a 19-derived value');
+  b.bank = { 1: 24, 2: 24, 3: 24, 4: 24 };               // missing resId 5
+  assert.equal(B.bankOf(b), null, 'incomplete supply → null');
+});
+
 test('a masked bank fails the conservation gate → falls back to the recon projection', () => {
   const b = B.createBoard();
   b.selfColor = 1;

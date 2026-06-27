@@ -350,12 +350,20 @@
     }
   }
 
-  // Cards still sitting in the bank for each resource: 19 minus what every
-  // player is *known* to hold. Unknown (stolen) cards can't be attributed to a
-  // resource, so this is an UPPER bound when unknowns are in play. Clamped to
-  // [0, 19] — a value outside that range would mean our tracking has drifted.
+  // Cards still sitting in the bank for each resource. Prefer colonist's OWN supply
+  // (bankState.resourceCards via the WS board) — it's the exact count left, deck-size
+  // agnostic (5-6p = 24, 7-8p = 29) and immune to unknown steals. Only when the WS
+  // supply isn't available (no board, masked/incomplete supply, or pre-ready) do we
+  // fall back to `BANK_TOTAL − known-held`, which assumes a 19-card deck and is just an
+  // UPPER bound while unknown (stolen) cards are in play.
   function bankRemaining() {
     const bank = {};
+    const supply = (wsBoard && __cstBoard && __cstBoard.ready(wsBoard) && __cstBoard.bankOf)
+      ? __cstBoard.bankOf(wsBoard) : null;
+    if (supply) {
+      for (let i = 0; i < RESOURCES.length; i++) bank[RESOURCES[i]] = supply[i + 1]; // supply keyed by card enum 1..5
+      return bank;
+    }
     for (const r of RESOURCES) {
       let held = 0;
       for (const p of state.players.values()) held += p.resources[r];
