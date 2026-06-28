@@ -1,5 +1,16 @@
 # Changelog
 
+## [9.11] - 2026-06-19
+
+### Fixed
+- **False "YouTube DOM 可能已改版，選擇器需要更新" warning on perfectly healthy watch pages.** The watch-info miss tracker warned after 20s of consecutive misses, on the assumption that "missing 20s = selectors broke." That assumption is wrong: `WATCH_INFO_SELECTORS` already ends in the bare `ytd-watch-metadata`, so genuine selector rot (an inner `#info`/`#owner` rename) is caught by that fallback and the badge injects silently — which means the warning can *only* ever fire when the **entire metadata block is absent**. That is never selector rot; it's a transient/environmental state — still loading, an unavailable/members-only video, an ad, or (most commonly) a **backgrounded tab**, where the extension's scan timers keep running but the target legitimately isn't there. Confirmed on the live page that a watch tab reports `document.visibilityState === 'hidden'` whenever its Chrome window isn't focused (true even when it's the window's only tab), so opening a video and switching to another app before the metadata finished rendering left the scanner missing-and-counting in the background until it crossed 20s.
+  - The shared `createMissTracker` now **ignores and resets** misses while `document.visibilityState === 'hidden'`, so the streak only accrues while the page is actually visible. A real "visible for 20s and the block still never rendered" miss still warns (verified by a regression test), so a future genuine DOM change is still surfaced. Gating on the explicit `'hidden'` state also covers Chrome's prerender (Prerender2 reports `'hidden'`).
+  - The warning text was corrected to stop blaming the selectors as the definite cause: it now states the factual observation ("found nothing for Ns while visible") and lists the benign causes first, keeping "DOM may have changed" as a last possibility.
+  - **No change to selector or injection logic** — the date badge still resolves and injects exactly as before; only the false-alarm console warning is affected. Fixes both the watch-info and Shorts-title trackers, which share `createMissTracker`.
+
+### Added
+- Tests (4): hidden-tab suppression past the threshold, streak not carrying across a hidden interval, the watch-info real-world background-tab false alarm, and a guard proving visible misses past the threshold still warn. (Repo suite: 187 green.)
+
 ## [9.10] - 2026-06-15
 
 ### Fixed

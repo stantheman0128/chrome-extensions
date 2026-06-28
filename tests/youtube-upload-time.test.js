@@ -265,3 +265,56 @@ test('noteWatchInfoMiss warns exactly once after the threshold elapses', () => {
   assert.equal(warns.length, 1);
   assert.match(warns[0].join(' '), /[Ww]atch page info/);
 });
+
+// ---------- background / hidden-tab false-alarm suppression ----------
+// 一個只在背景（隱藏）分頁觸發的長 miss 不代表選擇器壞掉：YouTube 對隱藏分頁
+// 可能延後渲染，但本擴充的計時器仍在跑。可見狀態下持續找不到才是真訊號。
+
+// 暫時覆寫 document.visibilityState（jsdom 的 getter 在 prototype 上，
+// 在 instance 上加可設定的 own getter 即可遮蔽；delete 還原成預設）。
+function withVisibility(state, fn) {
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state });
+  try { return fn(); }
+  finally { delete document.visibilityState; }
+}
+
+test('createMissTracker does NOT warn while the tab is hidden, even past the threshold', () => {
+  const tracker = yt.createMissTracker('Bg target', () => []);
+  const warns = captureWarns(() => withVisibility('hidden', () => {
+    tracker.note(0);
+    tracker.note(yt.MISS_WARN_AFTER_MS);
+    tracker.note(yt.MISS_WARN_AFTER_MS * 3);
+  }));
+  assert.equal(warns.length, 0);
+});
+
+test('createMissTracker streak does not carry across a hidden interval', () => {
+  const tracker = yt.createMissTracker('Bg target', () => []);
+  const warns = captureWarns(() => {
+    withVisibility('visible', () => tracker.note(0));                                  // 可見 → 開始計時
+    withVisibility('hidden',  () => tracker.note(5000));                               // 切背景 → 歸零
+    withVisibility('visible', () => tracker.note(5000 + yt.MISS_WARN_AFTER_MS - 1));    // 重新計時，未滿門檻
+  });
+  assert.equal(warns.length, 0);
+});
+
+test('noteWatchInfoMiss stays silent in a background (hidden) tab — the real-world false alarm', () => {
+  yt.resetWatchInfoMiss();
+  const warns = captureWarns(() => withVisibility('hidden', () => {
+    yt.noteWatchInfoMiss(1000);
+    yt.noteWatchInfoMiss(1000 + yt.MISS_WARN_AFTER_MS * 2);
+  }));
+  assert.equal(warns.length, 0);
+  yt.resetWatchInfoMiss();
+});
+
+test('visible misses past the threshold still warn (guard regression)', () => {
+  // 可見狀態下持續找不到仍須警告，確保 gate 沒有把真訊號一起壓掉。
+  const tracker = yt.createMissTracker('Visible target', () => []);
+  const warns = captureWarns(() => withVisibility('visible', () => {
+    tracker.note(0);
+    tracker.note(yt.MISS_WARN_AFTER_MS);
+  }));
+  assert.equal(warns.length, 1);
+  assert.match(warns[0].join(' '), /Visible target/);
+});

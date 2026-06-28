@@ -339,13 +339,25 @@ function createMissTracker(label, getDetail) {
     let warned = false; // 每段連續 miss 只警告一次
     return {
         note(now = Date.now()) {
+            // 背景／預先載入（hidden）分頁：YouTube 可能延後渲染目標元素，但本擴充的
+            // 掃描計時器仍在跑。此時找不到與選擇器無關，計時歸零、不警告；分頁回到前景
+            // 後才重新累計 —— 只有「可見狀態下持續找不到」才是選擇器真的失效的訊號。
+            // （裸 ytd-watch-metadata 已是最後 fallback：內層選擇器若改名會被它接住而靜默
+            //   降級注入，所以這個警告本來就只在「整個區塊都不在」時才會走到，那幾乎都是
+            //   暫時/環境狀態，不是選擇器過時。）
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+                since = null;
+                warned = false;
+                return;
+            }
             if (since === null) since = now;
             if (!warned && now - since >= MISS_WARN_AFTER_MS) {
                 warned = true;
                 console.warn(
-                    `[YT Upload Time] ${label} still missing after ` +
+                    `[YT Upload Time] ${label} 在分頁可見下連續 ` +
                     Math.round((now - since) / 1000) +
-                    's — YouTube DOM 可能已改版，選擇器需要更新:', getDetail()
+                    ' 秒找不到 — 多半無害（影片無法觀看／廣告／仍在載入）；若在正常影片上' +
+                    '持續發生，YouTube DOM 可能已改版、選擇器需更新:', getDetail()
                 );
             }
         },
