@@ -9,13 +9,8 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { cst } = require('./helpers/setup');
+const { cst, relay } = require('./helpers/setup');
 const B = require('../colonist-stats-tracker/board.js');
-const window = global.window;
-
-function relay(data) {
-  window.dispatchEvent(new window.MessageEvent('message', { data: { __cstWS: 'state', msg: { id: '130', data } } }));
-}
 
 function readyBoard(selfCards) {
   relay({ type: 4, payload: {

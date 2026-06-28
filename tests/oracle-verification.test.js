@@ -108,14 +108,7 @@ test('board.js stats accrual matches log-derived oracle (gained / discards)', ()
 
 test('scenario oracle: late production ordering converges on ore (content.js)', () => {
   const scenario = JSON.parse(fs.readFileSync(SCENARIO_FILE, 'utf8'));
-  const { cst } = require('./helpers/setup');
-  const window = global.window;
-
-  function relay(frame) {
-    window.dispatchEvent(new window.MessageEvent('message', {
-      data: { __cstWS: 'state', msg: { id: '130', data: frame } },
-    }));
-  }
+  const { cst, relay } = require('./helpers/setup');
 
   cst.resetState();
   cst.createPanel();

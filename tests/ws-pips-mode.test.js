@@ -7,29 +7,26 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { cst, document } = require('./helpers/setup');
-const window = global.window;
+const { cst, document, relayFullState } = require('./helpers/setup');
 
 // corner 23 = (1,0,z1) touches tiles 16,15,7; robber on the brick tile (7).
 // unweighted: grain 9 (4) + wool 10 (3) = 7. expected: (4+3)/36 = 7/36 ≈ 0.19.
 function relayBoardWithSettlement() {
-  window.dispatchEvent(new window.MessageEvent('message', {
-    data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload: {
-      gameState: {
-        playerColor: 1,
-        mapState: {
-          tileHexStates: {
-            7:  { x: 1, y: 1, type: 2, diceNumber: 2 },
-            15: { x: 0, y: 1, type: 4, diceNumber: 9 },
-            16: { x: 1, y: 0, type: 3, diceNumber: 10 },
-          },
-          tileCornerStates: { 23: { x: 1, y: 0, z: 1, owner: 1, buildingType: 1 } },
+  relayFullState({
+    gameState: {
+      playerColor: 1,
+      mapState: {
+        tileHexStates: {
+          7:  { x: 1, y: 1, type: 2, diceNumber: 2 },
+          15: { x: 0, y: 1, type: 4, diceNumber: 9 },
+          16: { x: 1, y: 0, type: 3, diceNumber: 10 },
         },
-        mechanicRobberState: { locationTileIndex: 7 },
+        tileCornerStates: { 23: { x: 1, y: 0, z: 1, owner: 1, buildingType: 1 } },
       },
-      playerUserStates: [{ selectedColor: 1, username: 'StanTheMan01' }],
-    } } } },
-  }));
+      mechanicRobberState: { locationTileIndex: 7 },
+    },
+    playerUserStates: [{ selectedColor: 1, username: 'StanTheMan01' }],
+  });
 }
 
 function setup() {

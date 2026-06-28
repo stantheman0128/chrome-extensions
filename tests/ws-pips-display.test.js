@@ -6,27 +6,24 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { cst, document } = require('./helpers/setup');
-const window = global.window;
+const { cst, document, relayFullState } = require('./helpers/setup');
 
 function relayBoardWithSettlement() {
-  window.dispatchEvent(new window.MessageEvent('message', {
-    data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload: {
-      gameState: {
-        playerColor: 1,
-        mapState: {
-          tileHexStates: {
-            7:  { x: 1, y: 1, type: 2, diceNumber: 2 },    // brick 2 (robbed)
-            15: { x: 0, y: 1, type: 4, diceNumber: 9 },    // grain 9 → 4
-            16: { x: 1, y: 0, type: 3, diceNumber: 10 },   // wool 10 → 3
-          },
-          tileCornerStates: { 23: { x: 1, y: 0, z: 1, owner: 1, buildingType: 1 } },
+  relayFullState({
+    gameState: {
+      playerColor: 1,
+      mapState: {
+        tileHexStates: {
+          7:  { x: 1, y: 1, type: 2, diceNumber: 2 },    // brick 2 (robbed)
+          15: { x: 0, y: 1, type: 4, diceNumber: 9 },    // grain 9 → 4
+          16: { x: 1, y: 0, type: 3, diceNumber: 10 },   // wool 10 → 3
         },
-        mechanicRobberState: { locationTileIndex: 7 },
+        tileCornerStates: { 23: { x: 1, y: 0, z: 1, owner: 1, buildingType: 1 } },
       },
-      playerUserStates: [{ selectedColor: 1, username: 'StanTheMan01' }],
-    } } } },
-  }));
+      mechanicRobberState: { locationTileIndex: 7 },
+    },
+    playerUserStates: [{ selectedColor: 1, username: 'StanTheMan01' }],
+  });
 }
 
 test('pips show for ALL players by default (no click); the name toggle still filters', () => {
@@ -49,16 +46,14 @@ test('the bank badge reads colonist actual supply (5-6p deck=24), not the hardco
   cst.getPlayer('StanTheMan01', '#CF4449');
   // relay a full state whose supply is a 24-card (5-6 player) deck, nobody holding cards:
   // the 19-minus-held fallback would show 19, the real supply is 24.
-  window.dispatchEvent(new window.MessageEvent('message', {
-    data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload: {
-      gameState: {
-        playerColor: 1,
-        bankState: { resourceCards: { 1: 24, 2: 24, 3: 24, 4: 24, 5: 24 } },
-        mapState: { tileHexStates: {}, tileCornerStates: {} },
-      },
-      playerUserStates: [{ selectedColor: 1, username: 'StanTheMan01' }],
-    } } } },
-  }));
+  relayFullState({
+    gameState: {
+      playerColor: 1,
+      bankState: { resourceCards: { 1: 24, 2: 24, 3: 24, 4: 24, 5: 24 } },
+      mapState: { tileHexStates: {}, tileCornerStates: {} },
+    },
+    playerUserStates: [{ selectedColor: 1, username: 'StanTheMan01' }],
+  });
   cst.render();
   const html = document.querySelector('#cst-resources').innerHTML;
   assert.match(html, /Bank: 24 /, 'the badge tooltip reads the WS supply (24), not the 19-derived fallback');

@@ -17,9 +17,8 @@ global.localStorage = {
   removeItem: (key) => store.delete(key),
 };
 
-const { cst, document } = require('./helpers/setup');
+const { cst, document, relay } = require('./helpers/setup');
 const B = require('../colonist-stats-tracker/board.js');
-const window = global.window;
 
 // Keep the unrelated 600ms general-state debounce deterministic. Block snapshots
 // themselves are expected to persist synchronously in the WS listener.
@@ -45,12 +44,6 @@ afterEach(() => flushDelayed());
 after(() => { global.setTimeout = realSetTimeout; });
 
 let logIndex = 500;
-
-function relay(data) {
-  window.dispatchEvent(new window.MessageEvent('message', {
-    data: { __cstWS: 'state', msg: { id: '130', data } },
-  }));
-}
 
 function basicFullState(gameId, geometry = 'complete') {
   let mapState;

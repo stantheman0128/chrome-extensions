@@ -10,13 +10,12 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { cst } = require('./helpers/setup');
-const window = global.window;
+const { cst, relayFullState } = require('./helpers/setup');
 const RES = ['lumber', 'brick', 'wool', 'grain', 'ore'];
 const totalOf = (p) => p.unknown + RES.reduce((s, r) => s + p.resources[r], 0);
 
-function relayFullState() {
-  const payload = {
+function relayFullStateHands() {
+  relayFullState({
     gameState: {
       playerColor: 1,
       mapState: {},
@@ -29,10 +28,7 @@ function relayFullState() {
       { selectedColor: 1, username: 'StanTheMan01' },
       { selectedColor: 2, username: 'Sancho' },
     ],
-  };
-  window.dispatchEvent(new window.MessageEvent('message', {
-    data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload } } },
-  }));
+  });
 }
 
 test('Resync with a ready WS board keeps opponent breakdown and pulls self from WS', async () => {
@@ -45,7 +41,7 @@ test('Resync with a ready WS board keeps opponent breakdown and pulls self from 
   opp.resources.brick = 3;
   opp.resources.wool = 2;
 
-  relayFullState();              // board becomes ready: self exact, opp total = 5
+  relayFullStateHands();              // board becomes ready: self exact, opp total = 5
 
   await cst.deepRescrape();
 

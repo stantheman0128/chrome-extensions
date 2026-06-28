@@ -8,13 +8,12 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { cst } = require('./helpers/setup');
-const window = global.window;
+const { cst, relayFullState } = require('./helpers/setup');
 const RES = ['lumber', 'brick', 'wool', 'grain', 'ore'];
 const totalOf = (p) => p.unknown + RES.reduce((s, r) => s + p.resources[r], 0);
 
-function relayFullState() {
-  const payload = {
+function relayFullStateHands() {
+  relayFullState({
     gameState: {
       playerColor: 1,
       mapState: {},
@@ -27,10 +26,7 @@ function relayFullState() {
       { selectedColor: 1, username: 'StanTheMan01' },
       { selectedColor: 2, username: 'Sancho' },
     ],
-  };
-  window.dispatchEvent(new window.MessageEvent('message', {
-    data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload } } },
-  }));
+  });
 }
 
 // Runs FIRST: the shared board is not ready until a full state is relayed below.
@@ -46,7 +42,7 @@ test('syncFromWS sets self exact breakdown and reconciles an opponent total', ()
   const opp = cst.getPlayer('Sancho', '#285FBD');
   me.unknown = 3; me.resources.wool = 9;       // stale junk that must be overwritten
 
-  relayFullState();                            // the content-script listener feeds board.js
+  relayFullStateHands();                            // the content-script listener feeds board.js
 
   assert.equal(cst.syncFromWS(), true, 'something changed');
   assert.equal(me.resources.lumber, 2, 'self lumber from WS (resId 1 ×2)');
@@ -61,7 +57,7 @@ test('syncFromWS gives an opponent the WS-reconstructed breakdown, not just a to
   cst.getPlayer('StanTheMan01', '#CF4449');
   const opp = cst.getPlayer('Sancho', '#285FBD');
 
-  relayFullState();                                   // opponent color 2 holds 5 hidden cards
+  relayFullStateHands();                                   // opponent color 2 holds 5 hidden cards
 
   // The log events have let us pin 2 of Sancho's 5 cards as ore; the rest stay unknown.
   __cstBoard.__setRecon(cst.getWsBoard(), 2, { 5: 2 });

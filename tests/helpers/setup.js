@@ -58,4 +58,18 @@ function feed(...htmls) {
   for (const html of htmls) cst.processMessage(makeMessage(html));
 }
 
-module.exports = { cst, makeMessage, feed, document };
+// Relay a colonist id=130 frame into content.js the same way ws-inspector does in
+// the browser: a window 'message' whose data carries __cstWS:'state'. Most WS
+// integration tests share this plain shape; ws-hardening.test.js is the exception
+// (it deliberately sets source/origin for isTrustedCstPageMessage).
+function relay(data) {
+  window.dispatchEvent(new window.MessageEvent('message', {
+    data: { __cstWS: 'state', msg: { id: '130', data } },
+  }));
+}
+
+function relayFullState(payload) {
+  relay({ type: 4, payload });
+}
+
+module.exports = { cst, makeMessage, feed, document, relay, relayFullState };

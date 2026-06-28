@@ -9,10 +9,17 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { cst } = require('./helpers/setup');
-const window = global.window;
+const { cst, relayFullState } = require('./helpers/setup');
 
 const HISTORY_KEY = 'cst-history';
+
+function relaySelf(id, cards) {
+  relayFullState({
+    gameSettings: { id },
+    gameState: { playerColor: 1, mapState: { tileHexStates: {}, tileCornerStates: {} }, playerStates: { 1: { resourceCards: { cards } } } },
+    playerUserStates: [{ selectedColor: 1, username: 'Me' }],
+  });
+}
 
 function mockStorage() {
   const store = { [HISTORY_KEY]: [] };
@@ -23,14 +30,6 @@ function mockStorage() {
     } },
   };
   return store;
-}
-
-function relaySelf(id, cards) {
-  window.dispatchEvent(new window.MessageEvent('message', { data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload: {
-    gameSettings: { id },
-    gameState: { playerColor: 1, mapState: { tileHexStates: {}, tileCornerStates: {} }, playerStates: { 1: { resourceCards: { cards } } } },
-    playerUserStates: [{ selectedColor: 1, username: 'Me' }],
-  } } } } }));
 }
 
 test('resaveEndgameRecord patches the saved record to the corrected live hands + tally', () => {

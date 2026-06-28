@@ -9,9 +9,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { cst } = require('./helpers/setup');
+const { cst, relay } = require('./helpers/setup');
 const board = global.__cstBoard;
-const window = global.window;
 
 // Feed a full-state whose gameLogState is a list of [index, sum] rolls. Each call
 // uses a fresh gameSettings.id, so the board self-resets (new game) — the WS board
@@ -24,13 +23,11 @@ function relayRolls(entries, rollType = 10) {
     const a = Math.min(6, Math.max(1, sum - 1));   // any valid 1–6 split of the sum
     gameLogState[String(idx)] = { text: { type: rollType, firstDice: a, secondDice: sum - a } };
   }
-  window.dispatchEvent(new window.MessageEvent('message', {
-    data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload: {
-      gameSettings: { id: 'dice-game-' + gameSeq },
-      gameState: { playerColor: 1, mapState: {}, playerStates: {}, gameLogState },
-      playerUserStates: [{ selectedColor: 1, username: 'StanTheMan01' }],
-    } } } },
-  }));
+  relay({ type: 4, payload: {
+    gameSettings: { id: 'dice-game-' + gameSeq },
+    gameState: { playerColor: 1, mapState: {}, playerStates: {}, gameLogState },
+    playerUserStates: [{ selectedColor: 1, username: 'StanTheMan01' }],
+  } });
 }
 
 test('board accrues dice counts from type-10 events (deduped, ordered)', () => {

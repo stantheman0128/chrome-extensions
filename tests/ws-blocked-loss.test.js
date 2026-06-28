@@ -21,13 +21,8 @@ global.localStorage = {
   removeItem: (k) => store.delete(k),
 };
 
-const { cst } = require('./helpers/setup');
+const { cst, relay } = require('./helpers/setup');
 const B = require('../colonist-stats-tracker/board.js');
-const window = global.window;
-
-function relay(data) {
-  window.dispatchEvent(new window.MessageEvent('message', { data: { __cstWS: 'state', msg: { id: '130', data } } }));
-}
 
 // robber on tile 7 (ore, number 2); corner 23 = (1,0,z1) touches (1,1)=tile 7.
 function fullState(gameId, withGeom = true) {

@@ -10,12 +10,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { cst } = require('./helpers/setup');
-const window = global.window;
-
-function relay(data) {
-  window.dispatchEvent(new window.MessageEvent('message', { data: { __cstWS: 'state', msg: { id: '130', data } } }));
-}
+const { cst, relay } = require('./helpers/setup');
 
 function fullState() {
   return { type: 4, payload: {
