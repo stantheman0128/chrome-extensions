@@ -31,7 +31,7 @@
       devBought: {}, devHeld: {}, devUsed: {}, devApplied: {},   // dev-card buys per colour (held+used); devApplied = costs already charged
       processedLog: new Set(),                      // log indices already accrued (dedup; survives empty shells + index gaps)
       gameId: null,                                 // gameSettings.id of the current game (new-game detection)
-      dice: { counts: {}, total: 0, rolls: [] },   // histogram from type-10 roll events
+      dice: { counts: {}, total: 0, rolls: [] },   // histogram from roll events (type-10, or type-141 in Colonist Rush)
       audit: freshAudit(),                          // geometry-vs-production self-audit
       bank: {},                                     // bankState.resourceCards (cards left in the supply); full state sets it, diffs merge
       pendingHandDelta: {},                          // per colour {delta,ttl}: a handCount change a naming log hasn't explained YET (count/log split frames)
@@ -185,7 +185,9 @@
         // stays readable as an upper bound. This is the only genuinely-unknowable hand move.
         if (text.playerColorThief != null) ensureRecon(b, text.playerColorThief).unknown += 1;
         if (text.playerColorVictim != null) reconStealOne(ensureRecon(b, text.playerColorVictim));
-      } else if (text.type === 10) {
+      } else if (text.type === 10 || text.type === 141) {
+        // 10 = standard dice roll; 141 = Colonist Rush's roll event (same
+        // firstDice/secondDice, just no playerColor). Both feed the histogram.
         const sum = (text.firstDice || 0) + (text.secondDice || 0);
         if (sum >= 2 && sum <= 12) {
           b.dice.counts[sum] = (b.dice.counts[sum] || 0) + 1;

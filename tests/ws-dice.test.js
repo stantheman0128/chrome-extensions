@@ -24,12 +24,12 @@ const window = global.window;
 // uses a fresh gameSettings.id, so the board self-resets (new game) — the WS board
 // is no longer reset by the DOM resetState, only by a new id in a full state.
 let gameSeq = 0;
-function relayRolls(entries) {
+function relayRolls(entries, rollType = 10) {
   gameSeq += 1;
   const gameLogState = {};
   for (const [idx, sum] of entries) {
     const a = Math.min(6, Math.max(1, sum - 1));   // any valid 1–6 split of the sum
-    gameLogState[String(idx)] = { text: { type: 10, firstDice: a, secondDice: sum - a } };
+    gameLogState[String(idx)] = { text: { type: rollType, firstDice: a, secondDice: sum - a } };
   }
   window.dispatchEvent(new window.MessageEvent('message', {
     data: { __cstWS: 'state', msg: { id: '130', data: { type: 4, payload: {
@@ -48,6 +48,21 @@ test('board accrues dice counts from type-10 events (deduped, ordered)', () => {
   assert.equal(d.counts[5], 1, 'one 5');
   assert.equal(d.total, 3, 'three rolls total');
   assert.deepEqual(d.rolls, [8, 8, 5], 'rolls kept in order');
+});
+
+// Colonist Rush rolls the dice as type-141 (no playerColor) instead of type-10,
+// carrying the same firstDice/secondDice. The histogram must count those too, or
+// the Dice Rolls panel stays empty in Rush — the WS board is authoritative and
+// overwrites the DOM "rolled" count via syncDiceFromWS.
+test('board accrues dice from Colonist Rush type-141 events', () => {
+  cst.resetState();
+  relayRolls([[1, 8], [2, 5], [3, 11]], 141);
+  const d = board.diceOf(cst.getWsBoard());
+  assert.equal(d.total, 3, 'three Rush rolls counted');
+  assert.equal(d.counts[8], 1, 'one 8');
+  assert.equal(d.counts[5], 1, 'one 5');
+  assert.equal(d.counts[11], 1, 'one 11');
+  assert.deepEqual(d.rolls, [8, 5, 11], 'rolls in order');
 });
 
 test('syncDiceFromWS mirrors the WS dice into state', () => {
