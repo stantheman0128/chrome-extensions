@@ -14,6 +14,31 @@
   // together before giving up on a message.
   // =============================================================
 
+  // =============================================================
+  // FILE MAP — content.js is ONE IIFE (~4700 lines), in roughly this order.
+  // It is grouped by where code grew, NOT strictly by concern, so a few
+  // helpers sit away from their kin (called out below). No build step, no
+  // ES modules: every top-level name shares this one closure.
+  //
+  //   FOUNDATION     ~17-213    constants, the `state`/`uiState` singletons,
+  //                             the wsBoard handle, i18n/escape/colour/util
+  //   TRACKING       ~214-905   per-player hand+tally bookkeeping, the
+  //                             processMessage log router + branches, trade
+  //                             splitter, blocked-loss derivation
+  //   LOG OBSERVER   ~907-1024  find/scan the colonist chat log, MutationObserver
+  //   PANEL / UI     ~1026-3382 the whole renderer: createPanel, render paths,
+  //                             controls, drag/resize, dice art, report HTML.
+  //                             (Dice math, panel-reading, and the blocked-loss
+  //                             helpers physically live INSIDE this block.)
+  //   BOOT (wiring)  ~3384-3468 boot(): restore + createPanel + observer + ticks
+  //   LIFECYCLE      ~3470-3818 lobby/playing/ended, new-game detect, persist/
+  //                             restore, game history, startNextGame
+  //   POSTURE/GHOST  ~3820-4101 collapse/fade the panel for colonist overlays
+  //   RESYNC + SYNC  ~4103-4570 deep re-scrape, the WS->state sync layer
+  //                             (logically TRACKING), the self-audit report
+  //   NODE EXPORT    ~4573-end  page boot vs. CommonJS test-export branch
+  // =============================================================
+
   const RESOURCES = ['lumber', 'brick', 'wool', 'grain', 'ore'];
 
   // ---- live game model from the WebSocket (board-model migration) ----
@@ -211,6 +236,11 @@
     return fallback;
   }
 
+  // =============================================================
+  // TRACKING — per-player hand/tally bookkeeping + the processMessage
+  // log router and its branch ladder. The WS->state sync layer that also
+  // feeds this lives far below (search "WS -> STATE SYNC").
+  // =============================================================
   function getPlayer(name, color) {
     if (!name) return null;
     const safeColor = safeCssColor(color);
@@ -3467,6 +3497,11 @@
 
   }
 
+  // =============================================================
+  // LIFECYCLE — lobby/playing/ended, new-game detection, localStorage
+  // persist/restore, the chrome.storage game history, startNextGame.
+  // (The driver intervals themselves live up in boot().)
+  // =============================================================
   // New-game detection state: the live-roster signature of the game we're tracking,
   // and the previous tick's live roster (so a roster change must settle before we act).
   let gameSig = '';
@@ -4314,6 +4349,11 @@
     return found ? hand : null;
   }
 
+  // =============================================================
+  // WS -> STATE SYNC — pull the WebSocket board model into live state
+  // (hands, stats, dice). Logically part of TRACKING; lives here next to
+  // the self-audit report. syncAllFromWS / syncHandStatsFromWS wrap these.
+  // =============================================================
   // Sync hands from the WebSocket board model (the migration's primary source).
   // Self gets its EXACT per-resource breakdown. Opponents get the breakdown the
   // board reconstructs from the public log events (production, trades, steals,
