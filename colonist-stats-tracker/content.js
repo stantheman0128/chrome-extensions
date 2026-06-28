@@ -43,8 +43,9 @@
 
   // ---- live game model from the WebSocket (board-model migration) ----
   // ws-inspector.js (main world) relays decoded id=130 frames; board.js turns the
-  // full state + diffs into an exact model. Used for ⛔ today; the log keeps
-  // running as the oracle. Absent under Node (board.js isn't required there).
+  // full state + diffs into an exact model. It is now the authoritative source for
+  // hands, stats, dice, blocked-loss and opponent recon; the DOM log is the
+  // pre-ready bootstrap + per-player fallback. Absent under Node (board.js isn't required there).
   const wsBoard = (typeof __cstBoard !== 'undefined') ? __cstBoard.createBoard() : null;
   function isTrustedCstPageMessage(e) {
     if (!e || !e.data) return false;
@@ -3089,7 +3090,7 @@
   }
 
   // The log-only estimate (endgame-exact when captured, else the differential).
-  // Kept as the oracle / fallback during the WS migration.
+  // The lowest blocked-loss tier — used only when WS geometry isn't ready.
   function estimateBlockLoss(name) {
     // Once colonist's authoritative end-of-game number is captured, it wins.
     if (state.endgameBlocked && state.endgameBlocked[name] != null) return state.endgameBlocked[name];

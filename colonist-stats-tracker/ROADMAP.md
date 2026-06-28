@@ -5,7 +5,7 @@ file is excluded from the packaged `.zip`.
 
 ## Status
 
-- **Chrome Web Store：** repo 是版本權威（目前 1.140.0）。商店上的版本通常落後，上架最新版要手動打包 zip 重新上傳，這步是 Stan 手動做。
+- **Chrome Web Store：** repo 是版本權威（最新版本以 manifest.json 為準）。商店上的版本通常落後，上架最新版要手動打包 zip 重新上傳，這步是 Stan 手動做。
 
 ## A–D（皆已出貨）
 
