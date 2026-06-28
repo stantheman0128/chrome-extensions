@@ -3461,13 +3461,14 @@
         }
         if (synced) renderSoon();
       } else if (lifecycle === LIFE.ENDED) {
-        // A DOM log row can mount AFTER the last WS frame (e.g. the final production),
-        // double-adding to a hand the WS already had right — and at ENDED no PLAYING
-        // tick re-syncs, so the over-count would linger on the Victory screen. Re-pull
-        // the authoritative WS hands each tick so a late DOM event can't leave an
-        // opponent over-counted (runs before the audit print so it reports the truth).
+        // A DOM log row can mount AFTER the last WS frame (a final production, OR a
+        // late-mounting roll) — double-adding to a hand or the dice histogram the WS
+        // already had right — and at ENDED no PLAYING tick re-syncs, so the over-count
+        // would linger on the Victory screen. Re-pull the authoritative WS hands + stats
+        // + dice each tick so a late DOM event can't leave anything over-counted (runs
+        // before the audit print so it reports the truth).
         if (wsBoard && __cstBoard.ready(wsBoard)) {
-          let ch = syncHandStatsFromWS();
+          let ch = syncAllFromWS();
           // A late WS frame corrected the live hands/tally → mark the archived record dirty
           // so it gets re-saved below (this tick's own sync may see no change because the
           // immediate per-frame handler already consumed the frame).
@@ -3819,6 +3820,8 @@
         rec.blocked = JSON.parse(JSON.stringify(state.blocked));
         rec.blockEvents = JSON.parse(JSON.stringify(state.blockEvents));
         rec.blockLoss = [...state.players.keys()].reduce((m, n) => { m[n] = blockLossOf(n); return m; }, {});
+        rec.totalRolls = state.totalRolls;                   // dice can be corrected by a late ENDED frame too
+        rec.diceCounts = { ...state.diceCounts };
         if (state.endgameBlocked) {                          // Victory ⛔ table wins when it's readable
           for (const name of Object.keys(rec.blockLoss)) {
             if (state.endgameBlocked[name] != null) rec.blockLoss[name] = state.endgameBlocked[name];
