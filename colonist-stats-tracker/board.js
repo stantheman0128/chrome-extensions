@@ -249,7 +249,7 @@
     // NOT feed the audit (fromDiff=false). Drop the open prediction so it isn't settled
     // against an empty `actual` on the next roll — a false conflict. (resetAccrual
     // already cleared it on a new game; this also covers the reconnect.)
-    if (b.audit) { b.audit.expect = null; b.audit.actual = {}; b.audit.shortage = {}; }
+    if (b.audit) clearAuditRound(b.audit);
     const gs = (payload && payload.gameState) || {};
     const map = gs.mapState || {};
     b.tiles = {}; b.coordToTile = {};
@@ -729,6 +729,11 @@
     if (!productionEqual(withoutResources(pred, limited), withoutResources(act, limited))) return 'conflict';
     return inconclusive ? 'skip' : 'ok';
   }
+  // Reset the in-flight audit round so the next roll opens clean. (Not for the
+  // post-prediction reset in auditRoll, which keeps the just-set `expect`.)
+  function clearAuditRound(au) {
+    au.expect = null; au.actual = {}; au.shortage = {};
+  }
   // Settle the in-flight roll: compare what the geometry predicted to what colonist
   // actually broadcast (plus any type-48 shortage), record the verdict (and warn on a
   // conflict — a geometry bug on this board). A match on the un-robbed tiles is the
@@ -742,7 +747,7 @@
     // confirmation, so the ✓ tally means "the geometry was actually exercised and held".
     if (!Object.keys(pred).length && !Object.keys(act).length && !Object.keys(short).length) {
       au.skipped += 1;
-      au.expect = null; au.actual = {}; au.shortage = {};
+      clearAuditRound(au);
       return;
     }
     const verdict = auditVerdict(pred, act, short, au.expect.bank);
@@ -755,9 +760,7 @@
       console.warn('[CST] geometry audit conflict on roll ' + au.expect.roll +
         ' — predicted ' + JSON.stringify(pred) + ' but server produced ' + JSON.stringify(act));
     }
-    au.expect = null;
-    au.actual = {};
-    au.shortage = {};
+    clearAuditRound(au);
   }
   // Is the corner geometry complete? total stored corners, how many carry a position
   // (x set), how many are built, and how many of those built ones resolve to NO tiles
@@ -821,7 +824,7 @@
   // open the round (it's inconclusive, not evidence).
   function auditRoll(b, n) {
     settleAudit(b);
-    if (!geomReady(b)) { b.audit.expect = null; b.audit.actual = {}; b.audit.shortage = {}; return; }
+    if (!geomReady(b)) { clearAuditRound(b.audit); return; }
     b.audit.expect = { roll: n, robber: b.robberTile, pred: predictProduction(b, n), bank: { ...(b.bank || {}) } };
     b.audit.actual = {};
     b.audit.shortage = {};
