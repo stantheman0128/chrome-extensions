@@ -2799,7 +2799,7 @@
       `<span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span>` +
       (showPips ? pipBadge(pipMap && pipMap[wsColorOf(p.name)]) : '') +
       `<span data-tip="${escapeHtml(handTip)}" ` +
-      `style="flex:0 0 auto;margin-right:7px;min-width:1.6em;text-align:center;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
+      `style="flex:0 0 auto;margin-right:7px;min-width:2em;text-align:center;font-size:0.78em;font-weight:700;font-variant-numeric:tabular-nums;` +
       `color:${risk ? '#fff' : THEME.text};background:${risk ? THEME.bad : '#fbf9f4'};` +
       `border:1px solid ${risk ? THEME.bad : THEME.border};border-radius:0.6em;padding:0 0.4em;">${total}</span></span>`;
   }
@@ -2819,9 +2819,9 @@
       : t('tipPips', 'Coverage pips (dice-frequency weighted; robber/blocked tiles excluded) — click for expected cards/roll'))
       + (parts.length ? ' — ' + parts.join(', ') : '');
     return `<span data-pipmode="1" data-tip="${escapeHtml(tip)}" ` +
-      `style="flex:0 0 auto;margin-right:4px;font-size:0.72em;font-weight:700;font-variant-numeric:tabular-nums;cursor:pointer;` +
+      `style="flex:0 0 auto;margin-right:4px;min-width:2.7em;text-align:center;font-size:0.72em;font-weight:700;font-variant-numeric:tabular-nums;cursor:pointer;` +
       `color:${THEME.accent};background:rgba(47,111,159,.10);border:1px solid ${THEME.accent};` +
-      `border-radius:0.6em;padding:0 0.4em;">⚅${exp ? pm.total.toFixed(2) : pm.total}</span>`;
+      `border-radius:0.6em;padding:0 0.4em;">⚅${exp ? pm.total.toFixed(1) : pm.total}</span>`;
   }
   // Pip map for this render (per WS colour), or null before the board is ready.
   function currentPipMap() {
