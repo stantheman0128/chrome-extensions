@@ -698,9 +698,13 @@
         if (sum === 7 && player) state.sevenRollers[player.name] = (state.sevenRollers[player.name] || 0) + 1;
         if (player) {
           state.currentTurn = player.name;
-          // Time turns from live rolls only — a deep re-scrape replays the log
-          // back-to-back, so timing it would record millisecond "turns".
-          if (!rescraping) recordTurn(player.name, Date.now());
+          // Time turns from live PLAYING rolls only. Two ways a non-live roll poisons
+          // the average: a deep re-scrape replays the log back-to-back (millisecond
+          // "turns"), and a roll row mounting late at ENDED would charge the post-winner
+          // gap (Date.now() has no protocol timestamp) to the previous player — which
+          // resaveEndgameRecord would then archive. (steal/trade counts are NOT gated:
+          // those are event counts a late-but-legitimate row should still record.)
+          if (!rescraping && lifecycle === LIFE.PLAYING) recordTurn(player.name, Date.now());
         }
         renderSoon();
         return;
