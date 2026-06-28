@@ -774,8 +774,12 @@
       if (total > 0 && player) {
         for (const r of RESOURCES) takeResource(player, r, counts[r]);
         const t = tallyOf(player.name);
-        t.discards += 1;
-        t.discardCards += total;
+        // WS owns discards + discardCards for a tracked player (syncStatsFromWS
+        // overwrites them); the DOM only feeds them as a fallback, like `gained` above.
+        if (!wsOwnsStats(player)) {
+          t.discards += 1;
+          t.discardCards += total;
+        }
         renderSoon();
         return;
       }
