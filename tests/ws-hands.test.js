@@ -8,13 +8,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const store = new Map();
-global.localStorage = {
-  getItem: (k) => (store.has(k) ? store.get(k) : null),
-  setItem: (k, v) => store.set(k, String(v)),
-  removeItem: (k) => store.delete(k),
-};
-
 const { cst } = require('./helpers/setup');
 const window = global.window;
 const RES = ['lumber', 'brick', 'wool', 'grain', 'ore'];

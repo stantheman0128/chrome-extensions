@@ -24,6 +24,20 @@ global.requestAnimationFrame = () => {};
 // window. Surface it so visibility checks (elVisible / ghost helpers) run.
 global.getComputedStyle = (el) => dom.window.getComputedStyle(el);
 
+// localStorage: a Map-backed stub so persistState/restoreState and the snapshot
+// helpers work under Node. content.js reads it lazily (at call time), so installing
+// it here once covers every test that requires this helper — no per-file re-stub.
+// Only install if a test hasn't already provided its own (a few pre-seed or read
+// their own backing Map directly); never overwrite and orphan their store.
+if (!global.localStorage) {
+  const __lsStore = new Map();
+  global.localStorage = {
+    getItem: (k) => (__lsStore.has(k) ? __lsStore.get(k) : null),
+    setItem: (k, v) => __lsStore.set(k, String(v)),
+    removeItem: (k) => __lsStore.delete(k),
+  };
+}
+
 // Wire the WS board model as a global (content.js reads `__cstBoard`, the same
 // global ws-inspector sets in the browser). Without a full state applied it stays
 // not-ready, so the log/DOM paths are unaffected.

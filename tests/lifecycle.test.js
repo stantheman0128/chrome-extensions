@@ -9,13 +9,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const store = new Map();
-global.localStorage = {
-  getItem: (k) => (store.has(k) ? store.get(k) : null),
-  setItem: (k, v) => store.set(k, String(v)),
-  removeItem: (k) => store.delete(k),
-};
-
 const { cst, makeMessage, document } = require('./helpers/setup');
 
 // Mount a colonist player panel (the in-game DOM signal for inGameNow()).

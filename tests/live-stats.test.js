@@ -10,12 +10,6 @@ const assert = require('node:assert/strict');
 
 // node --test runs each file in its own process, so this in-memory stub
 // (needed by the persist/restore round-trip test) doesn't leak elsewhere.
-const store = new Map();
-global.localStorage = {
-  getItem: (k) => (store.has(k) ? store.get(k) : null),
-  setItem: (k, v) => store.set(k, String(v)),
-  removeItem: (k) => store.delete(k),
-};
 
 const { cst, feed } = require('./helpers/setup');
 
