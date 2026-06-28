@@ -57,9 +57,7 @@
       // immediately, instead of lingering up to a second as a phantom "unknown".
       try {
         if (panel && wsBoard && __cstBoard.ready(wsBoard)) {   // no panel → nothing to push to (renderSoon would no-op anyway)
-          let ch = syncFromWS();
-          if (syncStatsFromWS()) ch = true;
-          if (syncDiceFromWS()) ch = true;
+          let ch = syncAllFromWS();
           // While ENDED, the archived record may need a re-save for ANY same-game frame —
           // not only ones the UI sync flags. A late *blocked* roll moves board.blockedLoss
           // without changing hands/dice (ch stays false), so key the dirty flag on frame
@@ -3426,9 +3424,7 @@
         // Prefer the WebSocket hands when the board is ready; else the DOM panel.
         let synced;
         if (wsBoard && __cstBoard.ready(wsBoard)) {
-          synced = syncFromWS();
-          if (syncStatsFromWS()) synced = true;
-          if (syncDiceFromWS()) synced = true;
+          synced = syncAllFromWS();
         } else {
           synced = syncFromPanel();
         }
@@ -3440,8 +3436,7 @@
         // the authoritative WS hands each tick so a late DOM event can't leave an
         // opponent over-counted (runs before the audit print so it reports the truth).
         if (wsBoard && __cstBoard.ready(wsBoard)) {
-          let ch = syncFromWS();
-          if (syncStatsFromWS()) ch = true;
+          let ch = syncHandStatsFromWS();
           // A late WS frame corrected the live hands/tally → mark the archived record dirty
           // so it gets re-saved below (this tick's own sync may see no change because the
           // immediate per-frame handler already consumed the frame).
@@ -3713,7 +3708,7 @@
     // Snapshot from WS-authoritative values: a DOM hand/stat bump not yet overwritten by
     // the next WS tick must not be frozen into the saved record (live state self-heals
     // each tick, but the archived record wouldn't). Covers gained / discard / hands.
-    if (wsBoard && __cstBoard.ready(wsBoard)) { syncFromWS(); syncStatsFromWS(); }
+    if (wsBoard && __cstBoard.ready(wsBoard)) syncHandStatsFromWS();
     settleRound();   // the winner line has no "next roll" — settle the final round here
     syncEndgameBlocked();   // snap ⛔ to colonist's exact Victory-table values (if shown)
     // The geometry audit is NOT force-settled at game end: the final roll's type-47 may
@@ -4136,9 +4131,7 @@
     // breakdowns, which a log re-scrape loses to colonist's virtualised chat
     // history and pads back as phantom "unknown" cards.
     if (wsBoard && __cstBoard.ready(wsBoard)) {
-      syncFromWS();
-      syncStatsFromWS();
-      syncDiceFromWS();
+      syncAllFromWS();
       persistState();
       render();
       return;
@@ -4434,6 +4427,21 @@
       changed = true;
     }
     return changed;
+  }
+
+  // Pull WS-authoritative hands + stats into live state (no dice — for a finished
+  // game or a record snapshot). Returns whether anything changed.
+  function syncHandStatsFromWS() {
+    let ch = syncFromWS();
+    if (syncStatsFromWS()) ch = true;
+    return ch;
+  }
+  // The full live pull: hands + stats + dice. Each runs unconditionally (no ||
+  // short-circuit) so a change in one never skips the next.
+  function syncAllFromWS() {
+    let ch = syncHandStatsFromWS();
+    if (syncDiceFromWS()) ch = true;
+    return ch;
   }
 
   let auditPrinted = false;   // the game-end audit prints once per game
