@@ -1,0 +1,8 @@
+{
+  "extensionName": {
+    "message": "服務狀態監控 for ChatGPT"
+  },
+  "extensionDescription": {
+    "message": "在 chatgpt.com 即時顯示 OpenAI／ChatGPT 服務狀態：30 天運行時間軸、進行中事件與中斷提醒。非官方工具。"
+  }
+}

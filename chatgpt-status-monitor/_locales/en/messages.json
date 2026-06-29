@@ -1,0 +1,8 @@
+{
+  "extensionName": {
+    "message": "Status Monitor for ChatGPT"
+  },
+  "extensionDescription": {
+    "message": "OpenAI / ChatGPT service status on chatgpt.com: 30-day uptime timeline, live incidents and outage alerts. Unofficial."
+  }
+}
