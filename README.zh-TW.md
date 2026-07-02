@@ -13,19 +13,67 @@
 
 | # | 擴充功能 | 版本 | 下載 |
 |---|---------|------|------|
-| 1 | [Claude 服務狀態監控](#ext-claude-status-monitor) | `1.2.1` | [![下載 claude-status-monitor](https://img.shields.io/badge/下載-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
-| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.147.0` | [![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
-| 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | `1.0` | [![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
-| 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | `1.0` | [![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
-| 5 | [YouTube 精確時間](#ext-youtube-video-upload-time) | `9.11` | [![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
+| 1 | [服務狀態監控 for ChatGPT](#ext-chatgpt-status-monitor) | `1.0.0` | [![下載 chatgpt-status-monitor](https://img.shields.io/badge/下載-chatgpt--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/chatgpt-status-monitor.zip) |
+| 2 | [Claude 服務狀態監控](#ext-claude-status-monitor) | `1.2.1` | [![下載 claude-status-monitor](https://img.shields.io/badge/下載-claude--status--monitor.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
+| 3 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.147.0` | [![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
+| 4 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | `1.0` | [![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
+| 5 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | `1.0` | [![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
+| 6 | [YouTube 精確時間](#ext-youtube-video-upload-time) | `9.11` | [![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
 
 ---
 
 ## 擴充功能列表
 
+<a id="ext-chatgpt-status-monitor"></a>
+
+### 1. 服務狀態監控 for ChatGPT
+
+**資料夾：** `chatgpt-status-monitor/`
+
+**版本:** `1.0.0`
+
+在 chatgpt.com 頁面即時顯示 OpenAI 與 ChatGPT 的服務狀態，資料來源為公開的 [status.openai.com](https://status.openai.com)。徽章安靜地待在 ChatGPT 分頁的角落，一出狀況就變色，讓你在開始除錯前就先分清楚是自己的網路問題，還是 OpenAI 那邊掛了。
+
+**功能特色**
+
+- 角落浮動狀態徽章，顏色對應目前整體狀態（綠色代表正常、黃色代表效能降低、橘色代表部分中斷、紅色代表重大中斷）
+- 點擊徽章展開雙欄儀表板：左側為 OpenAI 各服務的 30 天運行時間軸，右側為進行中的事件
+- 事件卡片顯示最新狀態（監控中／已確認／調查中）與中斷時長，點擊可展開完整的更新時間軸
+- 滑過時間軸上的任一天可預覽當天事件，點擊某一天則把當天完整詳情釘到側欄
+- 涵蓋狀態頁回報的每個 OpenAI 元件：ChatGPT、Codex、Sora、語音模式、登入、API 等
+- 每 30 秒自動刷新，頁尾「更新於」時間即時跳動，並提供手動刷新按鈕
+- 中英雙語介面（English 與繁體中文），一鍵切換
+- 徽章與面板皆可拖曳、縮放，字級可調，所有偏好都存在本機
+- 採用 Shadow DOM，完全不碰、也不會改動 ChatGPT 頁面本身的樣式
+
+**運作方式**
+
+- 透過 OpenAI 狀態 API（`summary.json` 與 `incidents.json`）讀取公開服務狀態，不需登入、不需帳號、不含任何個人資料
+- 由背景 service worker 負責抓取並快取資料，content script 每 30 秒輪詢一次，讓徽章保持即時
+
+**隱私**
+
+本擴充功能不收集、不傳輸、也不儲存任何個人資料。你的顯示偏好（徽章位置、面板大小、字級、語言）只透過 `chrome.storage.local` 存在你的裝置上。沒有分析追蹤，沒有第三方伺服器。
+
+**非官方說明**
+
+這是一個獨立工具，與 OpenAI 沒有任何隸屬、背書或贊助關係。「ChatGPT」與「OpenAI」為 OpenAI 的商標，此處僅用來說明本工具所監控的服務。
+
+**一鍵下載**
+
+[![下載 chatgpt-status-monitor](https://img.shields.io/badge/下載-chatgpt--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/chatgpt-status-monitor.zip)
+
+**安裝方式**
+1. 點上方按鈕下載 `.zip` 並解壓縮
+2. 開啟 Chrome，前往 `chrome://extensions`
+3. 啟用右上角的**開發人員模式**
+4. 點擊**載入未封裝項目**，選擇解壓縮後的 `chatgpt-status-monitor` 資料夾
+
+---
+
 <a id="ext-claude-status-monitor"></a>
 
-### 1. Claude 服務狀態監控
+### 2. Claude 服務狀態監控
 
 **資料夾：** `claude-status-monitor/`
 
@@ -52,7 +100,7 @@
 
 **一鍵下載**
 
-[![下載 claude-status-monitor](https://img.shields.io/badge/下載-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/claude-status-monitor.zip)
+[![下載 claude-status-monitor](https://img.shields.io/badge/下載-claude--status--monitor.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/claude-status-monitor.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -64,7 +112,7 @@
 
 <a id="ext-colonist-stats-tracker"></a>
 
-### 2. Colonist.io Stats Tracker
+### 3. Colonist.io Stats Tracker
 
 **資料夾：** `colonist-stats-tracker/`
 
@@ -95,7 +143,7 @@
 
 **一鍵下載**
 
-[![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip)
+[![下載 colonist-stats-tracker](https://img.shields.io/badge/下載-colonist--stats--tracker.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -107,7 +155,7 @@
 
 <a id="ext-dcard-article-formatter"></a>
 
-### 3. Dcard 文章排版優化
+### 4. Dcard 文章排版優化
 
 **資料夾：** `dcard-article-formatter/`
 
@@ -125,7 +173,7 @@
 
 **一鍵下載**
 
-[![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
+[![下載 dcard-article-formatter](https://img.shields.io/badge/下載-dcard--article--formatter.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -137,7 +185,7 @@
 
 <a id="ext-glasp-remnants-remover"></a>
 
-### 4. Remove Glasp Remnants
+### 5. Remove Glasp Remnants
 
 **資料夾：** `glasp-remnants-remover/`
 
@@ -152,7 +200,7 @@
 
 **一鍵下載**
 
-[![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
+[![下載 glasp-remnants-remover](https://img.shields.io/badge/下載-glasp--remnants--remover.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -164,7 +212,7 @@
 
 <a id="ext-youtube-video-upload-time"></a>
 
-### 5. YouTube 精確時間
+### 6. YouTube 精確時間
 
 **資料夾：** `youtube-video-upload-time/`
 
@@ -195,7 +243,7 @@
 
 **一鍵下載**
 
-[![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
+[![下載 youtube-video-upload-time](https://img.shields.io/badge/下載-youtube--video--upload--time.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
 
 **安裝方式**
 1. 點上方按鈕下載 `.zip` 並解壓縮
@@ -209,6 +257,16 @@
 
 ```
 chrome-extensions/
+├── chatgpt-status-monitor/
+│   ├── CHANGELOG.md
+│   ├── DESCRIPTION.en.md
+│   ├── DESCRIPTION.md
+│   ├── PRIVACY.md
+│   ├── README.md
+│   ├── background.js
+│   ├── content.js
+│   ├── manifest.json
+│   └── model.js
 ├── claude-status-monitor/
 │   ├── CHANGELOG.md
 │   ├── DESCRIPTION.en.md

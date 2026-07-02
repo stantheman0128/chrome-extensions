@@ -13,19 +13,67 @@ A lightweight collection of Chrome extensions built on Manifest V3.
 
 | # | Extension | Version | Download |
 |---|---------|------|------|
-| 1 | [Claude Status Monitor](#ext-claude-status-monitor) | `1.2.1` | [![Download claude-status-monitor](https://img.shields.io/badge/Download-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
-| 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.147.0` | [![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
-| 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | `1.0` | [![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
-| 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | `1.0` | [![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
-| 5 | [YouTube Precise Time](#ext-youtube-video-upload-time) | `9.11` | [![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
+| 1 | [Status Monitor for ChatGPT](#ext-chatgpt-status-monitor) | `1.0.0` | [![Download chatgpt-status-monitor](https://img.shields.io/badge/Download-chatgpt--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/chatgpt-status-monitor.zip) |
+| 2 | [Claude Status Monitor](#ext-claude-status-monitor) | `1.2.1` | [![Download claude-status-monitor](https://img.shields.io/badge/Download-claude--status--monitor.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/claude-status-monitor.zip) |
+| 3 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.147.0` | [![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
+| 4 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | `1.0` | [![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
+| 5 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | `1.0` | [![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
+| 6 | [YouTube Precise Time](#ext-youtube-video-upload-time) | `9.11` | [![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
 
 ---
 
 ## Extensions
 
+<a id="ext-chatgpt-status-monitor"></a>
+
+### 1. Status Monitor for ChatGPT
+
+**Folder:** `chatgpt-status-monitor/`
+
+**Version:** `1.0.0`
+
+Real-time OpenAI and ChatGPT service status on chatgpt.com, powered by public data from status.openai.com. The widget sits quietly in the corner of your ChatGPT tab and changes color the moment something breaks, so you can tell whether it's your connection or OpenAI before you waste time debugging.
+
+**Features**
+
+- Floating status badge in the corner, color-coded to the current state (green for operational, yellow for degraded, orange for partial outage, red for major outage)
+- Click the badge for a two-column dashboard: a 30-day uptime timeline for OpenAI's services on the left, active incidents on the right
+- Incident cards show the latest status (Monitoring / Identified / Investigating) and the outage duration; click to expand the full update history
+- Hover any day on the timeline to preview that day's incidents; click a day to pin its full detail into the side panel
+- Tracks every OpenAI component the status page reports: ChatGPT, Codex, Sora, Voice mode, Login, the API, and more
+- Auto-refreshes every 30 seconds with a live "updated" timer and a manual refresh button
+- Bilingual interface (English and Traditional Chinese) with a one-click toggle
+- Draggable and resizable badge and panel, adjustable font size; every preference is saved locally
+- Built with Shadow DOM, so it never touches or restyles the ChatGPT page itself
+
+**How it works**
+
+- Reads public service status from the OpenAI status API (`summary.json` and `incidents.json`). No account, no login, no personal data.
+- A background service worker fetches and caches the data; the content script polls every 30 seconds so the badge stays current.
+
+**Privacy**
+
+This extension does not collect, transmit, or store any personal data. Your display preferences (badge position, panel size, font size, language) stay on your device through `chrome.storage.local`. There is no analytics, no tracking, and no third-party server.
+
+**Unofficial**
+
+This is an independent tool. It is not affiliated with, endorsed by, or sponsored by OpenAI. "ChatGPT" and "OpenAI" are trademarks of OpenAI, used here only to describe the service this tool monitors.
+
+**Download**
+
+[![Download chatgpt-status-monitor](https://img.shields.io/badge/Download-chatgpt--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/chatgpt-status-monitor.zip)
+
+**Installation**
+1. Click the button above to download the `.zip` file and extract it
+2. Open Chrome and go to `chrome://extensions`
+3. Enable **Developer mode** in the top-right corner
+4. Click **Load unpacked** and select the extracted `chatgpt-status-monitor` folder
+
+---
+
 <a id="ext-claude-status-monitor"></a>
 
-### 1. Claude Status Monitor
+### 2. Claude Status Monitor
 
 **Folder:** `claude-status-monitor/`
 
@@ -54,7 +102,7 @@ Real-time Claude service status widget on Claude.ai (including Claude Code web),
 
 **Download**
 
-[![Download claude-status-monitor](https://img.shields.io/badge/Download-claude--status--monitor.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/claude-status-monitor.zip)
+[![Download claude-status-monitor](https://img.shields.io/badge/Download-claude--status--monitor.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/claude-status-monitor.zip)
 
 **Installation**
 1. Click the button above to download the `.zip` file and extract it
@@ -66,7 +114,7 @@ Real-time Claude service status widget on Claude.ai (including Claude Code web),
 
 <a id="ext-colonist-stats-tracker"></a>
 
-### 2. Colonist.io Stats Tracker
+### 3. Colonist.io Stats Tracker
 
 **Folder:** `colonist-stats-tracker/`
 
@@ -97,7 +145,7 @@ A floating in-game overlay for [colonist.io](https://colonist.io/) that tracks d
 
 **Download**
 
-[![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip)
+[![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip)
 
 **Installation**
 1. Click the button above to download the `.zip` file and extract it
@@ -109,7 +157,7 @@ A floating in-game overlay for [colonist.io](https://colonist.io/) that tracks d
 
 <a id="ext-dcard-article-formatter"></a>
 
-### 3. Dcard 文章排版優化
+### 4. Dcard 文章排版優化
 
 **Folder:** `dcard-article-formatter/`
 
@@ -128,7 +176,7 @@ One-click formatting optimization for Dcard articles, dramatically improving rea
 
 **Download**
 
-[![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
+[![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip)
 
 **Installation**
 1. Click the button above to download the `.zip` file and extract it
@@ -140,7 +188,7 @@ One-click formatting optimization for Dcard articles, dramatically improving rea
 
 <a id="ext-glasp-remnants-remover"></a>
 
-### 4. Remove Glasp Remnants
+### 5. Remove Glasp Remnants
 
 **Folder:** `glasp-remnants-remover/`
 
@@ -155,7 +203,7 @@ Automatically removes leftover UI elements that the Glasp extension injects into
 
 **Download**
 
-[![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
+[![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip)
 
 **Installation**
 1. Click the button above to download the `.zip` file and extract it
@@ -167,7 +215,7 @@ Automatically removes leftover UI elements that the Glasp extension injects into
 
 <a id="ext-youtube-video-upload-time"></a>
 
-### 5. YouTube Precise Time
+### 6. YouTube Precise Time
 
 **Folder:** `youtube-video-upload-time/`
 
@@ -198,7 +246,7 @@ Replaces YouTube's vague relative timestamps (e.g., *"2 years ago"*) with precis
 
 **Download**
 
-[![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
+[![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-blue?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip)
 
 **Installation**
 1. Click the button above to download the `.zip` file and extract it
@@ -212,6 +260,16 @@ Replaces YouTube's vague relative timestamps (e.g., *"2 years ago"*) with precis
 
 ```
 chrome-extensions/
+├── chatgpt-status-monitor/
+│   ├── CHANGELOG.md
+│   ├── DESCRIPTION.en.md
+│   ├── DESCRIPTION.md
+│   ├── PRIVACY.md
+│   ├── README.md
+│   ├── background.js
+│   ├── content.js
+│   ├── manifest.json
+│   └── model.js
 ├── claude-status-monitor/
 │   ├── CHANGELOG.md
 │   ├── DESCRIPTION.en.md
