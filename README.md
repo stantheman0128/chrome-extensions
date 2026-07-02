@@ -17,7 +17,7 @@ A lightweight collection of Chrome extensions built on Manifest V3.
 | 2 | [Colonist.io Stats Tracker](#ext-colonist-stats-tracker) | `1.147.0` | [![Download colonist-stats-tracker](https://img.shields.io/badge/Download-colonist--stats--tracker.zip-red?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/colonist-stats-tracker.zip) |
 | 3 | [Dcard 文章排版優化](#ext-dcard-article-formatter) | `1.0` | [![Download dcard-article-formatter](https://img.shields.io/badge/Download-dcard--article--formatter.zip-green?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/dcard-article-formatter.zip) |
 | 4 | [Remove Glasp Remnants](#ext-glasp-remnants-remover) | `1.0` | [![Download glasp-remnants-remover](https://img.shields.io/badge/Download-glasp--remnants--remover.zip-orange?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/glasp-remnants-remover.zip) |
-| 5 | [YouTube Precise Time](#ext-youtube-video-upload-time) | `9.10` | [![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
+| 5 | [YouTube Precise Time](#ext-youtube-video-upload-time) | `9.11` | [![Download youtube-video-upload-time](https://img.shields.io/badge/Download-youtube--video--upload--time.zip-9B59B6?style=for-the-badge&logo=googlechrome)](https://github.com/stantheman0128/chrome-extensions/releases/latest/download/youtube-video-upload-time.zip) |
 
 ---
 
@@ -171,7 +171,7 @@ Automatically removes leftover UI elements that the Glasp extension injects into
 
 **Folder:** `youtube-video-upload-time/`
 
-**Version:** `9.10`
+**Version:** `9.11`
 
 Replaces YouTube's vague relative timestamps (e.g., *"2 years ago"*) with precise local upload dates and times, accurate to the second.
 
